@@ -165,7 +165,7 @@ def torch_version_str() -> str:
 
 setup(
     name="ml",
-    version=f"0.0.1+{torch_version_str()}",
+    version="0.0.1",
     description="ML project template repository",
     author="Benjamin Bolte",
     url="https://github.com/codekansas/ml-template",
@@ -174,12 +174,12 @@ setup(
     classifiers=[
         "Programming Language :: Python :: 3",
     ],
-    setup_requires=[
-        "pybind11>=2.9.2",
-        "mypy>=0.971",  # For Stubgen
-        f"torch=={torch_version()}",
-    ],
     python_requires=">=3.8",
+    setup_requires=[
+        f"torch=={torch_version()}",
+        "pybind11",
+        "mypy",  # For Stubgen
+    ],
     ext_modules=[CMakeExtension("ml/cpp")],
     cmdclass={"build_ext": CMakeBuild},
     extras_require={

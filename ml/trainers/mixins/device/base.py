@@ -15,7 +15,7 @@ from torch.utils.data.dataloader import (
 )
 
 from ml.core.types import Batch
-from ml.core.utils import Timer
+from ml.utils.timer import Timer
 
 BatchType = TypeVar("BatchType", bound=Batch)  # pylint: disable=invalid-name
 
@@ -156,7 +156,7 @@ class BaseDevice(ABC):
 
     @classmethod
     @abstractmethod
-    def get_devices(cls) -> List[torch.device]:
+    def get_device(cls) -> torch.device:
         """Returns the device, for instantiating new tensors.
 
         Returns:
@@ -173,12 +173,8 @@ class BaseDevice(ABC):
         """
 
     @classmethod
-    def get_device(cls) -> torch.device:
-        return cls.get_devices()[0]
-
-    @classmethod
-    def sample_to_device(cls, sample: Any, device_id: int = 0) -> Any:
-        device = cls.get_devices()[device_id]
+    def sample_to_device(cls, sample: Any) -> Any:
+        device = cls.get_device()
         # dtype_fp = cls.get_floating_point_type()
         return Prefetcher.recursive_apply(
             sample,
@@ -190,20 +186,16 @@ class BaseDevice(ABC):
         )
 
     @classmethod
-    def get_prefetcher(cls, dataloader: DataLoader, device_id: int = 0) -> Prefetcher:
-        return Prefetcher(functools.partial(cls.sample_to_device, device_id=device_id), dataloader)
+    def get_prefetcher(cls, dataloader: DataLoader) -> Prefetcher:
+        return Prefetcher(functools.partial(cls.sample_to_device), dataloader)
 
     @classmethod
-    def device_count(cls) -> int:
-        return len(cls.get_devices())
+    def module_to(cls, module: nn.Module) -> None:
+        module.to(cls.get_device(), cls.get_floating_point_type())
 
     @classmethod
-    def module_to(cls, module: nn.Module, device_id: int = 0) -> None:
-        module.to(cls.get_devices()[device_id], cls.get_floating_point_type())
-
-    @classmethod
-    def tensor_to(cls, tensor: Tensor, device_id: int = 0) -> Tensor:
-        device = cls.get_devices()[device_id]
+    def tensor_to(cls, tensor: Tensor) -> Tensor:
+        device = cls.get_device()
         if tensor.is_floating_point():
             return tensor.to(device, cls.get_floating_point_type())
         return tensor.to(device)

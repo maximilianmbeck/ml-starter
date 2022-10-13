@@ -4,6 +4,7 @@ import atexit
 import datetime
 import functools
 import logging
+import os
 import subprocess
 import time
 from collections import defaultdict
@@ -21,7 +22,7 @@ from ml.core.env import get_exp_name
 from ml.core.registry import register_logger
 from ml.core.state import Phase, State
 from ml.loggers.base import TARGET_FPS, BaseLogger, BaseLoggerConfig
-from ml.utils.distributed import is_master
+from ml.utils.distributed import is_distributed, is_master
 from ml.utils.networking import get_unused_port
 
 logger = logging.getLogger(__name__)
@@ -33,6 +34,12 @@ def make_bold(strs: List[str]) -> str:
     strs = [s.strip() for s in strs]
     max_len = max(len(s) for s in strs)
     return "\n".join(["-" * max_len] + strs + ["-" * max_len])
+
+
+def get_tb_port() -> int:
+    if "TENSORBOARD_PORT" in os.environ:
+        return int(os.environ["TENSORBOARD_PORT"])
+    return get_unused_port()
 
 
 @dataclass
@@ -68,48 +75,53 @@ class TensorboardLogger(BaseLogger[TensorboardLoggerConfig]):
 
         window_title = f"{get_exp_name()} - TensorBoard"
 
-        tensorboard_command_strs = [
-            "tensorboard serve \\",
-            f"  --logdir {self.tensorboard_log_directory} \\",
-            "  --bind_all \\",
-            "  --path_prefix '/tensorboard' \\",
-            f"  --window_title '{window_title}'",
-        ]
-        logger.debug("Tensorboard command:\n%s", make_bold(tensorboard_command_strs))
+        if is_master():
+            if is_distributed() or not self.config.start_in_subprocess:
+                tensorboard_command_strs = [
+                    "tensorboard serve \\",
+                    f"  --logdir {self.tensorboard_log_directory} \\",
+                    "  --bind_all \\",
+                    "  --path_prefix '/tensorboard' \\",
+                    f"  --window_title '{window_title}' \\",
+                    f"  --port {get_tb_port()}",
+                ]
+                logger.info("Tensorboard command:\n%s", make_bold(tensorboard_command_strs))
 
-        if self.config.start_in_subprocess and is_master():
-            command: List[str] = [
-                "tensorboard",
-                "serve",
-                "--logdir",
-                str(self.tensorboard_log_directory),
-                "--bind_all",
-                "--path_prefix",
-                "/tensorboard",
-                "--window_title",
-                window_title,
-                "--port",
-                str(get_unused_port()),
-                "--reload_interval",
-                "15",
-            ]
-            proc = subprocess.Popen(  # pylint: disable=consider-using-with
-                command,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-            )
+            else:
+                command: List[str] = [
+                    "tensorboard",
+                    "serve",
+                    "--logdir",
+                    str(self.tensorboard_log_directory),
+                    "--bind_all",
+                    "--path_prefix",
+                    "/tensorboard",
+                    "--window_title",
+                    window_title,
+                    "--port",
+                    str(get_tb_port()),
+                    "--reload_interval",
+                    "15",
+                ]
+                logger.info("Tensorboard command: %s", " ".join(command))
 
-            # Gets the output line that shows the running address.
-            assert proc is not None and proc.stdout is not None
-            for line in proc.stdout:
-                line_str = line.decode("utf-8")
-                if line_str.startswith("TensorBoard"):
-                    self.line_str = line_str
-                    logger.info("Running TensorBoard process:\n%s", make_bold([line_str]))
-                    break
+                proc = subprocess.Popen(  # pylint: disable=consider-using-with
+                    command,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                )
 
-            # Close the process when the program terminates.
-            atexit.register(proc.kill)
+                # Gets the output line that shows the running address.
+                assert proc is not None and proc.stdout is not None
+                for line in proc.stdout:
+                    line_str = line.decode("utf-8")
+                    if line_str.startswith("TensorBoard"):
+                        self.line_str = line_str
+                        logger.info("Running TensorBoard process:\n%s", make_bold([line_str]))
+                        break
+
+                # Close the process when the program terminates.
+                atexit.register(proc.kill)
 
     @property
     def tensorboard_log_directory(self) -> Path:

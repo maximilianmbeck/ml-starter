@@ -41,7 +41,7 @@ def conf_field(
         return field(default=value, metadata=metadata)
 
 
-TConfig = TypeVar("TConfig", bound="BaseConfig")
+ConfigT = TypeVar("ConfigT", bound="BaseConfig")
 
 
 @dataclass
@@ -51,7 +51,7 @@ class BaseConfig:
     name: str = conf_field(MISSING, short="n", help="The referenced name of the object to construct")
 
     @classmethod
-    def get_defaults(cls: Type[TConfig]) -> Dict[str, TConfig]:
+    def get_defaults(cls: Type[ConfigT]) -> Dict[str, ConfigT]:
         """Returns default configurations.
 
         Returns:
@@ -61,7 +61,7 @@ class BaseConfig:
         return {}
 
     @classmethod
-    def resolve(cls: Type[TConfig], config: TConfig) -> None:
+    def resolve(cls: Type[ConfigT], config: ConfigT) -> None:
         """Runs post-construction config resolution.
 
         Args:
@@ -69,26 +69,23 @@ class BaseConfig:
         """
 
 
-ConfigType = TypeVar("ConfigType", bound=BaseConfig)  # pylint: disable=invalid-name
-
-
-class BaseObject(Generic[ConfigType]):
+class BaseObject(Generic[ConfigT]):
     """Defines the base class for all objects."""
 
-    def __init__(self, config: ConfigType) -> None:
-        self.config: ConfigType = config
+    def __init__(self, config: ConfigT) -> None:
+        self.config: ConfigT = config
 
 
-class BaseObjectWithPointers(BaseObject[ConfigType], Generic[ConfigType]):
+class BaseObjectWithPointers(BaseObject[ConfigT], Generic[ConfigT]):
     """Defines the base class for all objects with pointers to other objects."""
 
-    def __init__(self, config: ConfigType) -> None:
+    def __init__(self, config: ConfigT) -> None:
         super().__init__(config)
 
         self._raw_config: Optional[DictConfig] = None
         self._objects: Optional["Objects"] = None
 
-    @property  # type: ignore
+    @property
     @torch.jit.unused
     def raw_config(self) -> DictConfig:
         if self._raw_config is None:
@@ -100,7 +97,7 @@ class BaseObjectWithPointers(BaseObject[ConfigType], Generic[ConfigType]):
             raise RuntimeError("The raw config object was already written")
         self._raw_config = raw_config
 
-    @property  # type: ignore
+    @property
     @torch.jit.unused
     def objects(self) -> "Objects":
         if self._objects is None:

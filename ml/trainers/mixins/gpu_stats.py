@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import atexit
 import logging
 import multiprocessing as mp
@@ -26,7 +28,7 @@ class GPUStatsConfig(BaseTrainerConfig):
     ping_interval: int = conf_field(1, help="How often to check stats (in seconds)")
 
 
-ConfigType = TypeVar("ConfigType", bound=GPUStatsConfig)
+ConfigT = TypeVar("ConfigT", bound=GPUStatsConfig)
 
 NUMBER_REGEX = re.compile(r"[\d\.]+")
 
@@ -80,15 +82,15 @@ def gen_gpu_stats(loop_secs: int = 5) -> Iterable[GPUStats]:
         logger.exception("Caught exception while trying to query `nvidia-smi`")
 
 
-def worker(config: ConfigType, queue: "mp.Queue[GPUStats]") -> None:
+def worker(config: ConfigT, queue: "mp.Queue[GPUStats]") -> None:
     for gpu_stat in gen_gpu_stats(config.ping_interval):
         queue.put(gpu_stat)
 
 
-class GPUStatsMixin(BaseTrainer[ConfigType]):
+class GPUStatsMixin(BaseTrainer[ConfigT]):
     """Defines a trainer mixin for getting gradient statistics."""
 
-    def __init__(self, config: ConfigType) -> None:
+    def __init__(self, config: ConfigT) -> None:
         super().__init__(config)
 
         self.gpu_stats: Dict[int, GPUStats] = {}

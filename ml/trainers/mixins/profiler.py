@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import contextlib
 import datetime
 import logging
@@ -52,16 +54,16 @@ class ProfilerTrainerConfig(BaseTrainerConfig):
     profiler: Profiler = Profiler()
 
 
-ConfigType = TypeVar("ConfigType", bound=ProfilerTrainerConfig)
+ConfigT = TypeVar("ConfigT", bound=ProfilerTrainerConfig)
 
 
 class ProfilerTrainerMixin(
-    StepContextMixin[ConfigType],
-    BaseTrainer[ConfigType],
+    StepContextMixin[ConfigT],
+    BaseTrainer[ConfigT],
 ):
     """Defines a trainer mixin for enabling the PyTorch profiler."""
 
-    def __init__(self, config: ConfigType) -> None:
+    def __init__(self, config: ConfigT) -> None:
         super().__init__(config)
 
         self.step_times: Dict[StepType, float] = {}

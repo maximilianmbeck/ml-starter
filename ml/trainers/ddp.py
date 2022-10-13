@@ -5,7 +5,8 @@ Parallel class.
 
 For multiple devices, data is split along the batch dimension, passed to each
 device, which computes losses independently. The loss tensors are gathered to
-the master device to compute a single loss.
+the master device to compute a single loss. In other words, each device
+belongs to exactly one process.
 
 Currently this trainer doesn't do anything different from the vanilla trainer
 besides warning when there is more than one GPU. It will be implemented once
@@ -20,39 +21,51 @@ Summary table:
 | loss    | E(x_1, o_1) | E(x_2, o_2) | ... | E(x_N, o_N)    |
 """
 
+import functools
 import logging
 import os
 import sys
 import traceback
-from dataclasses import dataclass
-from typing import Callable, TypeVar
+from typing import Callable
 
 import torch.multiprocessing as mp
+from omegaconf import DictConfig
 from torch import nn
 
-from ml.core.config import conf_field
-from ml.core.registry import register_trainer
+from ml.core.env import get_distributed_backend
+from ml.core.registry import Objects, register_trainer
 from ml.models.base import BaseModel
+from ml.scripts.train import main as train_main
 from ml.tasks.base import BaseTask
 from ml.trainers.base import MultiprocessConfig
 from ml.trainers.vanilla import VanillaTrainer, VanillaTrainerConfig
-from ml.utils.distributed import get_world_size
+from ml.utils.distributed import (
+    get_world_size,
+    init_process_group,
+    set_init_method,
+    set_master_addr,
+    set_master_port,
+    set_rank,
+    set_world_size,
+)
+from ml.utils.logging import configure_logging
 from ml.utils.networking import get_unused_port
 
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class MultiprocessTrainingConfig:
-    devices_per_rank: int = conf_field(1, help="Number of devices on each rank")
+def process_main(cfg: MultiprocessConfig, raw_config: DictConfig) -> None:
+    set_master_addr(cfg.master_addr)
+    set_master_port(cfg.master_port)
+    set_rank(cfg.rank)
+    set_world_size(cfg.world_size)
+    set_init_method("env://")
+    configure_logging(rank=cfg.rank, world_size=cfg.world_size)
+    logger.info("Initializing process group")
+    init_process_group(backend=get_distributed_backend())
 
-
-@dataclass
-class DDPTrainerConfig(VanillaTrainerConfig):
-    multiprocess: MultiprocessTrainingConfig = MultiprocessTrainingConfig()
-
-
-DDPTrainerConfigType = TypeVar("DDPTrainerConfigType", bound=DDPTrainerConfig)  # pylint: disable=invalid-name
+    objs = Objects.parse_raw_config(raw_config)
+    train_main(objs)
 
 
 def func_wrapped(
@@ -69,25 +82,22 @@ def func_wrapped(
         sys.exit(1)
 
 
-@register_trainer("ddp", DDPTrainerConfig)
-class DDPTrainer(VanillaTrainer[DDPTrainerConfigType]):
+@register_trainer("ddp", VanillaTrainerConfig)
+class DDPTrainer(VanillaTrainer):
     def get_task_model(self, task: BaseTask, model: BaseModel) -> nn.Module:
         task_model = super().get_task_model(task, model)
         if get_world_size() > 1:
             task_model = nn.parallel.DistributedDataParallel(task_model)
         return task_model
 
-    def launch(self, func: Callable[[MultiprocessConfig], None]) -> None:
+    def launch(self) -> None:
         device_count = self.device.device_count()
-        devices_per_rank = self.config.multiprocess.devices_per_rank
-
-        if device_count % devices_per_rank != 0:
-            raise ValueError(f"Can't evenly split {device_count=} so that each rank has {devices_per_rank}")
+        func = functools.partial(process_main, raw_config=self.raw_config)
 
         cfg = MultiprocessConfig(
             rank=-1,
-            world_size=device_count // devices_per_rank,
-            devices_per_rank=devices_per_rank,
+            world_size=device_count,
+            devices_per_rank=1,
             master_addr="localhost",
             master_port=get_unused_port(),
         )
@@ -99,9 +109,7 @@ class DDPTrainer(VanillaTrainer[DDPTrainerConfigType]):
             return
 
         def set_env(rank: int) -> None:
-            start_device_id = rank * cfg.devices_per_rank
-            device_ids = [i + start_device_id for i in range(cfg.devices_per_rank)]
-            os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(str(i) for i in device_ids)
+            os.environ["CUDA_VISIBLE_DEVICES"] = str(rank)
 
         # This is essentially the same as `mp.spawn` but with specific control
         # over CUDA_VISIBLE_DEVICES.

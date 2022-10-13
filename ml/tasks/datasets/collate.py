@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import functools
 from dataclasses import is_dataclass
 from typing import Any, Callable, List, Literal

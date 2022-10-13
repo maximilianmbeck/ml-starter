@@ -13,7 +13,7 @@ def main() -> None:
     """Plots a learning rate schedule.
 
     Usage:
-        python -m models.lr_schedulers.scripts.plot linear /path/to/save.png
+        python -m ml.lr_schedulers.scripts.plot linear /path/to/save.png
     """
 
     # Gets the plotting-specific arguments.

@@ -27,7 +27,7 @@ class AutoDevice:
     def detect_device(cls) -> Type[BaseDevice]:
         for device_type in ALL_DEVICES:
             if device_type.has_device():
-                logger.log(INFOALL, "Device(s): [%s]", ", ".join(str(d) for d in device_type.get_devices()))
+                logger.log(INFOALL, "Device: [%s]", device_type.get_device())
                 return device_type
         raise RuntimeError("Could not automatically detect the device to use")
 

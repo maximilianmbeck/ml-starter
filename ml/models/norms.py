@@ -12,6 +12,8 @@ types of normalization functions. My usual approach is to just throw everything
 at the wall and see what sticks.
 """
 
+from __future__ import annotations
+
 from typing import Literal, Optional, cast, get_args
 
 import torch
@@ -118,8 +120,8 @@ class ConvLayerNorm(nn.Module):
             self.weight = nn.Parameter(torch.empty(self.channels, device=device, dtype=dtype))
             self.bias = nn.Parameter(torch.empty(self.channels, device=device, dtype=dtype))
         else:
-            self.register_parameter('weight', None)
-            self.register_parameter('bias', None)
+            self.register_parameter("weight", None)
+            self.register_parameter("bias", None)
 
         self.static_shape = None if dims is None else (1, -1) + (1,) * dims
 

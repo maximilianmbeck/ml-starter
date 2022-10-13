@@ -1,6 +1,5 @@
 import logging
 import os
-from typing import List
 
 import torch
 
@@ -23,11 +22,8 @@ class GPUDevice(BaseDevice):
         return torch.cuda.is_available() and torch.cuda.device_count() > 0
 
     @classmethod
-    def get_devices(cls) -> List[torch.device]:
-        # When using `CUDA_VISIBLE_DEVICES`, it automatically sets the GPU
-        # IDs to [0, ..., N - 1] regardless of which devices are actually
-        # visible, meaning that using devices [0, ..., N - 1] always works.
-        return [torch.device("cuda", i) for i in range(torch.cuda.device_count())]
+    def get_device(cls) -> torch.device:
+        return torch.device("cuda", 0)
 
     @classmethod
     def get_floating_point_type(cls) -> torch.dtype:

@@ -1,5 +1,7 @@
 # pylint: disable=too-many-public-methods
 
+from __future__ import annotations
+
 import functools
 import logging
 import time
@@ -32,7 +34,6 @@ from ml.core.config import BaseConfig, BaseObjectWithPointers, conf_field
 from ml.core.env import is_debugging
 from ml.core.state import Phase, State
 from ml.core.types import Batch, Loss, Output
-from ml.core.random import set_random_seed
 from ml.loggers.base import MultiLogger
 from ml.lr_schedulers.base import SchedulerAdapter
 from ml.models.base import BaseModel
@@ -42,6 +43,7 @@ from ml.tasks.datasets.error_handling import (
     get_error_handling_dataset,
 )
 from ml.tasks.losses.reduce import cast_reduce_type, reduce
+from ml.utils.random import set_random_seed
 
 logger = logging.getLogger(__name__)
 
@@ -207,13 +209,13 @@ class BaseTaskConfig(BaseConfig):
     loss: LossConfig = LossConfig()
 
 
-TaskConfigType = TypeVar("TaskConfigType", bound=BaseTaskConfig)  # pylint: disable=invalid-name
+TaskConfigT = TypeVar("TaskConfigT", bound=BaseTaskConfig)
 
 
-class BaseTask(nn.Module, BaseObjectWithPointers[TaskConfigType], Generic[TaskConfigType], ABC):
+class BaseTask(nn.Module, BaseObjectWithPointers[TaskConfigT], Generic[TaskConfigT], ABC):
     """Defines the base task type."""
 
-    def __init__(self, config: TaskConfigType) -> None:
+    def __init__(self, config: TaskConfigT) -> None:
         nn.Module.__init__(self)
         BaseObjectWithPointers.__init__(self, config)
 

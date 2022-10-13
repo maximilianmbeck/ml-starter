@@ -6,7 +6,7 @@ file(GLOB_RECURSE SRC_FILES *.c *.cpp)
 # Finds PyTorch and Python libraries.
 find_package(Torch REQUIRED)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
-find_package(PythonLibs 3.10 EXACT REQUIRED)
+find_package(PythonLibs REQUIRED)
 find_package(pybind11 REQUIRED)
 
 # Links relevant directories.

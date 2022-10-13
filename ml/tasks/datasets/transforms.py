@@ -37,17 +37,21 @@ class RandomSquareCrop(nn.Module):
 
 
 class SquareResizeCrop(nn.Module):
-    """Resizes and crops an image to a square with the target shape.
-
-    Generally SquareCrop followed by a resize should be preferred when using
-    bilinear resize, as it is faster to do the interpolation on the smaller
-    image. However, nearest neighbor resize on the larger image followed by a
-    crop on the smaller image can sometimes be faster.
-    """
-
     __constants__ = ["size", "interpolation"]
 
     def __init__(self, size: int, interpolation: InterpolationMode = InterpolationMode.NEAREST) -> None:
+        """Resizes and crops an image to a square with the target shape.
+
+        Generally SquareCrop followed by a resize should be preferred when using
+        bilinear resize, as it is faster to do the interpolation on the smaller
+        image. However, nearest neighbor resize on the larger image followed by
+        a crop on the smaller image can sometimes be faster.
+
+        Args:
+            size: The square height and width to resize to
+            interpolation: The interpolation type to use when resizing
+        """
+
         super().__init__()
 
         self.size = int(size)
@@ -63,11 +67,16 @@ class SquareResizeCrop(nn.Module):
 
 
 class UpperLeftCrop(nn.Module):
-    """Crops image from upper left corner, to preserve image intrinsics."""
-
     __constants__ = ["height", "width"]
 
     def __init__(self, height: int, width: int) -> None:
+        """Crops image from upper left corner, to preserve image intrinsics.
+
+        Args:
+            height: The max height of the cropped image
+            width: The max width of the cropped image
+        """
+
         super().__init__()
 
         self.height, self.width = height, width

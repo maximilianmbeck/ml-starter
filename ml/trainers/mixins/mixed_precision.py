@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Any, Dict, TypeVar
 
@@ -23,13 +25,13 @@ class MixedPrecisionTrainerConfig(BaseTrainerConfig):
     fp16: FP16 = FP16()
 
 
-ConfigType = TypeVar("ConfigType", bound=MixedPrecisionTrainerConfig)
+ConfigT = TypeVar("ConfigT", bound=MixedPrecisionTrainerConfig)
 
 
-class MixedPrecisionTrainerMixin(BaseTrainer[ConfigType]):
+class MixedPrecisionTrainerMixin(BaseTrainer[ConfigT]):
     """Defines a trainer mixin for doing FP16 scaling."""
 
-    def __init__(self, config: ConfigType) -> None:
+    def __init__(self, config: ConfigT) -> None:
         super().__init__(config)
 
         self.grad_scaler: torch.cuda.amp.GradScaler | None

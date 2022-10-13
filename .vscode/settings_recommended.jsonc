@@ -57,7 +57,7 @@
   "python.linting.flake8Enabled": true,
 
   /* CMake variables */
-  "cmake.sourceDirectory": "${workspaceFolder}/models/cpp",
+  "cmake.sourceDirectory": "${workspaceFolder}/ml/cpp",
 
   /* -------------- *
    * Local settings *

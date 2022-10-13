@@ -1,13 +1,11 @@
 model:
-  name: resnet
+  name: resnet18
 
 task:
-  name: mnist
+  name: cifar_demo
   dataloader:
     train:
       batch_size: 16
-    test:
-      batch_size: 20
 
 optimizer:
   name: adam
@@ -19,4 +17,5 @@ trainer:
   name: ddp
 
 logger:
-  name: stdout
+  - name: stdout
+  - name: tensorboard

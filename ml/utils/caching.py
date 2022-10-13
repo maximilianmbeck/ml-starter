@@ -2,7 +2,7 @@ import functools
 import json
 import logging
 import pickle
-from typing import Any, Callable, List, TypeVar
+from typing import Any, Callable, List, Literal, TypeVar, get_args
 
 from ml.core.env import get_cache_dir
 
@@ -10,17 +10,37 @@ logger = logging.getLogger(__name__)
 
 Object = TypeVar("Object", bound=Any)
 
+CacheType = Literal["pkl", "json"]
+
 
 class cached_object:  # pylint: disable=invalid-name
-    """Defines a wrapper for caching function calls to a file location."""
+    def __init__(self, cache_key: str, ext: CacheType = "pkl", ignore: bool = False) -> None:
+        """Defines a wrapper for caching function calls to a file location.
 
-    def __init__(self, cache_key: str, ext: str = "pkl", ignore: bool = False) -> None:
+        This is just a convenient way of caching heavy operations to disk,
+        using a specific key.
+
+        Usage:
+
+            ```
+            @cached_object("video-dataset-clips")
+            def get_clip_paths(dataset_name: str) -> List[str]:
+                root_path = dataset_root / dataset_name
+                return [str(path.resolve()) for path in root_path.glob("**/*.mov")]
+            ```
+
+        Args:
+            cache_key: The key to use for caching the file
+            ext: The caching type to use (JSON or pickling)
+            ignore: Should the cache be ignored?
+        """
+
         self.cache_key = cache_key
         self.ext = ext
         self.obj = None
         self.ignore = ignore
 
-        assert ext in ("json", "pkl"), f"Unexpected extension: {ext}"
+        assert ext in get_args(CacheType), f"Unexpected extension: {ext}"
 
     def __call__(self, func: Callable[..., Object]) -> Callable[..., Object]:
         """Returns a wrapped function that caches the return value.

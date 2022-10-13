@@ -13,10 +13,10 @@ class BaseOptimizerConfig(BaseConfig):
     """Defines the base config for all optimizers."""
 
 
-OptimizerConfigType = TypeVar("OptimizerConfigType", bound=BaseOptimizerConfig)  # pylint: disable=invalid-name
+OptimizerConfigT = TypeVar("OptimizerConfigT", bound=BaseOptimizerConfig)
 
 
-class BaseOptimizer(BaseObjectWithPointers[OptimizerConfigType], Generic[OptimizerConfigType], ABC):
+class BaseOptimizer(BaseObjectWithPointers[OptimizerConfigT], Generic[OptimizerConfigT], ABC):
     """Defines the base optimizer type."""
 
     @property

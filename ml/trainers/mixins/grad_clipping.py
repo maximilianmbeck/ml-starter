@@ -27,7 +27,7 @@ class GradientClippingConfig(MixedPrecisionTrainerConfig, BaseTrainerConfig):
     grad_clipping: GradientClipping = GradientClipping()
 
 
-ConfigType = TypeVar("ConfigType", bound=GradientClippingConfig)
+ConfigT = TypeVar("ConfigT", bound=GradientClippingConfig)
 
 
 def get_clip_grad_func(clip_value: float) -> Callable[[Tensor], Tensor]:
@@ -46,8 +46,8 @@ def get_clip_norm_func(clip_value: float, norm_type: Any) -> Callable[[Tensor], 
 
 
 class GradientClippingTrainerMixin(
-    MixedPrecisionTrainerMixin[ConfigType],
-    BaseTrainer[ConfigType],
+    MixedPrecisionTrainerMixin[ConfigT],
+    BaseTrainer[ConfigT],
 ):
     """Defines a trainer mixin for doing gradient clipping."""
 

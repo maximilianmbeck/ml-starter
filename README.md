@@ -4,13 +4,41 @@ This is a general-purpose template for machine learning projects in PyTorch. It 
 
 ## Getting Started
 
-First, install the project:
+### Installation
+
+First, create a Conda environment:
 
 ```bash
-
+conda create --name ml python=3.10
 ```
 
-## Architecture
+Next, install the project dependencies:
+
+```bash
+make install-dependencies
+```
+
+Finally, install the project (in editable mode):
+
+```bash
+make install
+```
+
+### Your First Command
+
+Run the CIFAR training example:
+
+```bash
+ml train configs/cifar_demo.yaml
+```
+
+Launch a Slurm job (requires setting the `SLURM_PARTITION` environment variable):
+
+```bash
+ml mp_train configs/cifar_demo.yaml trainer.name=slurm
+```
+
+### Architecture
 
 A new project is broken down into five parts:
 
@@ -20,7 +48,7 @@ A new project is broken down into five parts:
 4. *Optimizer*: Just a PyTorch `optim.Optimizer`
 5. *LR Scheduler*: Just a PyTorch `optim.LRScheduler`
 
-Most projects should just have to implement the Task and Model, and use a default trainer, optimizer
+Most projects should just have to implement the Task and Model, and use a default trainer, optimizer and learning rate scheduler. Running the training command above will log the location of each component.
 
 ## Features
 
@@ -37,10 +65,6 @@ This template makes it easy to add custom C++ extensions to your PyTorch project
 
 This template automatically runs `black`, `isort`, `pylint` and `mypy` against your repository as a Github action. You can enable push-blocking until these tests pass.
 
-## Design Philosophy
+### Lots of Timers
 
-With most ML frameworks, there's usually a question like:
-
-> How much is this framework "barebones" verses adding additional utility (which might weigh it down)?
-
-The answer for this framework is, "however much I feel like". I built this for myself and my own projects and I am the main customer, but I hope other people might find it useful as well.
+The training loop is pretty well optimized, but sometimes you can do stupid things when implementing a task that impact your performance. This adds a lot of timers which make it easy to spot likely training slowdowns, or you can run the full profiler if you want a more detailed breakdown.

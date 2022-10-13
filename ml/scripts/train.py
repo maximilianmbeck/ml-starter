@@ -1,5 +1,9 @@
+import logging
+
 from ml.core.registry import Objects
 from ml.utils.timer import Timer
+
+logger = logging.getLogger(__name__)
 
 
 def main(objs: Objects) -> None:

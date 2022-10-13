@@ -1,5 +1,3 @@
-from typing import List
-
 import torch
 
 from ml.trainers.mixins.device.base import BaseDevice
@@ -13,8 +11,8 @@ class CPUDevice(BaseDevice):
         return True
 
     @classmethod
-    def get_devices(cls) -> List[torch.device]:
-        return [torch.device("cpu")]
+    def get_device(cls) -> torch.device:
+        return torch.device("cpu")
 
     @classmethod
     def get_floating_point_type(cls) -> torch.dtype:

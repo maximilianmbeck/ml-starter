@@ -28,7 +28,7 @@ def add_args(parser: argparse.ArgumentParser, dc: Type[Config]) -> None:
         kwargs: Dict[str, Any] = {}
         if field.default != MISSING:
             kwargs["default"] = field.default
-        elif field.default_factory != MISSING:  # type: ignore
+        elif field.default_factory != MISSING:
             kwargs["default"] = field.default_factory()
         if field.metadata.get("help") is not None:
             kwargs["help"] = field.metadata["help"]

@@ -1,3 +1,4 @@
+# type: ignore
 """Defines the C++ backend for the attention library."""
 
 from pathlib import Path

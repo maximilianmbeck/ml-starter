@@ -11,27 +11,30 @@ Batch = TypeVar("Batch")
 
 
 class StreamingDataset(IterableDataset[Tuple[int, Batch]]):
-    """Defines a dataset which combines many streaming datasets.
-
-    This dataset takes a set of child iterable datasets and iterates from them
-    infinitely. When a child dataset is exhausted, it is returned to the
-    reservoir and restarted, while another dataset is chosen.
-
-    An example usage for this dataset is to get samples from many videos, where
-    each sub-dataset yields video samples. This way the child dataset can be
-    used to run inference on a single video, while the parent streaming dataset
-    can be used to train on a mixture of videos. The child dataset can then be
-    optimized to make video loading times fast.
-
-    Args:
-        datasets: The sub-datasets to iterate from
-        max_simultaneous: The maximum number of simultaneous datasets to
-            iterate from. Increasing this number increases the dataset
-            diversity but also increases memory usage as samples need to be
-            stored in memory
-    """
-
     def __init__(self, datasets: Collection[IterableDataset[Batch]], max_simultaneous: int) -> None:
+        """Defines a dataset which combines many streaming datasets.
+
+        This dataset takes a set of child iterable datasets and iterates from
+        them infinitely. When a child dataset is exhausted, it is returned to
+        the reservoir and restarted, while another dataset is chosen.
+
+        An example usage for this dataset is to get samples from many videos,
+        where each sub-dataset yields video samples. This way the child dataset
+        can be used to run inference on a single video, while the parent
+        streaming dataset can be used to train on a mixture of videos. The
+        child dataset can then be optimized to make video loading times fast.
+
+        Args:
+            datasets: The sub-datasets to iterate from
+            max_simultaneous: The maximum number of simultaneous datasets to
+                iterate from. Increasing this number increases the dataset
+                diversity but also increases memory usage as samples need to be
+                stored in memory
+
+        Raises:
+            ValueError: If no datasets are provided
+        """
+
         super().__init__()
 
         if len(datasets) == 0:

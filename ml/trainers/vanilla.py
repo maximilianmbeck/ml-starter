@@ -18,7 +18,7 @@ import logging
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Dict, Type, TypeVar
+from typing import Dict, Type, TypeVar
 
 import torch
 from torch import Tensor, nn
@@ -28,12 +28,11 @@ from ml.core.config import conf_field
 from ml.core.registry import register_trainer
 from ml.core.state import Phase, State
 from ml.core.types import Batch, Loss
-from ml.utils.timer import Timer
 from ml.lr_schedulers.base import BaseLRScheduler, SchedulerAdapter
 from ml.models.base import BaseModel
 from ml.optimizers.base import BaseOptimizer
 from ml.tasks.base import BaseTask
-from ml.trainers.base import BaseTrainer, BaseTrainerConfig, MultiprocessConfig
+from ml.trainers.base import BaseTrainer, BaseTrainerConfig
 from ml.trainers.mixins.device.auto import AutoDevice
 from ml.trainers.mixins.device.base import BaseDevice, InfinitePrefetcher
 from ml.trainers.mixins.gpu_stats import GPUStatsConfig, GPUStatsMixin
@@ -47,6 +46,7 @@ from ml.trainers.mixins.mixed_precision import (
 )
 from ml.trainers.mixins.profiler import ProfilerTrainerConfig, ProfilerTrainerMixin
 from ml.utils.distributed import is_master
+from ml.utils.timer import Timer
 
 logger = logging.getLogger(__name__)
 
@@ -83,16 +83,16 @@ class VanillaTrainerConfig(
     use_double_weight_precision: bool = conf_field(False, help="If set, use doubles for weights instead of floats")
 
 
-VanillaTrainerConfigType = TypeVar("VanillaTrainerConfigType", bound=VanillaTrainerConfig)
+VanillaTrainerConfigT = TypeVar("VanillaTrainerConfigT", bound=VanillaTrainerConfig)
 
 
 @register_trainer("vanilla", VanillaTrainerConfig)
 class VanillaTrainer(
-    ProfilerTrainerMixin[VanillaTrainerConfigType],
-    GradientClippingTrainerMixin[VanillaTrainerConfigType],
-    MixedPrecisionTrainerMixin[VanillaTrainerConfigType],
-    GPUStatsMixin[VanillaTrainerConfigType],
-    BaseTrainer[VanillaTrainerConfigType],
+    ProfilerTrainerMixin[VanillaTrainerConfigT],
+    GradientClippingTrainerMixin[VanillaTrainerConfigT],
+    MixedPrecisionTrainerMixin[VanillaTrainerConfigT],
+    GPUStatsMixin[VanillaTrainerConfigT],
+    BaseTrainer[VanillaTrainerConfigT],
 ):
     @functools.cached_property
     def device(self) -> Type[BaseDevice]:
@@ -197,9 +197,9 @@ class VanillaTrainer(
                 state.num_test_steps += 1
 
     def get_task_model(self, task: BaseTask, model: BaseModel) -> nn.Module:
-        devices, dtype = self.device.get_devices(), self.weight_precision
-        model.init(devices, dtype)
-        task.to(devices[0], dtype, non_blocking=True)
+        device, dtype = self.device.get_device(), self.weight_precision
+        model.init(device, dtype)
+        task.to(device, dtype, non_blocking=True)
         return TaskModel(task=task, model=model)
 
     def train(self, model: BaseModel, task: BaseTask, optimizer: BaseOptimizer, lr_scheduler: BaseLRScheduler) -> None:
@@ -213,7 +213,7 @@ class VanillaTrainer(
         """
 
         if is_master():
-            self.add_lock_file(is_temp=True)
+            self.add_lock_file("running")
 
         # Sets up environment.
         if self.config.deterministic:
@@ -222,7 +222,8 @@ class VanillaTrainer(
             torch.backends.cuda.matmul.allow_tf32 = True
 
         # Saves the config at the start of training.
-        self.save_config()
+        if is_master():
+            self.save_config()
 
         # Builds a mega-model.
         task_model: nn.Module = self.get_task_model(task, model)
@@ -253,7 +254,7 @@ class VanillaTrainer(
 
         def on_exit() -> None:
             if is_master():
-                self.remove_temp_lock_file()
+                self.remove_lock_file("running", missing_ok=True)
             logger.info("Finished training for %s", self.exp_dir / "config.yaml")
             sys.exit(0)
 
@@ -328,8 +329,7 @@ class VanillaTrainer(
         except Exception:
             logger.exception("Caught exception during training loop")
 
-        finally:
-            on_exit()
+        on_exit()
 
     def evaluate(self, model: BaseModel, task: BaseTask) -> None:
         """Runs the GPU-based evaluation loop.
@@ -372,5 +372,5 @@ class VanillaTrainer(
                 model=model,
             )
 
-    def launch(self, func: Callable[[MultiprocessConfig], None]) -> None:
+    def launch(self) -> None:
         raise NotImplementedError(f"{self.__class__.__name__} doesn't support multiprocess training")

@@ -7,7 +7,7 @@ include = '\.pyi?$'
 [tool.isort]
 
 profile = "black"
-known_first_party = ["models", "tests"]
+known_first_party = ["ml", "tests"]
 forced_separate = ["tests"]
 combine_as_imports = true
 
@@ -24,6 +24,7 @@ extension-pkg-allow-list = [
     "cv2",
     "ml.cpp",
     "numpy",
+    "pandas",
     "torch",
 ]
 
@@ -44,7 +45,6 @@ disable = [
     "missing-module-docstring",
     "no-else-continue",
     "no-else-return",
-    "no-self-use",
     "protected-access",
     "singleton-comparison",
     "too-few-public-methods",
@@ -55,6 +55,7 @@ disable = [
     "too-many-locals",
     "too-many-return-statements",
     "too-many-statements",
+    "unnecessary-lambda-assignment",
     "useless-return",
 ]
 
@@ -65,6 +66,7 @@ generated-members = [
     "matplotlib.*",
     "ml.cpp.*",
     "numpy.*",
+    "pandas.*",
     "torch.*",
     "tqdm.*",
 ]
@@ -90,8 +92,11 @@ disable_error_code = ["attr-defined"]
 
 module = [
     "cv2.*",
+    "ffmpeg.*",
     "matplotlib.*",
     "numpy.*",
+    "omegaconf.*",
+    "pandas.*",
     "PIL.*",
     "pybind11.*",
     "pytest.*",

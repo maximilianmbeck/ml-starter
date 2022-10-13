@@ -5,16 +5,22 @@ from torch.utils.data.sampler import Sampler
 
 
 class ChunkSampler(Sampler[int]):
-    """Sampler which yields chunks of adjacent IDs.
-
-    This sampler is useful for cases like seq2seq models with variable output
-    length sequences and padding; it is more efficient to put similar-length
-    sequences next to each other so that the average collated tensor is smaller
-    and has less padding. In such cases, simply sorting the underlying dataset
-    by caption length and using this sampler yields the desired behavior.
-    """
-
     def __init__(self, dataset: Sized, batch_size: int, shuffle: bool = False) -> None:
+        """Sampler which yields chunks of adjacent IDs.
+
+        This sampler is useful for cases like seq2seq models with variable
+        output length sequences and padding; it is more efficient to put
+        similar-length sequences next to each other so that the average
+        collated tensor is smaller and has less padding. In such cases, simply
+        sorting the underlying dataset by caption length and using this sampler
+        yields the desired behavior.
+
+        Args:
+            dataset: The dataset to sample from
+            batch_size: The size of each chunk
+            shuffle: Yield chunks in random order or from first to last
+        """
+
         super().__init__(dataset)
 
         self.dataset = dataset

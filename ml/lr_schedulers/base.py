@@ -41,10 +41,10 @@ class BaseLRSchedulerConfig(BaseConfig):
     """Defines the base config for all learning rate schedulers."""
 
 
-LRSchedulerConfigType = TypeVar("LRSchedulerConfigType", bound=BaseLRSchedulerConfig)  # pylint: disable=invalid-name
+LRSchedulerConfigT = TypeVar("LRSchedulerConfigT", bound=BaseLRSchedulerConfig)
 
 
-class BaseLRScheduler(BaseObjectWithPointers[LRSchedulerConfigType], Generic[LRSchedulerConfigType], ABC):
+class BaseLRScheduler(BaseObjectWithPointers[LRSchedulerConfigT], Generic[LRSchedulerConfigT], ABC):
     """Defines the base learning rate scheduler."""
 
     @abstractmethod

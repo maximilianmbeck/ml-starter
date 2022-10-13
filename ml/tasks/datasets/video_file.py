@@ -1,9 +1,10 @@
+from __future__ import annotations
+
 from pathlib import Path
-from typing import Iterator, Optional
+from typing import Iterator
 
 import numpy as np
 import torch
-import torchvision
 from torch import Tensor
 from torch.utils.data.dataset import IterableDataset
 
@@ -11,24 +12,19 @@ from ml.utils.video import READERS, VideoProps
 
 
 class VideoFileDataset(IterableDataset[Tensor]):
-    """Defines a dataset which iterates through frames in a video file.
+    def __init__(self, file_path: str | Path, reader: str = "ffmpeg") -> None:
+        """Defines a dataset which iterates through frames in a video file.
 
-    Args:
-        file_path: The path to the video file to iterate through
-    """
+        Args:
+            file_path: The path to the video file to iterate through
+            reader: The video reader to use
+        """
 
-    def __init__(
-        self,
-        file_path: str | Path,
-        transforms: Optional[torchvision.transforms.Compose] = None,
-        reader: str = "ffmpeg",
-    ) -> None:
         super().__init__()
 
         assert reader in READERS, f"Unsupported {reader=}"
 
         self.file_path = str(file_path)
-        self.transforms = transforms
         self.reader = reader
 
     video_props: VideoProps

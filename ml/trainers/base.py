@@ -8,15 +8,16 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import (
     Any,
-    Callable,
     Dict,
     Generic,
     List,
+    Literal,
     Optional,
     Set,
     Tuple,
     TypeVar,
     cast,
+    get_args,
 )
 
 import torch
@@ -27,7 +28,6 @@ from torch.optim.optimizer import Optimizer
 from ml.core.config import BaseConfig, BaseObjectWithPointers, conf_field
 from ml.core.state import State
 from ml.core.types import Batch
-from ml.utils.timer import Timer
 from ml.loggers.base import BaseLogger, MultiLogger
 from ml.lr_schedulers.base import BaseLRScheduler, SchedulerAdapter
 from ml.models.base import BaseModel
@@ -35,6 +35,7 @@ from ml.optimizers.base import BaseOptimizer
 from ml.tasks.base import BaseTask
 from ml.utils.colors import Color, colorize
 from ml.utils.distributed import is_master
+from ml.utils.timer import Timer
 
 logger = logging.getLogger(__name__)
 
@@ -54,10 +55,11 @@ def resolve(path: str) -> str:
 
 OmegaConf.register_new_resolver("resolve", resolve)
 
+LockType = Literal["running", "scheduled", "ckpt"]
 
-def add_lock_file(exp_dir: Path, *, is_temp: bool = False, exists_ok: bool = False) -> None:
-    lock_file = exp_dir / (".temp_lock" if is_temp else ".lock")
-    if lock_file.exists():
+
+def add_lock_file(exp_dir: Path, lock_type: LockType, *, exists_ok: bool = False) -> None:
+    if (lock_file := exp_dir / f".lock_{lock_type}").exists():
         if not exists_ok:
             raise RuntimeError(f"Lock file already exists at {lock_file}")
     else:
@@ -65,18 +67,20 @@ def add_lock_file(exp_dir: Path, *, is_temp: bool = False, exists_ok: bool = Fal
             f.write(f"PID: {os.getpid()}")
 
 
-def remove_temp_lock_file(exp_dir: Path, *, exists_ok: bool = False) -> bool:
-    if not (lock_file := exp_dir / ".temp_lock").exists():
-        if not exists_ok:
-            raise RuntimeError(f"Temporary lock file not found at {lock_file}")
-        return False
-    else:
+def remove_lock_file(exp_dir: Path, lock_type: LockType, *, missing_ok: bool = False) -> bool:
+    if (lock_file := exp_dir / f".lock_{lock_type}").exists():
         lock_file.unlink()
         return True
+    else:
+        if not missing_ok:
+            raise RuntimeError(f"Lock file not found at {lock_file}")
+        return False
 
 
-def has_lock_file(exp_dir: Path) -> bool:
-    return (exp_dir / ".lock").exists() or (exp_dir / ".temp_lock").exists()
+def has_lock_file(exp_dir: Path, lock_type: LockType | None = None) -> bool:
+    if lock_type is not None:
+        return (exp_dir / f".lock_{lock_type}").exists()
+    return any((exp_dir / f".lock_{lock_type_arg}").exists() for lock_type_arg in get_args(LockType))
 
 
 def get_ckpt_path(exp_dir: Path, state: Optional[State] = None) -> Path:
@@ -238,16 +242,16 @@ class BaseTrainerConfig(BaseConfig):
         super().resolve(config)
 
 
-TrainerConfigType = TypeVar("TrainerConfigType", bound=BaseTrainerConfig)  # pylint: disable=invalid-name
+TrainerConfigT = TypeVar("TrainerConfigT", bound=BaseTrainerConfig)
 
 
-class BaseTrainer(BaseObjectWithPointers[TrainerConfigType], Generic[TrainerConfigType], ABC):
+class BaseTrainer(BaseObjectWithPointers[TrainerConfigT], Generic[TrainerConfigT], ABC):
     """Defines the base trainer type."""
 
     logger: MultiLogger
     loggers: List[BaseLogger]
 
-    def __init__(self, config: TrainerConfigType) -> None:
+    def __init__(self, config: TrainerConfigT) -> None:
         super().__init__(config)
 
         self.exp_dir = get_exp_dir(Path(config.base_run_dir), config.exp_name, config.run_id)
@@ -270,13 +274,13 @@ class BaseTrainer(BaseObjectWithPointers[TrainerConfigType], Generic[TrainerConf
     def save_config(self) -> None:
         save_config(self.exp_dir, self.raw_config)
 
-    def add_lock_file(self, *, is_temp: bool = False, exists_ok: bool = False) -> None:
-        add_lock_file(self.exp_dir, is_temp=is_temp, exists_ok=exists_ok)
-        logger.debug("Added %slock file to experiment directory %s", "temporary " if is_temp else "", self.exp_dir)
+    def add_lock_file(self, lock_type: LockType, *, exists_ok: bool = False) -> None:
+        add_lock_file(self.exp_dir, lock_type=lock_type, exists_ok=exists_ok)
+        logger.debug("Added %s lock file to experiment directory %s", lock_type, self.exp_dir)
 
-    def remove_temp_lock_file(self) -> None:
-        if remove_temp_lock_file(self.exp_dir, exists_ok=True):
-            logger.debug("Removed temporary lock file in %s", self.exp_dir)
+    def remove_lock_file(self, lock_type: LockType, *, missing_ok: bool = False) -> None:
+        if remove_lock_file(self.exp_dir, lock_type=lock_type, missing_ok=missing_ok):
+            logger.debug("Removed %s lock file in %s", lock_type, self.exp_dir)
 
     def get_ckpt_path(self, state: Optional[State] = None) -> Path:
         return get_ckpt_path(self.exp_dir, state)
@@ -334,16 +338,12 @@ class BaseTrainer(BaseObjectWithPointers[TrainerConfigType], Generic[TrainerConf
                             base_ckpt.unlink()
                     last_ckpt_path.unlink()
                 last_ckpt_path.symlink_to(ckpt_path)
-                self.add_lock_file(exists_ok=True)
+                self.add_lock_file("ckpt", exists_ok=True)
                 task.on_after_save_checkpoint(ckpt_path)
 
     @abstractmethod
-    def launch(self, func: Callable[[MultiprocessConfig], None]) -> None:
-        """Launches a multiprocess command.
-
-        Args:
-            func: The function to call
-        """
+    def launch(self) -> None:
+        """Launches a multiprocess command."""
 
     @abstractmethod
     def train(self, model: BaseModel, task: BaseTask, optimizer: BaseOptimizer, lr_scheduler: BaseLRScheduler) -> None:

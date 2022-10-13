@@ -14,15 +14,12 @@ from ml.tasks.base import BaseTask, BaseTaskConfig
 
 
 @dataclass
-class MNISTTaskConfig(BaseTaskConfig):
+class CIFARDemoTaskConfig(BaseTaskConfig):
     pass
 
 
-@register_task("mnist", MNISTTaskConfig)
-class MNISTTask(BaseTask[MNISTTaskConfig]):
-    def __init__(self, config: MNISTTaskConfig) -> None:
-        super().__init__(config)
-
+@register_task("cifar_demo", CIFARDemoTaskConfig)
+class CIFARDemoTask(BaseTask[CIFARDemoTaskConfig]):
     def run_model(
         self,
         model: BaseModel,
@@ -43,7 +40,7 @@ class MNISTTask(BaseTask[MNISTTaskConfig]):
         return F.cross_entropy(preds, classes.flatten().long(), reduction="none")
 
     def get_dataset(self, phase: Phase) -> Dataset:
-        return torchvision.datasets.MNIST(
+        return torchvision.datasets.CIFAR10(
             root=get_data_dir(),
             train=phase == Phase.TRAIN,
             download=True,

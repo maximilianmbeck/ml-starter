@@ -1,6 +1,8 @@
 # pylint: disable=redefined-builtin
 """Defines some utility functions for atomic file operations."""
 
+from __future__ import annotations
+
 import os
 import tempfile as tmp
 from contextlib import contextmanager

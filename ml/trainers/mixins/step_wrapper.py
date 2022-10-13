@@ -22,7 +22,7 @@ StepType = Literal[
 ]
 
 
-ConfigType = TypeVar("ConfigType", bound=BaseTrainerConfig)
+ConfigT = TypeVar("ConfigT", bound=BaseTrainerConfig)
 
 
 class StepContext(ContextManager):
@@ -45,6 +45,6 @@ class StepContext(ContextManager):
         StepContext.CURRENT_STEP = None
 
 
-class StepContextMixin(BaseTrainer[ConfigType], ABC):
+class StepContextMixin(BaseTrainer[ConfigT], ABC):
     def step_context(self, step: StepType) -> ContextManager:
         return StepContext(step)

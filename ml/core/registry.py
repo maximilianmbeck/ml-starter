@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import datetime
 import functools
 import hashlib
@@ -31,8 +33,9 @@ from omegaconf.basecontainer import BaseContainer
 
 from ml.core.config import BaseConfig, BaseObject, BaseObjectWithPointers
 from ml.core.env import get_stage_dir
-from ml.utils.timer import Timer
 from ml.utils.colors import Color, colorize
+from ml.utils.paths import is_relative_to
+from ml.utils.timer import Timer
 
 if TYPE_CHECKING:
     from ml.loggers.base import BaseLogger, BaseLoggerConfig
@@ -88,7 +91,7 @@ def stage_environment() -> Path:
         for module in sys.modules.values():
             if (fpath_str := getattr(module, "__file__", None)) is None:
                 continue
-            if not (fpath := Path(fpath_str).resolve()).is_relative_to(ROOT_DIR):
+            if not is_relative_to(fpath := Path(fpath_str).resolve(), ROOT_DIR):
                 continue
             fpaths.append(fpath)
 
@@ -388,7 +391,7 @@ class register_model(register_base["BaseModel", "BaseModelConfig"]):  # pylint: 
 
     @classmethod
     def search_directory(cls) -> Path:
-        return Path("models/models")
+        return Path("ml/models")
 
     @classmethod
     def config_key(cls) -> str:
@@ -403,7 +406,7 @@ class register_task(register_base["BaseTask", "BaseTaskConfig"]):  # pylint: dis
 
     @classmethod
     def search_directory(cls) -> Path:
-        return Path("models/tasks")
+        return Path("ml/tasks")
 
     @classmethod
     def config_key(cls) -> str:
@@ -418,7 +421,7 @@ class register_trainer(register_base["BaseTrainer", "BaseTrainerConfig"]):  # py
 
     @classmethod
     def search_directory(cls) -> Path:
-        return Path("models/trainers")
+        return Path("ml/trainers")
 
     @classmethod
     def config_key(cls) -> str:
@@ -433,7 +436,7 @@ class register_optimizer(register_base["BaseOptimizer", "BaseOptimizerConfig"]):
 
     @classmethod
     def search_directory(cls) -> Path:
-        return Path("models/optimizers")
+        return Path("ml/optimizers")
 
     @classmethod
     def config_key(cls) -> str:
@@ -448,7 +451,7 @@ class register_lr_scheduler(register_base["BaseLRScheduler", "BaseLRSchedulerCon
 
     @classmethod
     def search_directory(cls) -> Path:
-        return Path("models/lr_schedulers")
+        return Path("ml/lr_schedulers")
 
     @classmethod
     def config_key(cls) -> str:
@@ -463,7 +466,7 @@ class register_logger(multi_register_base["BaseLogger", "BaseLoggerConfig"]):  #
 
     @classmethod
     def search_directory(cls) -> Path:
-        return Path("models/loggers")
+        return Path("ml/loggers")
 
     @classmethod
     def config_key(cls) -> str:

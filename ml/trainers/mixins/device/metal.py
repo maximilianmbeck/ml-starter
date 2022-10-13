@@ -1,5 +1,4 @@
 import os
-from typing import List
 
 import torch
 
@@ -16,8 +15,8 @@ class MetalDevice(BaseDevice):
         return torch.backends.mps.is_available() and not int(os.environ.get("DISABLE_METAL", "0"))
 
     @classmethod
-    def get_devices(cls) -> List[torch.device]:
-        return [torch.device("mps")]
+    def get_device(cls) -> torch.device:
+        return torch.device("mps", 0)
 
     @classmethod
     def get_floating_point_type(cls) -> torch.dtype:

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import datetime
 from abc import ABC, abstractmethod
 from collections import defaultdict
@@ -13,7 +15,7 @@ from torch import Tensor
 from ml.core.config import BaseConfig, BaseObjectWithPointers, conf_field
 from ml.core.state import Phase, State
 
-LogType = TypeVar("LogType")  # pylint: disable=invalid-name
+LogT = TypeVar("LogT")
 
 DEFAULT_NAMESPACE = "value"
 VALID_CHANNEL_COUNTS = {1, 3}
@@ -31,15 +33,15 @@ class BaseLoggerConfig(BaseConfig):
     write_every_n_seconds: int = conf_field(1, help="Only write a log line every N seconds")
 
 
-LoggerConfigType = TypeVar("LoggerConfigType", bound=BaseLoggerConfig)  # pylint: disable=invalid-name
+LoggerConfigT = TypeVar("LoggerConfigT", bound=BaseLoggerConfig)
 
 
-class BaseLogger(BaseObjectWithPointers[LoggerConfigType], Generic[LoggerConfigType], ABC):
+class BaseLogger(BaseObjectWithPointers[LoggerConfigT], Generic[LoggerConfigT], ABC):
     """Defines the base logger."""
 
     log_directory: Path
 
-    def __init__(self, config: LoggerConfigType) -> None:
+    def __init__(self, config: LoggerConfigT) -> None:
         super().__init__(config)
 
         self.start_time = datetime.datetime.now()
@@ -527,9 +529,9 @@ class MultiLogger:
     def write_dict(
         self,
         loggers: List[BaseLogger],
-        values: Dict[str, Dict[str, LogType]],
+        values: Dict[str, Dict[str, LogT]],
         state: State,
-        func: Callable[[BaseLogger], Callable[[str, LogType, State, str], None]],
+        func: Callable[[BaseLogger], Callable[[str, LogT, State, str], None]],
     ) -> None:
         for logger in loggers:
             for namespace, value in values.items():

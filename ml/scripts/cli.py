@@ -9,10 +9,11 @@ from omegaconf import DictConfig, OmegaConf
 
 from ml.core.env import add_global_tag, get_global_tags, set_exp_name
 from ml.core.registry import Objects
-from ml.utils.random import set_random_seed
 from ml.scripts import mp_train, stage, train
 from ml.utils.colors import Color, colorize
+from ml.utils.distributed import get_rank_optional, get_world_size_optional
 from ml.utils.logging import configure_logging
+from ml.utils.random import set_random_seed
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +22,7 @@ IGNORE_ARGS: Set[str] = {
     "trainer.log_dir_name",
     "trainer.base_run_dir",
     "trainer.run_id",
+    "trainer.name",
 }
 
 
@@ -66,8 +68,9 @@ def parse_cli(args: List[str]) -> DictConfig:
 
     # Parses all of the additional config overrides.
     if len(args) > 0:
-        assert all("=" in arg for arg in args), f"Argument(s) missing equals sign: {[a for a in args if '=' not in a]}"
-        argument_parts += [arg.split(".")[-1].replace("=", "_") for arg in args if arg not in IGNORE_ARGS]
+        split_args = [a.split("=") for a in args]
+        assert all(len(a) == 2 for a in split_args), f"Got invalid arguments: {[a for a in split_args if len(a) != 2]}"
+        argument_parts += [f"{k.split('.')[-1]}_{v}" for k, v in sorted(split_args) if k not in IGNORE_ARGS]
 
     # Registers an OmegaConf resolver with the job name.
     if not OmegaConf.has_resolver("exp_name"):
@@ -87,19 +90,18 @@ def parse_cli(args: List[str]) -> DictConfig:
 
 
 def main() -> None:
-    configure_logging()
+    configure_logging(rank=get_rank_optional(), world_size=get_world_size_optional())
     logger.info("Command: %s", shlex.join(sys.argv))
 
     set_random_seed()
 
     without_objects_scripts: Dict[str, Callable[[DictConfig], None]] = {
         "mp_train": mp_train.main,
+        "stage": stage.main,
     }
 
     with_objects_scripts: Dict[str, Callable[[Objects], None]] = {
         "train": train.main,
-        "stage": stage.main,
-        "evaluate": evaluate.main,
     }
 
     scripts: Dict[str, Callable[..., None]] = {**with_objects_scripts, **without_objects_scripts}
