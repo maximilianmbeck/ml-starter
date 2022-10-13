@@ -1,0 +1,22 @@
+model:
+  name: resnet
+
+task:
+  name: mnist
+  dataloader:
+    train:
+      batch_size: 16
+    test:
+      batch_size: 20
+
+optimizer:
+  name: adam
+
+lr_scheduler:
+  name: linear_100k
+
+trainer:
+  name: ddp
+
+logger:
+  name: stdout

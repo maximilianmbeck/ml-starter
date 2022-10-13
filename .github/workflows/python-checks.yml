@@ -1,0 +1,49 @@
+name: Python Checks
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+
+jobs:
+  run-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Fail for all draft PRs
+        if: github.event.pull_request.draft
+        run: |
+          exit 1
+      - name: Check out environment
+        uses: actions/checkout@v2
+      - name: Set up Python 3.10.4
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.10.4
+      - name: Checking cache
+        uses: actions/cache@v2
+        id: cache
+        with:
+          path: ${{ env.pythonLocation }}
+          key: ${{ env.pythonLocation }}-${{ hashFiles('setup.py') }}-${{ hashFiles('requirements/*.txt') }}
+      - name: Installing dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          make install-dependencies
+      - name: Install
+        run: |
+          make install
+      - name: Lint
+        run: |
+          make lint
+      - name: Testing
+        run: |
+          make test
