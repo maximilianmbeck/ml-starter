@@ -1,6 +1,6 @@
 # ML Project Template
 
-This is a general-purpose template for machine learning projects in PyTorch. It includes a simple MNIST example which can be deleted.
+This is a general-purpose template for machine learning projects in PyTorch. It includes a simple CIFAR example which can be deleted.
 
 ## Getting Started
 
