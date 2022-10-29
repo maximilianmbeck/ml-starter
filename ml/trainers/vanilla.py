@@ -12,13 +12,13 @@ Summary table:
 | loss    | E(x, o)      |
 """
 
-import atexit
 import contextlib
 import functools
 import logging
+import signal
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Type, TypeVar
+from typing import Any, Dict, Type, TypeVar
 
 import torch
 from torch import Tensor, nn
@@ -241,6 +241,25 @@ class VanillaTrainer(
         optim = optimizer.get(model)
         lr_sched = lr_scheduler.get(optim)
 
+        # Loads an existing checkpoint, if one exists.
+        if (ckpt_path := self.get_ckpt_path()).exists():
+            state = self.load_checkpoint(ckpt_path, task, model, optim, lr_sched)
+        else:
+            state = State.init_state()
+
+        def on_exit(signum: int, *_: Any) -> None:
+            logger.info("Handling interrupt %s", signal.Signals(signum).name)
+            self.save_checkpoint(state, task, model, optim, lr_sched)
+            if is_master():
+                self.remove_lock_file("running", missing_ok=True)
+
+        def on_finish_training() -> None:
+            self.save_checkpoint(state, task, model, optim, lr_sched)
+            raise TrainingFinishedException
+
+        # Handle user-defined interrupts.
+        signal.signal(signal.SIGUSR1, on_exit)
+
         # Gets the datasets.
         train_ds = task.get_dataset("train")
         valid_ds = task.get_dataset("valid")
@@ -253,24 +272,6 @@ class VanillaTrainer(
         train_pf = self.device.get_prefetcher(train_dl)
         valid_pf = self.device.get_prefetcher(valid_dl)
         valid_pf_infinite = InfinitePrefetcher(valid_pf)
-
-        # Loads an existing checkpoint, if one exists.
-        if (ckpt_path := self.get_ckpt_path()).exists():
-            state = self.load_checkpoint(ckpt_path, task, model, optim, lr_sched)
-        else:
-            state = State.init_state()
-
-        def on_exit() -> None:
-            if is_master():
-                self.remove_lock_file("running", missing_ok=True)
-            logger.info("Exiting training job for %s", self.exp_dir / "config.yaml")
-
-        def finish_training() -> None:
-            self.save_checkpoint(state, task, model, optim, lr_sched)
-            raise TrainingFinishedException
-
-        # Always run at exit time.
-        atexit.register(on_exit)
 
         try:
             with contextlib.ExitStack() as ctx:
@@ -297,7 +298,7 @@ class VanillaTrainer(
                         self.logger.log_scalar("dt/get_batch", train_pf.get_batch_time, namespace="timers")
 
                         if task.is_training_over(state):
-                            finish_training()
+                            on_finish_training()
 
                         with self.step_context("on_step_start"):
                             self.on_step_start(state, train_batch, task, model, optim, lr_sched)
@@ -341,6 +342,9 @@ class VanillaTrainer(
 
         except Exception:
             logger.exception("Caught exception during training loop")
+
+        finally:
+            logger.info("Exiting training job for %s", self.exp_dir / "config.yaml")
 
     def evaluate(self, model: BaseModel, task: BaseTask) -> None:
         """Runs the GPU-based evaluation loop.
