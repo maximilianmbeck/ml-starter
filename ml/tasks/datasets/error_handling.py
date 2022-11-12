@@ -144,16 +144,22 @@ class ErrorHandlingDataset(Dataset[Batch]):
         raise NotImplementedError("Base dataset doesn't implemenet `__len__`")
 
 
-class ErrorHandlingIterableDataset(ErrorHandlingDataset[Batch], IterableDataset[Batch]):
+class ErrorHandlingIterableDataset(IterableDataset[Batch]):
     """Defines a wrapper for safely handling errors in iterable datasets."""
 
     dataset: IterableDataset[Batch]
     iter: Iterator[Batch]
 
     def __init__(self, dataset: IterableDataset[Batch], config: ErrorHandlingConfig) -> None:
-        super().__init__(dataset, config)
+        super().__init__()
 
         self.iteration = 0
+        self.dataset = dataset
+        self.config = config
+        self.exc_summary = ExceptionSummary(
+            flush_every=config.flush_exception_summary_every,
+            summary_length=config.report_top_n_exception_types,
+        )
 
         self._configured_logging = False
 
@@ -191,7 +197,7 @@ class ErrorHandlingIterableDataset(ErrorHandlingDataset[Batch], IterableDataset[
         raise RuntimeError(f"Reached max exceptions {self.config.maximum_exceptions}\n{self.exc_summary.summary()}")
 
 
-def get_error_handling_dataset(dataset: Dataset[Batch], config: ErrorHandlingConfig) -> ErrorHandlingDataset[Batch]:
+def get_error_handling_dataset(dataset: Dataset[Batch], config: ErrorHandlingConfig) -> Dataset[Batch]:
     """Returns a dataset which wraps the base dataset and handles errors.
 
     Args:
