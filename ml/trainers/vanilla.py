@@ -29,6 +29,7 @@ from ml.core.config import conf_field
 from ml.core.registry import register_trainer
 from ml.core.state import State, set_phase
 from ml.core.types import Batch, Loss
+from ml.loggers.meter import MeterLogger, MeterLoggerConfig
 from ml.lr_schedulers.base import BaseLRScheduler, SchedulerAdapter
 from ml.models.base import BaseModel
 from ml.optimizers.base import BaseOptimizer
@@ -365,6 +366,10 @@ class VanillaTrainer(
         # Saves the config at the start of evaluation.
         self.save_config()
 
+        # Meter logger keeps track of value statistics.
+        meter_logger = MeterLogger(MeterLoggerConfig())
+        self.add_logger(meter_logger)
+
         # Gets the dataset, dataloader and prefetcher.
         test_ds = task.get_dataset("test")
         test_dl = task.get_dataloader(test_ds, "test")
@@ -394,6 +399,9 @@ class VanillaTrainer(
                 task=task,
                 model=model,
             )
+
+        # Finally, saves meter logging results.
+        self.logger.log_config(self.raw_config, meter_logger.get_value_dict())
 
     def launch(self) -> None:
         raise NotImplementedError(f"{self.__class__.__name__} doesn't support multiprocess training")

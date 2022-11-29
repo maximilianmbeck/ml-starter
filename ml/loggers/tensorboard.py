@@ -20,7 +20,8 @@ from ml.core.config import conf_field
 from ml.core.env import get_exp_name
 from ml.core.registry import register_logger
 from ml.core.state import Phase, State
-from ml.loggers.base import TARGET_FPS, BaseLogger, BaseLoggerConfig
+from ml.loggers.base import BaseLogger, BaseLoggerConfig
+from ml.loggers.multi import TARGET_FPS
 from ml.utils.distributed import is_distributed, is_master
 from ml.utils.networking import get_unused_port
 
@@ -178,6 +179,9 @@ class TensorboardLogger(BaseLogger[TensorboardLoggerConfig]):
 
     def log_point_cloud(self, key: str, value: Callable[[], Tensor], state: State, namespace: str) -> None:
         self.point_clouds[state.phase][f"{namespace}/{key}"] = value
+
+    def log_config(self, config: Dict[str, int | float | str | bool], metrics: Dict[str, int | float]) -> None:
+        self.test_writer.add_hparams(config, metrics, run_name=get_exp_name())
 
     def write(self, state: State) -> None:
         if self.line_str is not None:

@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import Dict
 
 from omegaconf import II, MISSING, OmegaConf
 
@@ -17,13 +16,6 @@ class LinearLRSchedulerConfig(BaseLRSchedulerConfig):
     min_scale: float = conf_field(1e-4, help="Minimum learning rate scale")
 
     @classmethod
-    def get_defaults(cls) -> Dict[str, "LinearLRSchedulerConfig"]:
-        return {
-            "linear_100k": LinearLRSchedulerConfig(total_steps=100_000),
-            "linear_500k": LinearLRSchedulerConfig(total_steps=500_000),
-        }
-
-    @classmethod
     def resolve(cls, config: "LinearLRSchedulerConfig") -> None:
         if OmegaConf.is_missing(config, "warmup_steps"):
             config.warmup_steps = int(config.total_steps * config.warmup_percent)
@@ -33,11 +25,9 @@ class LinearLRSchedulerConfig(BaseLRSchedulerConfig):
 @register_lr_scheduler("linear", LinearLRSchedulerConfig)
 class LinearLRScheduler(BaseLRScheduler[LinearLRSchedulerConfig]):
     def get_lr_scale(self, state: State) -> float:
-        if state.num_steps < self.config.warmup_steps:
-            return max(self.config.min_scale, state.num_steps / self.config.warmup_steps)
-        if state.num_steps < self.config.total_steps:
-            return max(
-                self.config.min_scale,
-                (self.config.total_steps - state.num_steps) / (self.config.total_steps - self.config.warmup_steps),
-            )
-        return self.config.min_scale
+        warmup, total, min_scale = self.config.warmup_steps, self.config.total_steps, self.config.min_scale
+        if state.num_steps < warmup:
+            return state.num_steps / warmup
+        if state.num_steps < total:
+            return (1 - min_scale) * (total - state.num_steps) / (total - warmup) + min_scale
+        return min_scale
