@@ -53,7 +53,7 @@ def flatten(d: Dict[str, Any] | List[Any] | Tuple[Any, ...]) -> Dict[str, int | 
                 raise NotImplementedError(f"Unsupported value type {type(v)}")
 
     else:
-        raise NotImplementedError(f"Unsupported top-level type: {type(v)}")
+        raise NotImplementedError(f"Unsupported top-level type: {type(d)}")
 
     return out_dict
 

@@ -5,7 +5,7 @@ import torch
 
 from ml.trainers.mixins.device.base import BaseDevice
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 def get_env_bool(key: str) -> bool:

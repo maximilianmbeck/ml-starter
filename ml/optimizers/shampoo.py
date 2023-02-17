@@ -60,7 +60,6 @@ class Shampoo(Optimizer):
         epsilon: float = 1e-4,
         update_freq: int = 1,
     ) -> None:
-
         if lr <= 0.0:
             raise ValueError(f"Invalid learning rate: {lr}")
         if momentum < 0.0:

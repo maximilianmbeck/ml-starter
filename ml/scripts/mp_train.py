@@ -4,7 +4,7 @@ from omegaconf import DictConfig
 
 from ml.core.registry import register_trainer
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 def mp_train_main(config: DictConfig) -> None:

@@ -44,7 +44,7 @@ from ml.tasks.datasets.error_handling import (
 from ml.tasks.losses.reduce import cast_reduce_type, reduce
 from ml.utils.random import set_random_seed
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 class CumulativeTimer:

@@ -43,7 +43,7 @@ if TYPE_CHECKING:
     from ml.tasks.base import BaseTask, BaseTaskConfig
     from ml.trainers.base import BaseTrainer, BaseTrainerConfig
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 Entry = TypeVar("Entry", bound=BaseObject)
 SpecificEntry = TypeVar("SpecificEntry")
@@ -54,7 +54,7 @@ Config = TypeVar("Config", bound=BaseConfig)
 NAME_KEY = "name"
 
 # This points to the root directory location for the package.
-ROOT_DIR = Path(__file__).parent.parent.parent.resolve()
+ROOT_DIR: Path = Path(__file__).parent.parent.parent.resolve()
 
 # Date format for staging environments.
 DATE_FORMAT = "%Y-%m-%d"

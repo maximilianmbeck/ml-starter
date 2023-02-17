@@ -3,7 +3,7 @@ import logging
 from ml.core.registry import Objects
 from ml.utils.timer import Timer
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 def train_main(objs: Objects) -> None:

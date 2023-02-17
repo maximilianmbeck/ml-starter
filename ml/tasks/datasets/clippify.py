@@ -9,7 +9,7 @@ from torch.utils.data.dataset import IterableDataset
 
 from ml.tasks.datasets.collate import collate
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 Batch = TypeVar("Batch")
 

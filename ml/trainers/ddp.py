@@ -51,7 +51,7 @@ from ml.utils.distributed import (
 from ml.utils.logging import configure_logging
 from ml.utils.networking import get_unused_port
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 def process_main(cfg: MultiprocessConfig, raw_config: DictConfig) -> None:

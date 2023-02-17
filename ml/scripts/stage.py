@@ -4,7 +4,7 @@ from omegaconf import DictConfig, OmegaConf
 
 from ml.core.registry import stage_environment
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 def stage_main(config: DictConfig) -> None:

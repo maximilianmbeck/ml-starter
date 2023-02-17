@@ -1,0 +1,12 @@
+# requirements.txt
+
+ffmpeg-python
+matplotlib
+omegaconf
+opencv-python
+pandas
+psutil
+tensorboard
+torch>=1.12.1
+torchvision>=0.13.1
+tqdm

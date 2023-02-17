@@ -5,7 +5,7 @@ from omegaconf import DictConfig
 
 from ml.utils.compiler import compile_training_loop
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 def compile_main(config: DictConfig) -> None:

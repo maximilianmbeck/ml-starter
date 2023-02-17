@@ -11,7 +11,7 @@ from torch.utils.data.dataset import Dataset, IterableDataset
 
 from ml.core.config import conf_field
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 BatchT = TypeVar("BatchT")
 

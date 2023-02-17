@@ -23,10 +23,10 @@ from ml.core.registry import (
 )
 from ml.utils.call_train import call_train
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
-ROOT_PATH = Path(__file__).parent.parent.parent
-BASE_NAME = __name__.split(".", maxsplit=1)[0]
+ROOT_PATH: Path = Path(__file__).parent.parent.parent
+BASE_NAME: str = __name__.split(".", maxsplit=1)[0]
 BASE_MODULE_PREFIX = f"{BASE_NAME}."
 
 

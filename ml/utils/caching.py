@@ -19,7 +19,7 @@ import numpy as np
 
 from ml.core.env import get_cache_dir
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 Object = TypeVar("Object", bound=Any)
 Tk = TypeVar("Tk")
@@ -114,7 +114,7 @@ class cached_object:  # pylint: disable=invalid-name
 
 
 class Index(Generic[Tk, Tv]):
-    def __init__(self, items: Mapping[Tk, Sequence[Tv]]):
+    def __init__(self, items: Mapping[Tk, Sequence[Tv]]) -> None:
         """Indexes a dictionary with values that are lists.
 
         This lazily indexes all the values in the provided dictionary, flattens

@@ -9,7 +9,7 @@ from ml.core.config import BaseConfig, BaseObject
 from ml.loggers.multi import MultiLogger
 from ml.utils.colors import colorize
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 @dataclass

@@ -14,7 +14,7 @@ from ml.tasks.base import BaseTask
 from ml.trainers.base import BaseTrainer, BaseTrainerConfig
 from ml.trainers.mixins.step_wrapper import StepContextMixin, StepType
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 @dataclass

@@ -10,7 +10,7 @@ from ml.core.env import is_debugging
 from ml.utils.colors import Color, colorize, get_colorize_parts
 
 # Logging level to show on all ranks.
-INFOALL = logging.INFO + 1
+INFOALL: int = logging.INFO + 1
 
 
 class RankFilter(logging.Filter):
@@ -62,7 +62,7 @@ class ColoredFormatter(logging.Formatter):
         rank: int | None = None,
         world_size: int | None = None,
         use_color: bool = True,
-    ):
+    ) -> None:
         asc_start, asc_end = get_colorize_parts("grey")
         message = "{levelname:^19s} " + asc_start + "{asctime}" + asc_end + " [{name}] {message}"
         if prefix is not None:

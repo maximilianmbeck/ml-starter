@@ -1,19 +1,28 @@
 #!/usr/bin/env python
 # pylint: disable=import-outside-toplevel
+# pylint: disable=import-error
 # mypy: ignore-errors
 
 import functools
-import multiprocessing
 import os
 import re
 import shutil
 import subprocess
+import sys
 import sysconfig
+from multiprocessing import cpu_count
 from pathlib import Path
 from typing import List
 
 from setuptools import Extension, setup
 from setuptools.command.build_ext import build_ext
+
+PLAT_TO_CMAKE = {
+    "win32": "Win32",
+    "win-amd64": "x64",
+    "win-arm32": "ARM",
+    "win-arm64": "ARM64",
+}
 
 
 def get_arch_list() -> str:
@@ -32,34 +41,69 @@ def get_arch_list() -> str:
 
 
 class CMakeExtension(Extension):
+    """CMake extension.
+
+    This is a subclass of setuptools.Extension that allows specifying the
+    location of the CMakeLists.txt file.
+
+    Usage:
+        setup(
+            name="my_package",
+            ext_modules=[CMakeExtension("my_package")],
+            cmdclass={"build_ext": CMakeBuild},
+        )
+    """
+
     def __init__(self, name: str) -> None:
         super().__init__(name, sources=[])
 
-        self.source_path = os.path.abspath(name)
-        self.name = name
+        self.sourcedir = os.fspath(Path(__file__).parent.resolve() / name)
 
 
 class CMakeBuild(build_ext):
-    """Defines a build command for CMake projects."""
+    """CMake build extension.
 
-    cmake_prefix_path: str
-    cmake_cxx_flags: str
-    python_path: str
+    This is a subclass of setuptools.command.build_ext.build_ext that runs
+    cmake to build the extension.
 
-    def run(self) -> None:
-        import pybind11  # pylint: disable=import-error
-        import torch._C
+    Usage:
+        setup(
+            name="my_package",
+            ext_modules=[CMakeExtension("my_package")],
+            cmdclass={"build_ext": CMakeBuild},
+        )
+    """
+
+    def initialize_options(self) -> None:
+        super().initialize_options()
+
+        # Set parallel build.
+        self.parallel = cpu_count()
+
+    def build_extensions(self) -> None:
+        self.check_extensions_list(self.extensions)
+        self._build_extensions_serial()
+
+    def build_extension(self, ext: CMakeExtension) -> None:
+        import cmake  # noqa: F401
+        import pybind11  # noqa: F401
+        import torch._C  # noqa: F401
         from torch.utils.cpp_extension import (
             CUDA_HOME,
-            include_paths as torch_include_paths,
+            include_paths as torch_include_paths,  # noqa: F401
         )
 
-        if not shutil.which("cmake"):
-            raise RuntimeError("CMake installation not found")
         if CUDA_HOME is not None and not shutil.which("nvcc"):
             raise RuntimeError("NVCC installation not found")
         if torch.utils.cmake_prefix_path is None:
             raise RuntimeError("CMake prefix path not found")
+
+        cmake_path = os.path.join(cmake.CMAKE_BIN_DIR, "cmake")
+        ext_fullpath = Path.cwd() / self.get_ext_fullpath(ext.name)  # type: ignore[no-untyped-call]
+        extdir = ext_fullpath.parent.resolve()
+        debug = int(os.environ.get("DEBUG", 0)) if self.debug is None else self.debug
+        cfg = "Debug" if debug else "Release"
+        cmake_generator = os.environ.get("CMAKE_GENERATOR", "")
 
         # Need to copy PyBind flags.
         cmake_cxx_flags: List[str] = []
@@ -81,34 +125,20 @@ class CMakeBuild(build_ext):
         cmake_cxx_flags += [f"-isystem {dir_name}" for dir_name in cmake_include_dirs]
 
         # Sets paths to various CMake stuff.
-        self.cmake_prefix_path = ";".join([torch.utils.cmake_prefix_path, pybind11.get_cmake_dir()])
-        self.cmake_cxx_flags = " ".join(cmake_cxx_flags)
+        cmake_prefix_path_str = ";".join([torch.utils.cmake_prefix_path, pybind11.get_cmake_dir()])
+        cmake_cxx_flags_str = " ".join(cmake_cxx_flags)
 
-        # Gets the path to the Python installation.
-        if not (python_path := shutil.which("python")):
-            raise RuntimeError("Python path not found")
-        self.python_path = python_path
-
-        for ext in self.extensions:
-            assert isinstance(ext, CMakeExtension)
-            self.build_cmake(ext)
-
-    def build_cmake(self, ext: CMakeExtension) -> None:
-        from torch.utils.cpp_extension import CUDA_HOME
-
-        config = "Debug" if self.debug else "Release"
-
+        # Gets CMake arguments.
         cmake_args = [
-            f"-DCMAKE_LIBRARY_OUTPUT_DIRECTORY={os.path.abspath(ext.name)}",
-            f"-DCMAKE_PREFIX_PATH={self.cmake_prefix_path}",
-            f"-DPYTHON_EXECUTABLE:FILEPATH={self.python_path}",
-            f"-DCMAKE_BUILD_TYPE={config}",
-            f"-DCMAKE_CXX_FLAGS='{self.cmake_cxx_flags}'",
+            f"-DCMAKE_LIBRARY_OUTPUT_DIRECTORY={extdir}{os.sep}",
+            f"-DPYTHON_EXECUTABLE={sys.executable}",
+            f"-DPYTHON_INCLUDE_DIR={sysconfig.get_path('include')}",
+            f"-DPYTHON_LIBRARY={sysconfig.get_path('platlib')}",
+            f"-DCMAKE_PREFIX_PATH={cmake_prefix_path_str}",
+            f"-DCMAKE_CXX_FLAGS={cmake_cxx_flags_str}",
+            f"-DCMAKE_BUILD_TYPE={cfg}",  # not used on MSVC, but no harm
         ]
 
-        env = os.environ.copy()
-
-        # Additional CUDA arguments.
         if CUDA_HOME is not None:
             nvcc_path = shutil.which("nvcc")
             assert nvcc_path is not None
@@ -118,60 +148,92 @@ class CMakeBuild(build_ext):
                 f"-DCMAKE_CUDA_COMPILER='{Path(nvcc_path).resolve()}'",
             ]
 
-        # Builds CMake to a temp directory.
-        build_temp = os.path.abspath(self.build_temp)
-        if not os.path.exists(build_temp):
-            os.makedirs(build_temp)
-        subprocess.check_call(["cmake", f"-S{ext.source_path}", f"-B{build_temp}"] + cmake_args, env=env)
+        build_args = []
+        if "CMAKE_ARGS" in os.environ:
+            cmake_args += [item for item in os.environ["CMAKE_ARGS"].split(" ") if item]
 
-        # Compiles the project.
-        build_lib = os.path.abspath(self.build_lib)
-        if not os.path.exists(build_lib):
-            os.makedirs(build_lib)
-        subprocess.check_call(
-            [
-                "cmake",
-                "--build",
-                build_temp,
-                "--",
-                f"-j{multiprocessing.cpu_count()}",
-            ],
-            cwd=build_lib,
-            env=env,
-        )
+        env = os.environ.copy()
 
-        # Runs stubgen, if it is installed.
+        if self.compiler.compiler_type != "msvc":
+            if not cmake_generator or cmake_generator == "Ninja":
+                try:
+                    # pylint: disable-next=import-outside-toplevel
+                    import ninja  # noqa: F401
+
+                    ninja_executable_path = Path(ninja.BIN_DIR) / "ninja"
+                    cmake_args += [
+                        "-GNinja",
+                        f"-DCMAKE_MAKE_PROGRAM:FILEPATH={ninja_executable_path}",
+                    ]
+                except ImportError:
+                    pass
+
+        else:
+            single_config = any(x in cmake_generator for x in ("NMake", "Ninja"))
+            contains_arch = any(x in cmake_generator for x in ("ARM", "Win64"))
+            if not single_config and not contains_arch:
+                cmake_args += ["-A", PLAT_TO_CMAKE[self.plat_name]]
+            if not single_config:
+                cmake_args += [f"-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_{cfg.upper()}={extdir}"]
+                build_args += ["--config", cfg]
+
+        if sys.platform.startswith("darwin"):
+            archs = re.findall(r"-arch (\S+)", os.environ.get("ARCHFLAGS", ""))
+            if archs:
+                cmake_args += [f"-DCMAKE_OSX_ARCHITECTURES={';'.join(archs)}"]
+
+        if "CMAKE_BUILD_PARALLEL_LEVEL" not in os.environ:
+            if hasattr(self, "parallel") and self.parallel:
+                build_args += [f"-j{self.parallel}"]
+
+        build_temp = Path(self.build_temp) / ext.name
+        print(f"Building extension {ext.name} in {build_temp}")
+        if not build_temp.exists():
+            build_temp.mkdir(parents=True)
+
+        def show_and_run(cmd: List[str]) -> None:
+            print(" ".join(cmd))
+            subprocess.run(cmd, env=env, check=True)
+
+        show_and_run([cmake_path, f"-S{ext.sourcedir}", f"-B{build_temp}"] + cmake_args)
+        show_and_run([cmake_path, "--build", f"{build_temp}"] + (["--"] + build_args if build_args else []))
+
+    def copy_extensions_to_source(self) -> None:
+        pass
+
+    def run(self) -> None:
+        super().run()
+
+        def gen_stubs(ext: Extension) -> None:
+            cmd = ["stubgen", "-p", f"{ext.name.replace('/', '.')}", "-o", "."]
+            print(" ".join(cmd))
+            subprocess.run(cmd, check=True)
+
         if shutil.which("stubgen") is not None:
-            project_root = Path(__file__).resolve().parent
-            subprocess.check_call(["stubgen", "-p", "ml.cpp", "-o", "."], cwd=project_root, env=env)
+            for ext in self.extensions:
+                gen_stubs(ext)
 
 
 with open("README.md", "r", encoding="utf-8") as f:
-    long_description = f.read()
+    long_description: str = f.read()
+
+
+with open("requirements.txt", "r", encoding="utf-8") as f:
+    requirements: List[str] = f.read().splitlines()
+
+
+with open("requirements-dev.txt", "r", encoding="utf-8") as f:
+    requirements_dev: List[str] = f.read().splitlines()
 
 
 @functools.lru_cache
-def torch_version() -> str:
-    try:
-        import torch
-
-        return torch.__version__
-    except ModuleNotFoundError:
-        return os.environ["TORCH_VERSION"]
-
-
-@functools.lru_cache
-def torchvision_version() -> str:
-    try:
-        import torchvision
-
-        return torchvision.__version__
-    except ModuleNotFoundError:
-        return os.environ["TORCHVISION_VERSION"]
-
-
-def torch_version_str() -> str:
-    return re.sub(r"[\.\-\+]", "", torch_version())
+def get_torch_requirement() -> str:
+    # Matches "torch\n", "torch==something\n", "torch>=something\n"
+    regexp = re.compile(r"torch(\s*(==|>=|<=)\s*\S+)?\s*$")
+    for line in requirements:
+        if regexp.match(line):
+            return line
+    raise RuntimeError("Could not find torch requirement")
 
 
 setup(
@@ -183,26 +245,22 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     classifiers=[
+        "Development Status :: 4 - Beta",
+        "Intended Audience :: Developers",
+        "Topic :: Scientific/Engineering :: Artificial Intelligence",
+        "License :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3",
     ],
     python_requires=">=3.10",
     setup_requires=[
+        "cmake",
         "mypy",  # For Stubgen
         "pybind11",
-        f"torch=={torch_version()}",
+        get_torch_requirement(),
     ],
-    install_requires=[
-        "ffmpeg-python",
-        "matplotlib",
-        "omegaconf",
-        "opencv-python",
-        "pandas",
-        "psutil",
-        "tensorboard",
-        "tqdm",
-        f"torch=={torch_version()}",
-        f"torchvision=={torchvision_version()}",
-    ],
+    install_requires=requirements,
+    tests_require=requirements_dev,
+    extras_require={"dev": requirements_dev},
     ext_modules=[CMakeExtension("ml/cpp")],
     cmdclass={"build_ext": CMakeBuild},
     exclude_package_data={

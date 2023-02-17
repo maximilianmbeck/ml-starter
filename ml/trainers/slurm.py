@@ -53,9 +53,9 @@ from ml.utils.distributed import (
 )
 from ml.utils.logging import configure_logging
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
-SBATCH_TEMPLATE = """
+SBATCH_TEMPLATE: str = """
 #!/bin/bash
 #SBATCH --job-name={job_name}
 #SBATCH --partition={partition}

@@ -5,7 +5,7 @@ from typing import Collection, Dict, Generic, Iterator, List, Optional, Tuple, T
 from torch.utils.data.dataloader import get_worker_info
 from torch.utils.data.dataset import IterableDataset
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 Batch = TypeVar("Batch")
 

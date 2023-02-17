@@ -6,7 +6,7 @@ import torch.distributed as dist
 
 from ml.utils.logging import INFOALL
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 def set_rank(rank: int) -> None:

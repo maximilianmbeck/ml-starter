@@ -6,7 +6,7 @@ from typing import AsyncIterator, Iterator, TypeVar
 
 from torch.utils.data.dataset import IterableDataset
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 

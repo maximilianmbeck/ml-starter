@@ -4,13 +4,6 @@ line-length = 120
 target-version = ["py310"]
 include = '\.pyi?$'
 
-[tool.isort]
-
-profile = "black"
-known_first_party = ["ml", "tests"]
-forced_separate = ["tests"]
-combine_as_imports = true
-
 [tool.pytest.ini_options]
 
 addopts = "-rx -rf -x -q --full-trace"
@@ -18,61 +11,6 @@ testpaths = ["tests"]
 
 markers = [
     "has_gpu: Marks test as requiring a GPU to run",
-]
-
-[tool.pylint.general]
-
-jobs = 2
-
-extension-pkg-allow-list = [
-    "cv2",
-    "ml.cpp",
-    "numpy",
-    "pandas",
-    "torch",
-]
-
-[tool.pylint.basic]
-
-# Allow single-character and two-character variable names.
-good-names-rgxs = '^[_a-zA-Z][_a-zA-Z0-9]?$'
-
-[tool.pylint.format]
-
-max-line-length = 120
-disable = [
-    "abstract-method",
-    "broad-except",
-    "duplicate-code",
-    "missing-class-docstring",
-    "missing-function-docstring",
-    "missing-module-docstring",
-    "no-else-continue",
-    "no-else-return",
-    "protected-access",
-    "singleton-comparison",
-    "too-few-public-methods",
-    "too-many-ancestors",
-    "too-many-arguments",
-    "too-many-branches",
-    "too-many-instance-attributes",
-    "too-many-locals",
-    "too-many-return-statements",
-    "too-many-statements",
-    "unnecessary-lambda-assignment",
-    "useless-return",
-]
-
-[tool.pylint.typecheck]
-
-generated-members = [
-    "cv2.*",
-    "matplotlib.*",
-    "ml.cpp.*",
-    "numpy.*",
-    "pandas.*",
-    "torch.*",
-    "tqdm.*",
 ]
 
 [tool.mypy]
@@ -111,3 +49,24 @@ module = [
 ]
 
 ignore_missing_imports = true
+
+[tool.ruff]
+
+select = ["E", "F", "I", "W"]
+ignore = ["E712", "E731"]
+line-length = 120
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+target-version = "py310"
+
+[tool.ruff.per-file-ignores]
+
+"__init__.py" = ["E402", "F401", "F403", "F811"]
+
+[tool.ruff.mccabe]
+
+max-complexity = 10
+
+[tool.ruff.isort]
+
+known-first-party = ["ml", "tests"]
+combine-as-imports = true

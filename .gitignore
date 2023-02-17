@@ -6,6 +6,10 @@ __pycache__/
 *.egg-info
 .eggs/
 .mypy_cache/*
+.pyre/
+.pytest_cache/
+.ruff_cache/
+.dmypy.json
 
 # Databases
 *.db
@@ -15,4 +19,3 @@ build/
 dist/
 *.so
 out/
-

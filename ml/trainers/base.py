@@ -40,7 +40,7 @@ from ml.utils.colors import colorize
 from ml.utils.distributed import is_master
 from ml.utils.timer import Timer
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 @dataclass

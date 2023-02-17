@@ -8,7 +8,7 @@ from ml.trainers.mixins.device.gpu import GPUDevice
 from ml.trainers.mixins.device.metal import MetalDevice
 from ml.utils.logging import INFOALL
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 # These devices are ordered by priority, so an earlier device in the list
 # is preferred to a later device in the list.

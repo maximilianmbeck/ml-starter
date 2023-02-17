@@ -6,7 +6,7 @@ import signal
 import time
 from typing import Any, Callable, Optional, TypeVar
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 TimeoutFunc = TypeVar("TimeoutFunc", bound=Callable[..., Any])
 

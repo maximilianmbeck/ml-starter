@@ -6,7 +6,7 @@ import re
 import shutil
 import subprocess
 from dataclasses import dataclass
-from typing import Dict, Iterable, TypeVar
+from typing import Dict, Iterable, Pattern, TypeVar
 
 from torch.optim.optimizer import Optimizer
 
@@ -18,7 +18,7 @@ from ml.models.base import BaseModel
 from ml.tasks.base import BaseTask
 from ml.trainers.base import BaseTrainer, BaseTrainerConfig
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -28,7 +28,7 @@ class GPUStatsConfig(BaseTrainerConfig):
 
 GPUStatsConfigT = TypeVar("GPUStatsConfigT", bound=GPUStatsConfig)
 
-NUMBER_REGEX = re.compile(r"[\d\.]+")
+NUMBER_REGEX: Pattern[str] = re.compile(r"[\d\.]+")
 
 
 @dataclass(frozen=True)

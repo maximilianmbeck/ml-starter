@@ -25,9 +25,9 @@ from ml.loggers.multi import TARGET_FPS
 from ml.utils.distributed import is_distributed, is_master
 from ml.utils.networking import get_unused_port
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
-WRITE_PROC_TEXT_EVERY_N_SECONDS = 60 * 2
+WRITE_PROC_TEXT_EVERY_N_SECONDS: int = 60 * 2
 
 
 def make_bold(strs: List[str]) -> str:

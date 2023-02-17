@@ -8,7 +8,7 @@ from omegaconf import DictConfig, OmegaConf
 
 from ml.core.env import get_global_tags, set_exp_name
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 IGNORE_ARGS: Set[str] = {

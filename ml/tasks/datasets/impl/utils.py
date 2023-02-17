@@ -8,7 +8,7 @@ from torch.utils.data.dataset import Dataset, IterableDataset
 
 from ml.utils.logging import configure_logging
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 def test_dataset(ds: Dataset | IterableDataset | DataLoader, max_samples: int = 3) -> None:
