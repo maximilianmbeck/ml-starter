@@ -3,6 +3,5 @@
 black
 darglint
 mypy
-pylint
 pytest
 ruff
