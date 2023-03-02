@@ -2,7 +2,7 @@ import atexit
 import datetime
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, Set, Type
+from typing import Any, Callable
 
 import pandas as pd
 from torch import Tensor
@@ -18,7 +18,7 @@ class PandasLoggerConfig(BaseLoggerConfig):
     pass
 
 
-def get_pd_type(column: pd.Series, t: Type) -> pd.Series:
+def get_pd_type(column: pd.Series, t: type) -> pd.Series:
     if t == str:
         return column.astype("string")
     if t == int:
@@ -37,8 +37,8 @@ class PandasLogger(BaseLogger[PandasLoggerConfig]):
     def __init__(self, config: PandasLoggerConfig) -> None:
         super().__init__(config)
 
-        self.log_values: Dict[Phase, Dict[str, Dict[str, Callable[[], Any]]]] = {}
-        self.types: Dict[str, Type] = {}
+        self.log_values: dict[Phase, dict[str, dict[str, Callable[[], Any]]]] = {}
+        self.types: dict[str, type] = {}
         self.df = pd.DataFrame()
 
     def initialize(self, log_directory: Path) -> None:
@@ -52,7 +52,7 @@ class PandasLogger(BaseLogger[PandasLoggerConfig]):
         self.df.to_csv(csv_file)
 
     @property
-    def columns(self) -> Set[str]:
+    def columns(self) -> set[str]:
         return set(self.df.columns)
 
     @property
@@ -68,7 +68,7 @@ class PandasLogger(BaseLogger[PandasLoggerConfig]):
             raise KeyError(f"Can't add {key} column, it already exists")
         self.df[key] = [pd.NA] * self.num_rows
 
-    def get_log_dict(self, state: State, namespace: Optional[str]) -> Dict[str, Callable[[], Any]]:
+    def get_log_dict(self, state: State, namespace: str | None) -> dict[str, Callable[[], Any]]:
         if namespace is None:
             namespace = "default"
         if state.phase not in self.log_values:

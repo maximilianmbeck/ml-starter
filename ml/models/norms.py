@@ -13,7 +13,7 @@ at the wall and see what sticks.
 """
 
 
-from typing import Literal, Optional, cast, get_args
+from typing import Literal, cast, get_args
 
 import torch
 from torch import Tensor, nn
@@ -62,8 +62,8 @@ class LastBatchNorm(nn.Module):
         momentum: float = 0.99,
         affine: bool = True,
         eps: float = 1e-4,
-        device: Optional[torch.device] = None,
-        dtype: Optional[torch.dtype] = None,
+        device: torch.device | None = None,
+        dtype: torch.dtype | None = None,
     ) -> None:
         super().__init__()
 
@@ -157,10 +157,10 @@ class ConvLayerNorm(nn.Module):
 def get_norm_1d(
     norm: NormType,
     *,
-    dim: Optional[int] = None,
-    groups: Optional[int] = None,
-    device: Optional[torch.device] = None,
-    dtype: Optional[torch.dtype] = None,
+    dim: int | None = None,
+    groups: int | None = None,
+    device: torch.device | None = None,
+    dtype: torch.dtype | None = None,
 ) -> nn.Module:
     if norm == "no_norm":
         return nn.Identity()
@@ -193,10 +193,10 @@ def get_norm_1d(
 def get_norm_2d(
     norm: NormType,
     *,
-    dim: Optional[int] = None,
-    groups: Optional[int] = None,
-    device: Optional[torch.device] = None,
-    dtype: Optional[torch.dtype] = None,
+    dim: int | None = None,
+    groups: int | None = None,
+    device: torch.device | None = None,
+    dtype: torch.dtype | None = None,
 ) -> nn.Module:
     if norm == "no_norm":
         return nn.Identity()
@@ -229,10 +229,10 @@ def get_norm_2d(
 def get_norm_3d(
     norm: NormType,
     *,
-    dim: Optional[int] = None,
-    groups: Optional[int] = None,
-    device: Optional[torch.device] = None,
-    dtype: Optional[torch.dtype] = None,
+    dim: int | None = None,
+    groups: int | None = None,
+    device: torch.device | None = None,
+    dtype: torch.dtype | None = None,
 ) -> nn.Module:
     if norm == "no_norm":
         return nn.Identity()
@@ -265,9 +265,9 @@ def get_norm_3d(
 def get_norm_linear(
     norm: NormType,
     *,
-    dim: Optional[int] = None,
-    device: Optional[torch.device] = None,
-    dtype: Optional[torch.dtype] = None,
+    dim: int | None = None,
+    device: torch.device | None = None,
+    dtype: torch.dtype | None = None,
 ) -> nn.Module:
     if norm == "no_norm":
         return nn.Identity()

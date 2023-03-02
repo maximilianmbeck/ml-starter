@@ -1,5 +1,6 @@
 import logging
 import os
+from typing import Callable
 
 import torch
 
@@ -38,3 +39,7 @@ class GPUDevice(BaseDevice):
         else:
             return torch.float16
             # return torch.bfloat16
+
+    @classmethod
+    def get_torch_compile_backend(cls) -> str | Callable:
+        return "inductor"

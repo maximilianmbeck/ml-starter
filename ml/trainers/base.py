@@ -5,20 +5,7 @@ import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import (
-    Any,
-    Dict,
-    Generic,
-    List,
-    Literal,
-    Optional,
-    Set,
-    Tuple,
-    Type,
-    TypeVar,
-    cast,
-    get_args,
-)
+from typing import Any, Generic, Literal, TypeVar, cast, get_args
 
 import torch
 from omegaconf import II, MISSING, DictConfig, ListConfig, OmegaConf
@@ -86,7 +73,7 @@ def has_lock_file(exp_dir: Path, lock_type: LockType | None = None) -> bool:
     return any((exp_dir / f".lock_{lock_type_arg}").exists() for lock_type_arg in get_args(LockType))
 
 
-def get_ckpt_path(exp_dir: Path, state: Optional[State] = None) -> Path:
+def get_ckpt_path(exp_dir: Path, state: State | None = None) -> Path:
     """Defines the path to the checkpoint for a given state.
 
     Args:
@@ -129,8 +116,8 @@ def get_run_id(base_run_dir: Path, exp_name: str) -> int:
 def diff_configs(
     first: ListConfig | DictConfig,
     second: ListConfig | DictConfig,
-    prefix: Optional[str] = None,
-) -> Tuple[List[str], List[str]]:
+    prefix: str | None = None,
+) -> tuple[list[str], list[str]]:
     """Returns the difference between two configs.
 
     Args:
@@ -142,7 +129,7 @@ def diff_configs(
         Two lists of lines describing the diff between the two configs
     """
 
-    def get_diff_string(prefix: Optional[str], val: Any) -> str:
+    def get_diff_string(prefix: str | None, val: Any) -> str:
         if isinstance(val, (str, float, int)):
             return f"{prefix}={val}"
         return f"{prefix}= ... ({type(val)})"
@@ -150,13 +137,13 @@ def diff_configs(
     def cast_enums(k: Any) -> Any:
         return k.name if isinstance(k, enum.Enum) else k
 
-    new_first: List[str] = []
-    new_second: List[str] = []
+    new_first: list[str] = []
+    new_second: list[str] = []
 
     any_config = (ListConfig, DictConfig)
 
     if isinstance(first, DictConfig) and isinstance(second, DictConfig):
-        first_keys, second_keys = cast(Set[str], set(first.keys())), cast(Set[str], set(second.keys()))
+        first_keys, second_keys = cast(set[str], set(first.keys())), cast(set[str], set(second.keys()))
 
         # Gets the new keys in each config.
         new_first += [f"{prefix}.{key}" for key in first_keys.difference(second_keys)]
@@ -203,7 +190,7 @@ def save_config(exp_dir: Path, raw_config: DictConfig) -> None:
     if config_path.exists():
         added_keys, deleted_keys = diff_configs(raw_config, cast(DictConfig, OmegaConf.load(config_path)))
         if added_keys or deleted_keys:
-            change_lines: List[str] = []
+            change_lines: list[str] = []
             change_lines += [f" ↪ {colorize('+', 'green')} {added_key}" for added_key in added_keys]
             change_lines += [f" ↪ {colorize('-', 'red')} {deleted_key}" for deleted_key in deleted_keys]
             change_summary = "\n".join(change_lines)
@@ -217,13 +204,13 @@ def save_config(exp_dir: Path, raw_config: DictConfig) -> None:
 
 @dataclass
 class ValidationConfig:
-    valid_every_n_steps: Optional[int] = conf_field(100, help="Number of training steps to run per test step")
-    num_init_valid_steps: Optional[int] = conf_field(2, help="Number of initial validation steps")
+    valid_every_n_steps: int | None = conf_field(100, help="Number of training steps to run per test step")
+    num_init_valid_steps: int | None = conf_field(2, help="Number of initial validation steps")
 
 
 @dataclass
 class CheckpointConfig:
-    save_every_n_steps: Optional[int] = conf_field(None, help="Save a checkpoint every N steps")
+    save_every_n_steps: int | None = conf_field(None, help="Save a checkpoint every N steps")
     only_save_most_recent: bool = conf_field(False, help="Only keep the most recent checkpoint")
 
 
@@ -236,8 +223,8 @@ class BaseTrainerConfig(BaseConfig):
     base_run_dir: str = conf_field(II("resolve:${oc.env:RUN_DIR}"), help="The base directory for all runs")
     run_id: int = conf_field(MISSING, help="The run ID to use")
     use_double_weight_precision: bool = conf_field(False, help="If set, use doubles for weights instead of floats")
-    validation: ValidationConfig = ValidationConfig()
-    checkpoint: CheckpointConfig = CheckpointConfig()
+    validation: ValidationConfig = conf_field(ValidationConfig())
+    checkpoint: CheckpointConfig = conf_field(CheckpointConfig())
 
     @classmethod
     def resolve(cls, config: "BaseTrainerConfig") -> None:
@@ -253,7 +240,7 @@ class BaseTrainer(BaseObjectWithPointers[TrainerConfigT], Generic[TrainerConfigT
     """Defines the base trainer type."""
 
     logger: MultiLogger
-    loggers: List[BaseLogger]
+    loggers: list[BaseLogger]
 
     def __init__(self, config: TrainerConfigT) -> None:
         super().__init__(config)
@@ -267,7 +254,7 @@ class BaseTrainer(BaseObjectWithPointers[TrainerConfigT], Generic[TrainerConfigT
         logger.info("Experiment directory: %s", self.exp_dir)
 
     @functools.cached_property
-    def _device(self) -> Type[BaseDevice]:
+    def _device(self) -> type[BaseDevice]:
         return AutoDevice.get_device_from_key(self.config.device)
 
     @functools.cached_property
@@ -284,7 +271,7 @@ class BaseTrainer(BaseObjectWithPointers[TrainerConfigT], Generic[TrainerConfigT
         sublogger.initialize(self.log_dir)
         self.loggers += [sublogger]
 
-    def add_loggers(self, subloggers: List[BaseLogger]) -> None:
+    def add_loggers(self, subloggers: list[BaseLogger]) -> None:
         for sublogger in subloggers:
             self.add_logger(sublogger)
 
@@ -299,7 +286,7 @@ class BaseTrainer(BaseObjectWithPointers[TrainerConfigT], Generic[TrainerConfigT
         if remove_lock_file(self.exp_dir, lock_type=lock_type, missing_ok=missing_ok):
             logger.debug("Removed %s lock file in %s", lock_type, self.exp_dir)
 
-    def get_ckpt_path(self, state: Optional[State] = None) -> Path:
+    def get_ckpt_path(self, state: State | None = None) -> Path:
         return get_ckpt_path(self.exp_dir, state)
 
     def should_checkpoint(self, state: State) -> bool:
@@ -396,14 +383,14 @@ class BaseTrainer(BaseObjectWithPointers[TrainerConfigT], Generic[TrainerConfigT
                 value_logger.write(state)
             value_logger.clear(state)
 
-    def load_state_dict(self, ckpt: Dict[str, Any]) -> None:
+    def load_state_dict(self, ckpt: dict[str, Any]) -> None:
         """Function for loading state dict keys for different components.
 
         Args:
             ckpt: The loaded state dictionary
         """
 
-    def update_state_dict(self, ckpt: Dict[str, Any]) -> None:
+    def update_state_dict(self, ckpt: dict[str, Any]) -> None:
         """Function for getting the checkpoint to save.
 
         Args:
@@ -429,7 +416,7 @@ class BaseTrainer(BaseObjectWithPointers[TrainerConfigT], Generic[TrainerConfigT
         self,
         state: State,
         train_batch: Batch,
-        loss_dict: Dict[str, Tensor],
+        loss_dict: dict[str, Tensor],
         task: BaseTask,
         model: BaseModel,
         optim: Optimizer,

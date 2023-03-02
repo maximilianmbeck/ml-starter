@@ -1,20 +1,13 @@
 from dataclasses import dataclass
-from typing import Callable, Dict, Optional
+from typing import Callable
 
 from omegaconf import MISSING
 from torch import Tensor, nn
-from torchvision.models.resnet import (
-    ResNet,
-    resnet18,
-    resnet34,
-    resnet50,
-    resnet101,
-    resnet152,
-)
+from torchvision.models.resnet import ResNet, resnet18, resnet34, resnet50, resnet101, resnet152
 
 from ml import api
 
-MODELS: Dict[int, Callable[[bool], ResNet]] = {
+MODELS: dict[int, Callable[[bool], ResNet]] = {
     18: resnet18,
     34: resnet34,
     50: resnet50,
@@ -27,10 +20,10 @@ MODELS: Dict[int, Callable[[bool], ResNet]] = {
 class ResNetModelConfig(api.BaseModelConfig):
     size: int = api.conf_field(MISSING, help="ResNet size to use")
     pretrained: bool = api.conf_field(True, help="Load pretrained model")
-    num_classes: Optional[int] = api.conf_field(None, help="If set, adds an output head with this many classes")
+    num_classes: int | None = api.conf_field(None, help="If set, adds an output head with this many classes")
 
     @classmethod
-    def get_defaults(cls) -> Dict[str, "ResNetModelConfig"]:
+    def get_defaults(cls) -> dict[str, "ResNetModelConfig"]:
         return {
             "resnet18": ResNetModelConfig(size=18),
             "resnet34": ResNetModelConfig(size=34),

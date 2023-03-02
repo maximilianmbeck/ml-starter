@@ -1,5 +1,5 @@
 import math
-from typing import Literal, Optional, Tuple, cast, get_args
+from typing import Literal, cast, get_args
 
 import torch
 from torch import Tensor, nn
@@ -23,7 +23,7 @@ def cast_init_type(s: str) -> InitializationType:
     return cast(InitializationType, s)
 
 
-def _uniform_bias(weight: Tensor, bias: Optional[Tensor]) -> Optional[Tensor]:
+def _uniform_bias(weight: Tensor, bias: Tensor | None) -> Tensor | None:
     if bias is None:
         return None
     fan_in, _ = nn.init._calculate_fan_in_and_fan_out(weight)
@@ -37,12 +37,12 @@ def _uniform_bias(weight: Tensor, bias: Optional[Tensor]) -> Optional[Tensor]:
 
 def init_(
     weight: Tensor,
-    bias: Optional[Tensor],
+    bias: Tensor | None,
     init: InitializationType,
     *,
     normal_std: float = 0.01,
     uniform_scale: float = 0.02,
-) -> Tuple[Tensor, Optional[Tensor]]:
+) -> tuple[Tensor, Tensor | None]:
     """Initializes the weight and bias in-place, using an initialization key.
 
     The weight and bias are from a convolution or linear layer.

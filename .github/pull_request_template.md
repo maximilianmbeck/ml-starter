@@ -13,5 +13,5 @@ pytest path/to/test.py
 - Training command
 
 ```bash
-ml train config/task_config.yaml
+runml train config/task_config.yaml
 ```

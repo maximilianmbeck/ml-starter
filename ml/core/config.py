@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict, Generic, Optional, Type, TypeVar
+from typing import TYPE_CHECKING, Any, Dict, Generic, TypeVar
 
 import torch
 from omegaconf import MISSING, DictConfig
@@ -13,8 +13,8 @@ FieldType = Any
 def conf_field(
     value: FieldType,
     *,
-    help: Optional[str] = None,  # pylint: disable=redefined-builtin
-    short: Optional[str] = None,
+    help: str | None = None,  # pylint: disable=redefined-builtin
+    short: str | None = None,
 ) -> FieldType:
     """Gets a field for a given value.
 
@@ -37,8 +37,9 @@ def conf_field(
 
     if hasattr(value, "__call__"):
         return field(default_factory=value, metadata=metadata)
-    else:
-        return field(default=value, metadata=metadata)
+    if value.__class__.__hash__ is None:
+        return field(default_factory=lambda: value, metadata=metadata)
+    return field(default=value, metadata=metadata)
 
 
 BaseConfigT = TypeVar("BaseConfigT", bound="BaseConfig")
@@ -51,7 +52,7 @@ class BaseConfig:
     name: str = conf_field(MISSING, short="n", help="The referenced name of the object to construct")
 
     @classmethod
-    def get_defaults(cls: Type[BaseConfigT]) -> Dict[str, BaseConfigT]:
+    def get_defaults(cls: type[BaseConfigT]) -> Dict[str, BaseConfigT]:
         """Returns default configurations.
 
         Returns:
@@ -61,7 +62,7 @@ class BaseConfig:
         return {}
 
     @classmethod
-    def resolve(cls: Type[BaseConfigT], config: BaseConfigT) -> None:
+    def resolve(cls: type[BaseConfigT], config: BaseConfigT) -> None:
         """Runs post-construction config resolution.
 
         Args:
@@ -82,8 +83,8 @@ class BaseObjectWithPointers(BaseObject[BaseConfigT], Generic[BaseConfigT]):
     def __init__(self, config: BaseConfigT) -> None:
         super().__init__(config)
 
-        self._raw_config: Optional[DictConfig] = None
-        self._objects: Optional["Objects"] = None
+        self._raw_config: DictConfig | None = None
+        self._objects: "Objects" | None = None
 
     @property
     @torch.jit.unused

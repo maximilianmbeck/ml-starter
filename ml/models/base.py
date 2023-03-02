@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import Generic, List, Optional, Tuple, TypeVar
+from typing import Generic, TypeVar
 
 import torch
 from torch import Tensor, nn
@@ -20,7 +20,7 @@ class BaseModelConfig(BaseConfig):
 ModelConfigT = TypeVar("ModelConfigT", bound=BaseModelConfig)
 
 
-def summarize(names: List[Tuple[str, torch.device]]) -> str:
+def summarize(names: list[tuple[str, torch.device]]) -> str:
     return "".join(f"\n ↪ {colorize(k, 'red')} - {device}" for k, device in names)
 
 
@@ -34,7 +34,7 @@ class BaseModel(BaseObject[ModelConfigT], Generic[ModelConfigT], nn.Module):
         # Used to log values to the trainer.
         self.logger = MultiLogger(default_namespace="model")
 
-    def init(self, device: torch.device, dtype: Optional[torch.dtype] = None) -> None:
+    def init(self, device: torch.device, dtype: torch.dtype | None = None) -> None:
         # Moves all non-meta tensors to the first device.
         def move_to_device(t: Tensor) -> Tensor:
             if t.is_meta:

@@ -4,6 +4,7 @@ import random
 import numpy as np
 import pytest
 import torch
+from _pytest.mark import Mark
 from _pytest.python import Function
 
 
@@ -23,3 +24,8 @@ def pytest_runtest_setup(item: Function) -> None:
     for mark in item.iter_markers():
         if mark.name == "has_gpu" and not has_gpu():
             pytest.skip("Skipping because this test requires a GPU and none is available")
+
+
+def pytest_collection_modifyitems(items: list[Function]) -> None:
+    empty_mark = Mark(name="", args=(), kwargs={})
+    items.sort(key=lambda item: item.get_closest_marker("slow", default=empty_mark), reverse=False)

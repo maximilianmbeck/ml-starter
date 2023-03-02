@@ -9,7 +9,11 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 def compile_main(config: DictConfig) -> None:
-    """Compiles the training loop into a single file."""  # noqa
+    """Compiles the training loop into a single file.
+
+    Args:
+        config: The configuration object.
+    """
 
     # Gets a unique output file path.
     out_path = Path.cwd() / "out" / "train.py"

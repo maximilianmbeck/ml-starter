@@ -2,7 +2,7 @@ import logging
 import sys
 from functools import partial
 from pathlib import Path
-from typing import List, Optional, Set, cast
+from typing import cast
 
 from omegaconf import DictConfig, OmegaConf
 
@@ -11,7 +11,7 @@ from ml.core.env import get_global_tags, set_exp_name
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-IGNORE_ARGS: Set[str] = {
+IGNORE_ARGS: set[str] = {
     "trainer.exp_name",
     "trainer.log_dir_name",
     "trainer.base_run_dir",
@@ -20,8 +20,8 @@ IGNORE_ARGS: Set[str] = {
 }
 
 
-def get_exp_name(prefix: Optional[str] = None, args: Optional[List[str]] = None) -> str:
-    parts: List[str] = []
+def get_exp_name(prefix: str | None = None, args: list[str] | None = None) -> str:
+    parts: list[str] = []
     if prefix is not None:
         parts += [prefix]
     if args is not None:
@@ -46,7 +46,7 @@ def get_stem(path_str: str) -> str:
     return path.stem
 
 
-def parse_cli(args: List[str]) -> DictConfig:
+def parse_cli(args: list[str]) -> DictConfig:
     """Parses the remaining command-line arguments to a raw config.
 
     Args:
@@ -65,8 +65,8 @@ def parse_cli(args: List[str]) -> DictConfig:
 
     # Builds the configs from the command-line arguments.
     config = DictConfig({})
-    argument_parts: List[str] = []
-    paths: List[Path] = []
+    argument_parts: list[str] = []
+    paths: list[Path] = []
 
     # Parses all of the config paths.
     while len(args) > 0 and (args[0].endswith(".yaml") or args[0].endswith(".yml")):

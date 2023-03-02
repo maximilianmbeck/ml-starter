@@ -21,11 +21,12 @@
     "editor.formatOnSave": true
   },
   "[python]": {
-    "editor.defaultFormatter": "ms-python.python",
+    "editor.defaultFormatter": "ms-python.black-formatter",
+    "editor.formatOnSave": true,
     "editor.codeActionsOnSave": {
-      "source.fixAll": true
-    },
-    "editor.formatOnSave": true
+      "source.fixAll": true,
+      "source.organizeImports": true
+    }
   },
 
   /* Configuration languages */
@@ -55,6 +56,8 @@
   "python.linting.pylintEnabled": false,
   "python.linting.flake8Enabled": false,
   "python.analysis.exclude": ["setup.py"],
+  "ruff.fixAll": false,
+  "ruff.organizeImports": true,
 
   /* CMake variables */
   "cmake.sourceDirectory": "${workspaceFolder}/ml/cpp"

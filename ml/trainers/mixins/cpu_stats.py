@@ -4,7 +4,7 @@ import multiprocessing as mp
 import os
 import time
 from dataclasses import dataclass
-from typing import Optional, TypeVar
+from typing import TypeVar
 
 import psutil
 from torch.optim.optimizer import Optimizer
@@ -83,7 +83,7 @@ class CPUStatsMixin(BaseTrainer[CPUStatsConfigT]):
     def __init__(self, config: CPUStatsConfigT) -> None:
         super().__init__(config)
 
-        self._cpu_stats: Optional[CPUStats] = None
+        self._cpu_stats: CPUStats | None = None
         self._cpu_stats_queue: "mp.Queue[CPUStats]" = mp.Queue()
 
         proc = mp.Process(target=worker, args=(config, self._cpu_stats_queue, os.getpid()), daemon=True)

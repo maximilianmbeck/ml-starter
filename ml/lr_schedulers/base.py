@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Dict, Generic, Optional, TypeVar
+from typing import Any, Generic, TypeVar
 
 from torch.optim.optimizer import Optimizer
 
@@ -11,7 +11,7 @@ from ml.core.state import State
 class SchedulerAdapter:
     """Defines a general-purpose learning rate scheduler adapter."""
 
-    last_state: Optional[State]
+    last_state: State | None
 
     def __init__(self, scheduler: "BaseLRScheduler", optimizer: Optimizer) -> None:
         self.scheduler = scheduler
@@ -23,10 +23,10 @@ class SchedulerAdapter:
 
         self.lr_scale = 0.0
 
-    def state_dict(self) -> Dict[str, Any]:
+    def state_dict(self) -> dict[str, Any]:
         return self.optimizer.state_dict()
 
-    def load_state_dict(self, state_dict: Dict[str, Any]) -> None:
+    def load_state_dict(self, state_dict: dict[str, Any]) -> None:
         self.optimizer.load_state_dict(state_dict)
 
     def step(self, state: State) -> None:

@@ -4,7 +4,7 @@ import random
 import time
 from collections import Counter
 from dataclasses import dataclass
-from typing import Iterator, List, Optional, TypeVar
+from typing import Iterator, TypeVar
 
 from torch.utils.data.dataloader import get_worker_info
 from torch.utils.data.dataset import Dataset, IterableDataset
@@ -36,7 +36,7 @@ class ExceptionSummary:
         self.summary_length = summary_length
         self.exception_classes: Counter[str] = Counter()
         self.exceptions: Counter[str] = Counter()
-        self.last_exception: Optional[Exception] = None
+        self.last_exception: Exception | None = None
 
     def add_exception(self, exc: Exception) -> None:
         self.last_exception = exc
@@ -50,7 +50,7 @@ class ExceptionSummary:
         self.steps += 1
 
     def summary(self) -> str:
-        lines: List[str] = []
+        lines: list[str] = []
 
         def get_log_line(k: str, v: int) -> str:
             if len(k) > 60:

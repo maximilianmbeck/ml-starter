@@ -1,7 +1,7 @@
 """Utility functions for dealing with large models."""
 
 from contextlib import contextmanager
-from typing import Callable, Iterator, Optional
+from typing import Callable, Iterator
 
 import torch
 from torch import Tensor, nn
@@ -27,7 +27,7 @@ def init_empty_weights(include_buffers: bool = False) -> Iterator[None]:
     if include_buffers:
         old_register_buffer = nn.Module.register_buffer
 
-    def register_empty_parameter(module: nn.Module, name: str, param: Optional[nn.Parameter]) -> None:
+    def register_empty_parameter(module: nn.Module, name: str, param: nn.Parameter | None) -> None:
         old_register_parameter(module, name, param)
         if param is not None:
             param_cls = type(module._parameters[name])
@@ -35,7 +35,7 @@ def init_empty_weights(include_buffers: bool = False) -> Iterator[None]:
             meta_param = module._parameters[name].to(torch.device("meta"))  # type: ignore
             module._parameters[name] = param_cls(meta_param, **kwargs)  # type: ignore
 
-    def register_empty_buffer(module: nn.Module, name: str, buffer: Optional[Tensor]) -> None:
+    def register_empty_buffer(module: nn.Module, name: str, buffer: Tensor | None) -> None:
         old_register_buffer(module, name, buffer)
         if buffer is not None:
             module._buffers[name] = module._buffers[name].to(torch.device("meta"))  # type: ignore
@@ -51,7 +51,7 @@ def init_empty_weights(include_buffers: bool = False) -> Iterator[None]:
             nn.Module.register_buffer = old_register_buffer  # type: ignore
 
 
-def meta_to_empty_func(device: torch.device, dtype: Optional[torch.dtype]) -> Callable[[Tensor], Tensor]:
+def meta_to_empty_func(device: torch.device, dtype: torch.dtype | None) -> Callable[[Tensor], Tensor]:
     def _func(t: Tensor) -> Tensor:
         if not t.is_meta:
             return t

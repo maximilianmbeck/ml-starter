@@ -7,18 +7,7 @@ import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, is_dataclass
 from pathlib import Path
-from typing import (
-    Any,
-    Dict,
-    Generic,
-    List,
-    Mapping,
-    Optional,
-    Sequence,
-    Sized,
-    Tuple,
-    TypeVar,
-)
+from typing import Any, Generic, Mapping, Sequence, Sized, TypeVar
 
 import numpy as np
 import torch
@@ -37,10 +26,7 @@ from ml.loggers.multi import MultiLogger
 from ml.lr_schedulers.base import SchedulerAdapter
 from ml.models.base import BaseModel
 from ml.tasks.datasets.collate import CollateMode, collate
-from ml.tasks.datasets.error_handling import (
-    ErrorHandlingConfig,
-    get_error_handling_dataset,
-)
+from ml.tasks.datasets.error_handling import ErrorHandlingConfig, get_error_handling_dataset
 from ml.tasks.losses.reduce import cast_reduce_type, reduce
 from ml.utils.random import set_random_seed
 
@@ -116,8 +102,8 @@ class StateTimer:
         self.sample_timer.step(state.num_samples, cur_time)
         self.iter_timer.step(cur_time)
 
-    def log_dict(self) -> Dict[str, int | float]:
-        logs: Dict[str, int | float] = {}
+    def log_dict(self) -> dict[str, int | float]:
+        logs: dict[str, int | float] = {}
 
         # Logs epoch statistics (only if at least one epoch seen).
         if self.epoch_timer.steps > 0:
@@ -146,12 +132,12 @@ class DataLoaderConfig:
     pin_memory: bool = conf_field(MISSING, help="Should memory be pinned to it's GPU location")
     drop_last: bool = conf_field(MISSING, help="Should the last batch be dropped if not full")
     timeout: float = conf_field(0, help="How long to wait for a sample to be ready")
-    prefetch_factor: int = conf_field(2, help="Number of items to pre-fetch on each worker")
+    prefetch_factor: int | None = conf_field(None, help="Number of items to pre-fetch on each worker")
     persistent_workers: bool = conf_field(False, help="Persiste worker processes between epochs")
     seed: int = conf_field(1337, help="Dataloader random seed")
 
 
-DEFAULT_DATALOADER_CONFIGS: Dict[str, DataLoaderConfig] = {
+DEFAULT_DATALOADER_CONFIGS: dict[str, DataLoaderConfig] = {
     "train": DataLoaderConfig(
         shuffle=True,
         num_workers=8,
@@ -180,9 +166,9 @@ DEFAULT_DATALOADER_CONFIGS: Dict[str, DataLoaderConfig] = {
 
 @dataclass
 class FinishTrainingConfig:
-    max_epochs: Optional[int] = conf_field(None, help="Maximum number of epochs to run")
-    max_steps: Optional[int] = conf_field(None, help="Maximum number of steps to run")
-    max_samples: Optional[int] = conf_field(None, help="Maximum number of samples to run")
+    max_epochs: int | None = conf_field(None, help="Maximum number of epochs to run")
+    max_steps: int | None = conf_field(None, help="Maximum number of steps to run")
+    max_samples: int | None = conf_field(None, help="Maximum number of samples to run")
 
 
 @dataclass
@@ -194,10 +180,10 @@ class LossConfig:
 class BaseTaskConfig(BaseConfig):
     """Defines the base config for all tasks."""
 
-    dataloader: Dict[str, DataLoaderConfig] = conf_field(lambda: DEFAULT_DATALOADER_CONFIGS)
-    finished: FinishTrainingConfig = FinishTrainingConfig()
-    error_handling: ErrorHandlingConfig = ErrorHandlingConfig()
-    loss: LossConfig = LossConfig()
+    dataloader: dict[str, DataLoaderConfig] = conf_field(DEFAULT_DATALOADER_CONFIGS, help="Dataloader config")
+    finished: FinishTrainingConfig = conf_field(FinishTrainingConfig(), help="Finish training config")
+    error_handling: ErrorHandlingConfig = conf_field(ErrorHandlingConfig(), help="Error handling config")
+    loss: LossConfig = conf_field(LossConfig(), help="Loss config")
 
 
 TaskConfigT = TypeVar("TaskConfigT", bound=BaseTaskConfig)
@@ -210,7 +196,7 @@ class BaseTask(nn.Module, BaseObjectWithPointers[TaskConfigT], Generic[TaskConfi
         nn.Module.__init__(self)
         BaseObjectWithPointers.__init__(self, config)
 
-        self.dataloader_configs: Dict[Phase, DataLoaderConfig] = {
+        self.dataloader_configs: dict[Phase, DataLoaderConfig] = {
             cast_phase(k): v for k, v in config.dataloader.items()
         }
 
@@ -258,7 +244,7 @@ class BaseTask(nn.Module, BaseObjectWithPointers[TaskConfigT], Generic[TaskConfi
             The computed loss, as a tensor or dictionary of tensors
         """
 
-    def get_single_loss(self, loss: Loss) -> Tuple[Tensor, List[str]]:
+    def get_single_loss(self, loss: Loss) -> tuple[Tensor, list[str]]:
         """Combines the output losses to get a single loss with shape (N, B).
 
         Args:
@@ -322,7 +308,7 @@ class BaseTask(nn.Module, BaseObjectWithPointers[TaskConfigT], Generic[TaskConfi
         self.__training_over_flag = True
 
     def get_remaining_percent(self, state: State) -> float | None:
-        remaining_percents: List[float] = []
+        remaining_percents: list[float] = []
         cfg = self.config.finished
         if cfg.max_epochs is not None:
             remaining_percents.append((cfg.max_epochs - state.num_epochs) / cfg.max_epochs)
@@ -371,7 +357,7 @@ class BaseTask(nn.Module, BaseObjectWithPointers[TaskConfigT], Generic[TaskConfi
 
         raise NotImplementedError("`get_sampler` should be implemented for the specific task")
 
-    def get_batch_sampler(self, sampler: Sampler, cfg: DataLoaderConfig, phase: Phase) -> Sampler[List[int]]:
+    def get_batch_sampler(self, sampler: Sampler, cfg: DataLoaderConfig, phase: Phase) -> Sampler[list[int]]:
         """Returns a dataset batch sampler to use instead fo sequential sampling.
 
         The batch sampler should yield lists of integer indices, which
@@ -410,7 +396,7 @@ class BaseTask(nn.Module, BaseObjectWithPointers[TaskConfigT], Generic[TaskConfi
             "worker_init_fn": self.worker_init_fn,
             "multiprocessing_context": None,
             "generator": None,
-            "prefetch_factor": 2 if debugging else cfg.prefetch_factor,
+            "prefetch_factor": None if debugging else cfg.prefetch_factor,
             "persistent_workers": False if debugging else cfg.persistent_workers,
         }
 
@@ -447,14 +433,14 @@ class BaseTask(nn.Module, BaseObjectWithPointers[TaskConfigT], Generic[TaskConfi
         set_random_seed(offset=worker_id)
 
     @classmethod
-    def collate_fn(cls, items: List[Any], *, mode: CollateMode = "stack") -> Any | None:
+    def collate_fn(cls, items: list[Any], *, mode: CollateMode = "stack") -> Any | None:
         return collate(items, mode=mode)
 
     # -----
     # Hooks
     # -----
 
-    def on_after_load_checkpoint(self, ckpt: Dict[str, Any]) -> None:
+    def on_after_load_checkpoint(self, ckpt: dict[str, Any]) -> None:
         pass
 
     def on_after_save_checkpoint(self, ckpt_path: Path) -> None:
@@ -483,7 +469,7 @@ class BaseTask(nn.Module, BaseObjectWithPointers[TaskConfigT], Generic[TaskConfi
         self,
         state: State,
         train_batch: Batch,
-        loss_dict: Dict[str, Tensor],
+        loss_dict: dict[str, Tensor],
         model: BaseModel,
         optim: Optimizer,
         lr_sched: SchedulerAdapter,

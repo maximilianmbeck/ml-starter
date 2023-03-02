@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, Callable, Optional, TypeVar
+from typing import Any, Callable, TypeVar
 
 import torch
 from torch import Tensor, nn
@@ -15,16 +15,16 @@ from ml.trainers.mixins.mixed_precision import (
 
 @dataclass
 class GradientClipping:
-    clip_grad_norm: Optional[float] = conf_field(None, help="What to clip the gradient norm to")
+    clip_grad_norm: float | None = conf_field(None, help="What to clip the gradient norm to")
     norm_type: Any = conf_field(2, help="Type of norm to use")
-    clip_grad_value: Optional[float] = conf_field(None, help="What to clip the gradient value to")
-    clip_global_grad_norm: Optional[float] = conf_field(None, help="What to clip global gradient norm to")
+    clip_grad_value: float | None = conf_field(None, help="What to clip the gradient value to")
+    clip_global_grad_norm: float | None = conf_field(None, help="What to clip global gradient norm to")
     global_norm_type: Any = conf_field(2, help="Type of global norm to use")
 
 
 @dataclass
 class GradientClippingConfig(MixedPrecisionTrainerConfig, BaseTrainerConfig):
-    grad_clipping: GradientClipping = GradientClipping()
+    grad_clipping: GradientClipping = conf_field(GradientClipping(), help="Gradient clipping configuration")
 
 
 GradientClippingConfigT = TypeVar("GradientClippingConfigT", bound=GradientClippingConfig)

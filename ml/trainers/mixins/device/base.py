@@ -178,6 +178,15 @@ class BaseDevice(ABC):
         """
 
     @classmethod
+    @abstractmethod
+    def get_torch_compile_backend(cls) -> str | Callable:
+        """Returns the backend to use for Torch compile.
+
+        Returns:
+            The backend
+        """
+
+    @classmethod
     def sample_to_device(cls, sample: Any) -> Any:
         device = cls.get_device()
         dtype_fp = cls.get_floating_point_type()

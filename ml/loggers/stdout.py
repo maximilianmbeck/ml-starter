@@ -2,7 +2,7 @@ import datetime
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable
 
 from torch import Tensor
 
@@ -39,7 +39,7 @@ class StdoutLogger(BaseLogger[StdoutLoggerConfig]):
     def __init__(self, config: StdoutLoggerConfig) -> None:
         super().__init__(config)
 
-        self.log_values: Dict[Phase, Dict[str, Dict[str, Callable[[], Any]]]] = {}
+        self.log_values: dict[Phase, dict[str, dict[str, Callable[[], Any]]]] = {}
         self.logger = logging.getLogger("stdout")
 
     def initialize(self, log_directory: Path) -> None:
@@ -50,7 +50,7 @@ class StdoutLogger(BaseLogger[StdoutLoggerConfig]):
         self.logger.addHandler(file_handler)
         self.logger.debug("Finished initializing logger")
 
-    def get_log_dict(self, state: State, namespace: Optional[str]) -> Dict[str, Callable[[], Any]]:
+    def get_log_dict(self, state: State, namespace: str | None) -> dict[str, Callable[[], Any]]:
         if namespace is None:
             namespace = "default"
         if state.phase not in self.log_values:
@@ -65,7 +65,7 @@ class StdoutLogger(BaseLogger[StdoutLoggerConfig]):
     def log_string(self, key: str, value: Callable[[], str], state: State, namespace: str) -> None:
         self.get_log_dict(state, namespace)[key] = value
 
-    def log_config(self, config: Dict[str, int | float | str | bool], metrics: Dict[str, int | float]) -> None:
+    def log_config(self, config: dict[str, int | float | str | bool], metrics: dict[str, int | float]) -> None:
         for k, v in sorted(metrics.items()):
             self.logger.info("%s: %s", k, as_str(v, self.config.precision))
 
@@ -77,7 +77,7 @@ class StdoutLogger(BaseLogger[StdoutLoggerConfig]):
         elapsed_time = datetime.datetime.now() - self.start_time
         elapsed_time_str = format_timedelta(elapsed_time)
 
-        def get_section_string(name: str, section: Dict[str, Any]) -> str:
+        def get_section_string(name: str, section: dict[str, Any]) -> str:
             inner_str = ", ".join(f'"{k}": {as_str(v(), self.config.precision)}' for k, v in sorted(section.items()))
             return '"' + name + '": {' + inner_str + "}"
 

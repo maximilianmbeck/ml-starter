@@ -1,3 +1,5 @@
+from typing import Callable
+
 import torch
 
 from ml.trainers.mixins.device.base import BaseDevice
@@ -17,3 +19,7 @@ class CPUDevice(BaseDevice):
     @classmethod
     def get_floating_point_type(cls) -> torch.dtype:
         return torch.float32
+
+    @classmethod
+    def get_torch_compile_backend(cls) -> str | Callable:
+        return "aot_ts"

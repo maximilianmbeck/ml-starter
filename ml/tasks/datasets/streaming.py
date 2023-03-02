@@ -1,6 +1,6 @@
 import logging
 import random
-from typing import Collection, Dict, Generic, Iterator, List, Optional, Tuple, TypeVar
+from typing import Collection, Generic, Iterator, TypeVar
 
 from torch.utils.data.dataloader import get_worker_info
 from torch.utils.data.dataset import IterableDataset
@@ -10,7 +10,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 Batch = TypeVar("Batch")
 
 
-class StreamingDataset(IterableDataset[Tuple[int, Batch]], Generic[Batch]):
+class StreamingDataset(IterableDataset[tuple[int, Batch]], Generic[Batch]):
     def __init__(self, datasets: Collection[IterableDataset[Batch]], max_simultaneous: int) -> None:
         """Defines a dataset which combines many streaming datasets.
 
@@ -43,12 +43,12 @@ class StreamingDataset(IterableDataset[Tuple[int, Batch]], Generic[Batch]):
         self.datasets = list(datasets)
         self.max_simultaneous = max_simultaneous
 
-    worker_datasets: Dict[int, IterableDataset[Batch]]
-    iterators: Dict[int, Iterator[Batch]]
-    reservoir: List[int]
+    worker_datasets: dict[int, IterableDataset[Batch]]
+    iterators: dict[int, Iterator[Batch]]
+    reservoir: list[int]
     reservoir_pointer: int
 
-    def __iter__(self) -> Iterator[Tuple[int, Batch]]:
+    def __iter__(self) -> Iterator[tuple[int, Batch]]:
         worker_info = get_worker_info()
         dataset_ids = list(range(len(self.datasets)))
         if worker_info is None:
@@ -90,9 +90,9 @@ class StreamingDataset(IterableDataset[Tuple[int, Batch]], Generic[Batch]):
         self.swap_reservoir(reservoir_id, self.reservoir_pointer - 1)
         self.reservoir_pointer -= 1
 
-    def __next__(self) -> Tuple[int, Batch]:
-        dataset_id: Optional[int] = None
-        sample: Optional[Batch] = None
+    def __next__(self) -> tuple[int, Batch]:
+        dataset_id: int | None = None
+        sample: Batch | None = None
         while dataset_id is None or sample is None:
             self.fill_reservoir()
             reservoir_id = self.sample_reservoir_id()

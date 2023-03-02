@@ -1,12 +1,12 @@
-from typing import Any, Callable, Dict, Iterable, Optional, Tuple, Union
+from typing import Any, Callable, Iterable
 
 from torch import Tensor
 
-Params = Union[Iterable[Tensor], Iterable[Dict[str, Any]]]
+Params = Iterable[Tensor] | Iterable[dict[str, Any]]
 
 LossClosure = Callable[[], float]
-OptLossClosure = Optional[LossClosure]
-Betas2 = Tuple[float, float]
-State = Dict[str, Any]
-OptFloat = Optional[float]
-Nus2 = Tuple[float, float]
+OptLossClosure = LossClosure | None
+Betas2 = tuple[float, float]
+State = dict[str, Any]
+OptFloat = float | None
+Nus2 = tuple[float, float]

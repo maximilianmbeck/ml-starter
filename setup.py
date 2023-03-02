@@ -3,7 +3,6 @@
 # pylint: disable=import-error
 # mypy: ignore-errors
 
-import functools
 import os
 import re
 import shutil
@@ -226,16 +225,6 @@ with open("requirements-dev.txt", "r", encoding="utf-8") as f:
     requirements_dev: List[str] = f.read().splitlines()
 
 
-@functools.lru_cache
-def get_torch_requirement() -> str:
-    # Matches "torch\n", "torch==something\n", "torch>=something\n"
-    regexp = re.compile(r"torch(\s*(==|>=|<=)\s*\S+)?\s*$")
-    for line in requirements:
-        if regexp.match(line):
-            return line
-    raise RuntimeError("Could not find torch requirement")
-
-
 setup(
     name="ml",
     version="0.0.1",
@@ -252,12 +241,7 @@ setup(
         "Programming Language :: Python :: 3",
     ],
     python_requires=">=3.10",
-    setup_requires=[
-        "cmake",
-        "mypy",  # For Stubgen
-        "pybind11",
-        get_torch_requirement(),
-    ],
+    setup_requires=["cmake", "mypy", "pybind11", "torch"],
     install_requires=requirements,
     tests_require=requirements_dev,
     extras_require={"dev": requirements_dev},

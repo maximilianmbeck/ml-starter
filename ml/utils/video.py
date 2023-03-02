@@ -3,16 +3,7 @@ import re
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from typing import (
-    AsyncGenerator,
-    Callable,
-    Dict,
-    Iterator,
-    List,
-    Literal,
-    Optional,
-    Tuple,
-)
+from typing import AsyncGenerator, Callable, Iterator, Literal
 
 import cv2
 import ffmpeg
@@ -103,8 +94,8 @@ async def read_video_with_timestamps_ffmpeg(
     in_file: str | Path,
     output_fmt: str = "rgb24",
     channels: int = 3,
-    target_dims: Tuple[int | None, int | None] | None = None,
-) -> AsyncGenerator[Tuple[np.ndarray, float], None]:
+    target_dims: tuple[int | None, int | None] | None = None,
+) -> AsyncGenerator[tuple[np.ndarray, float], None]:
     """Like `read_video_ffmpeg` but also returns timestamps.
 
     Args:
@@ -124,7 +115,7 @@ async def read_video_with_timestamps_ffmpeg(
     def aspect_ratio(x: int, a: int, b: int) -> int:
         return (x * a + b - 1) // b
 
-    vf: List[str] = []
+    vf: list[str] = []
     if target_dims is not None:
         width_opt, height_opt = target_dims
         if width_opt is None:
@@ -277,7 +268,7 @@ def write_video_matplotlib(
     dpi: int = 50,
     fps: int = 30,
     title: str = "Video",
-    comment: Optional[str] = None,
+    comment: str | None = None,
     writer: str = "ffmpeg",
 ) -> None:
     """Function that writes an video from a stream of input tensors.
@@ -332,12 +323,12 @@ def write_video_matplotlib(
 Reader = Literal["ffmpeg", "opencv"]
 Writer = Literal["ffmpeg", "matplotlib", "opencv"]
 
-READERS: Dict[Reader, Callable[[str | Path], Iterator[np.ndarray]]] = {
+READERS: dict[Reader, Callable[[str | Path], Iterator[np.ndarray]]] = {
     "ffmpeg": read_video_ffmpeg,
     "opencv": read_video_opencv,
 }
 
-WRITERS: Dict[Writer, Callable[[Iterator[np.ndarray], str | Path], None]] = {
+WRITERS: dict[Writer, Callable[[Iterator[np.ndarray], str | Path], None]] = {
     "ffmpeg": write_video_ffmpeg,
     "matplotlib": write_video_matplotlib,
     "opencv": write_video_opencv,

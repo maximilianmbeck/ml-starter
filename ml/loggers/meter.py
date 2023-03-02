@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Iterable, List, Optional
+from typing import Any, Callable, Iterable
 
 from torch import Tensor
 
@@ -27,9 +27,9 @@ class MeterLogger(BaseLogger[MeterLoggerConfig]):
     def __init__(self, config: MeterLoggerConfig) -> None:
         super().__init__(config)
 
-        self.meters: Dict[Phase, Dict[str, Dict[str, Meter]]] = {}
+        self.meters: dict[Phase, dict[str, dict[str, Meter]]] = {}
 
-    def get_meter(self, state: State, key: str, namespace: Optional[str]) -> Meter:
+    def get_meter(self, state: State, key: str, namespace: str | None) -> Meter:
         if namespace is None:
             namespace = "default"
         if state.phase not in self.meters:
@@ -47,16 +47,16 @@ class MeterLogger(BaseLogger[MeterLoggerConfig]):
                 for vvv in vv.values():
                     yield vvv
 
-    def get_value_dict(self) -> Dict[str, int | float]:
+    def get_value_dict(self) -> dict[str, int | float]:
         # First, reduces the meters.
-        works: List[Any] = []
+        works: list[Any] = []
         for meter in self.iter_meters():
             works.extend(meter.reduce())
         for work in works:
             work.wait()
 
         # Next, builds the output dictionaries.
-        out_dict: Dict[str, int | float] = {}
+        out_dict: dict[str, int | float] = {}
         for phase, phase_meters in self.meters.items():
             for namespace, namespace_meters in phase_meters.items():
                 for key, meter in namespace_meters.items():

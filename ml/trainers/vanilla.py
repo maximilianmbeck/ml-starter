@@ -19,7 +19,7 @@ import signal
 from dataclasses import dataclass
 from pathlib import Path
 from types import FrameType
-from typing import Callable, Dict, TypeVar
+from typing import Callable, Dict, TypeVar, cast
 
 import torch
 from torch import Tensor, nn
@@ -74,6 +74,16 @@ class TaskModel(nn.Module):
 
 
 @dataclass
+class TorchCompileConfig:
+    enabled: bool = conf_field(True, help="Enable `torch.compile`")
+    fullgraph: bool = conf_field(False, help="Whether it is OK to break the model into subgraphs")
+    dynamic: bool = conf_field(False, help="Whether to use dynamic shape tracing")
+    backend: str = conf_field("auto", help="The backend to use")
+    mode: str | None = conf_field("max-autotune", help="Can be either 'default', 'reduce-overhead' or 'max-autotune'")
+    options: dict[str, str | int | bool] | None = conf_field(None, help="Options to pass to the backend")
+
+
+@dataclass
 class VanillaTrainerConfig(
     ProfilerTrainerConfig,
     GradientClippingConfig,
@@ -87,6 +97,7 @@ class VanillaTrainerConfig(
     use_tf32: bool = conf_field(True, help="If set, use TensorFloat32")
     update_interval: int = conf_field(1, help="How often to update model parameters")
     device: str = conf_field("auto", help="The trainer device type being used")
+    torch_compile: TorchCompileConfig = conf_field(TorchCompileConfig(), help="Torch compile config")
 
 
 VanillaTrainerConfigT = TypeVar("VanillaTrainerConfigT", bound=VanillaTrainerConfig)
@@ -240,6 +251,26 @@ class VanillaTrainer(
         if is_master():
             with Timer("saving config"):
                 self.save_config()
+
+        # Compiles the model.
+        if self.config.torch_compile.enabled:
+            backend: str | Callable = self.config.torch_compile.backend
+            if backend == "auto":
+                backend = self._device.get_torch_compile_backend()
+                logger.info("Using torch-compile backend [%s]", backend)
+
+            model = cast(
+                BaseModel,
+                torch.compile(
+                    model,
+                    fullgraph=self.config.torch_compile.fullgraph,
+                    dynamic=self.config.torch_compile.dynamic,
+                    backend=backend,
+                    mode=self.config.torch_compile.mode,
+                    options=self.config.torch_compile.options,
+                    disable=not self.config.torch_compile.enabled,
+                ),
+            )
 
         # Builds a mega-model.
         with Timer("building task model"):

@@ -12,16 +12,20 @@ First, create a Conda environment:
 conda create --name ml python=3.10
 ```
 
-Next, install the project dependencies:
+Next, install the project (with developer dependencies):
 
 ```bash
-make install-deps
+# Installs with the nightly version of PyTorch, on CPU.
+pip install --pre --extra-index-url https://download.pytorch.org/whl/nightly/cpu -e '.[dev]'
+# Installs with the nightly version of PyTorch, on GPU.
+pip install --pre --extra-index-url https://download.pytorch.org/whl/nightly/cu117 -e '.[dev]'
 ```
 
-Finally, install the project:
+Additionally, there are some Conda-only development dependencies which should be installed:
 
 ```bash
-make install
+conda install mamba
+mamba install cmake-format clang-format
 ```
 
 ### Your First Command
@@ -29,13 +33,13 @@ make install
 Run the CIFAR training example:
 
 ```bash
-ml train configs/cifar_demo.yaml
+runml train configs/cifar_demo.yaml
 ```
 
 Launch a Slurm job (requires setting the `SLURM_PARTITION` environment variable):
 
 ```bash
-ml mp_train configs/cifar_demo.yaml trainer.name=slurm
+runml mp_train configs/cifar_demo.yaml trainer.name=slurm
 ```
 
 ### Architecture

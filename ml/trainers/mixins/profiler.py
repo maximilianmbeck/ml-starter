@@ -49,7 +49,7 @@ STEPS_TO_TIME: Set[StepType] = {
 
 @dataclass
 class ProfilerTrainerConfig(BaseTrainerConfig):
-    profiler: Profiler = Profiler()
+    profiler: Profiler = conf_field(Profiler(), help="Profiler configuration")
 
 
 ProfilerTrainerConfigT = TypeVar("ProfilerTrainerConfigT", bound=ProfilerTrainerConfig)

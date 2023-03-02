@@ -7,7 +7,11 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 def train_main(objs: Objects) -> None:
-    """Runs the training loop."""  # noqa
+    """Runs the training loop.
+
+    Args:
+        objs: The objects to use for training.
+    """
 
     # Checks that the config has the right keys for training.
     assert (model := objs.model) is not None

@@ -20,7 +20,7 @@ class FP16:
 
 @dataclass
 class MixedPrecisionTrainerConfig(BaseTrainerConfig):
-    fp16: FP16 = FP16()
+    fp16: FP16 = conf_field(FP16(), help="Mixed precision configuration")
 
 
 MixedPrecisionConfigT = TypeVar("MixedPrecisionConfigT", bound=MixedPrecisionTrainerConfig)

@@ -1,6 +1,6 @@
 from abc import ABC
 from types import TracebackType
-from typing import ContextManager, Literal, Optional, Type, TypeVar
+from typing import ContextManager, Literal, TypeVar
 
 from ml.trainers.base import BaseTrainer, BaseTrainerConfig
 
@@ -28,7 +28,7 @@ BaseTrainerConfigT = TypeVar("BaseTrainerConfigT", bound=BaseTrainerConfig)
 class StepContext(ContextManager):
     """Context manager to get the current step type."""
 
-    CURRENT_STEP: Optional[StepType] = None
+    CURRENT_STEP: StepType | None = None
 
     def __init__(self, step: StepType) -> None:
         self.step = step
@@ -38,9 +38,9 @@ class StepContext(ContextManager):
 
     def __exit__(
         self,
-        exc_type: Optional[Type[BaseException]],
-        exc: Optional[BaseException],
-        traceback: Optional[TracebackType],
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: TracebackType | None,
     ) -> None:
         StepContext.CURRENT_STEP = None
 

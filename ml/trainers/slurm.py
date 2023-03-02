@@ -25,7 +25,7 @@ import sys
 import time
 from dataclasses import dataclass
 from types import FrameType
-from typing import Callable, List, Optional
+from typing import Callable
 
 from omegaconf import II, MISSING, OmegaConf
 from torch import nn
@@ -110,9 +110,9 @@ class SlurmTrainerConfig(VanillaTrainerConfig):
     num_nodes: int = conf_field(MISSING, help="Total number of nodes to use")
     gpus_per_node: int = conf_field(II("oc.env:SLURM_GPUS_PER_NODE,8"), help="Number of GPUs per node")
     cpus_per_gpu: int = conf_field(II("oc.env:SLURM_CPUS_PER_GPU,1"), help="Number of CPUs per task")
-    gpu_type: Optional[str] = conf_field(None, help="Specific GPU type to pass to gres")
+    gpu_type: str | None = conf_field(None, help="Specific GPU type to pass to gres")
     num_jobs: int = conf_field(1, help="Number of redundant jobs to launch")
-    comment: Optional[str] = conf_field(None, help="An optional comment to add to the experiment")
+    comment: str | None = conf_field(None, help="An optional comment to add to the experiment")
     master_port: int = conf_field(get_random_port, help="The master port to use")
 
 
@@ -164,7 +164,7 @@ class SlurmTrainer(VanillaTrainer[SlurmTrainerConfig]):
         gpu_bind = f"map_gpu:{','.join(str(i) for i in range(gpus_per_node))}"
 
         # Gets extra SBatch options.
-        sbatch_lines: List[str] = []
+        sbatch_lines: list[str] = []
         if "EMAIL" in os.environ:
             sbatch_lines += [f"--mail-user={os.environ['EMAIL']}", "--mail-type=ALL"]
 
@@ -181,7 +181,7 @@ class SlurmTrainer(VanillaTrainer[SlurmTrainerConfig]):
         python_path = ":".join(p for p in python_path_parts if p)
 
         # Comment miscellaneous stuff here.
-        comments: List[str] = []
+        comments: list[str] = []
         if self.config.comment is not None:
             comments += [self.config.comment]
         comments += [f"Log directory: {self.exp_dir}"]
@@ -216,7 +216,7 @@ class SlurmTrainer(VanillaTrainer[SlurmTrainerConfig]):
         logger.info("Wrote sbatch file to %s", sbatch_path)
 
         # Call `sbatch` on the given file.
-        all_run_ids: List[str] = []
+        all_run_ids: list[str] = []
         for _ in range(self.config.num_jobs):
             command = ["sbatch", str(sbatch_path)]
             if all_run_ids:

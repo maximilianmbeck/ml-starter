@@ -42,7 +42,8 @@ def cli_main() -> None:
             if func.__doc__ is None:
                 print(f"* {colorize(key, 'green')}", file=sys.stderr)
             else:
-                print(f"* {colorize(key, 'green')}: {func.__doc__.strip()}", file=sys.stderr)
+                docstring = func.__doc__.strip().split("\n")[0]
+                print(f"* {colorize(key, 'green')}: {docstring}", file=sys.stderr)
         print()
         sys.exit(1)
 

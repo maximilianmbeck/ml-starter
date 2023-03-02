@@ -4,7 +4,7 @@ import logging
 import os
 import signal
 import time
-from typing import Any, Callable, Optional, TypeVar
+from typing import Any, Callable, TypeVar
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -17,8 +17,8 @@ class Timer:
     def __init__(self, description: str, min_seconds_to_print: float = 1.0) -> None:
         self.description = description
         self.min_seconds_to_print = min_seconds_to_print
-        self._start_time: Optional[float] = None
-        self._elapsed_time: Optional[float] = None
+        self._start_time: float | None = None
+        self._elapsed_time: float | None = None
 
     @property
     def elapsed_time(self) -> float:

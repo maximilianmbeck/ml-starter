@@ -28,6 +28,10 @@ all:
 #          Build           #
 # ------------------------ #
 
+install-torch-nightly:
+	@pip install --pre torch --index-url https://download.pytorch.org/whl/nightly
+.PHONY: install-torch-nightly
+
 install:
 	@pip install --verbose -e .
 .PHONY: install
@@ -60,8 +64,11 @@ format:
 .PHONY: format
 
 static-checks:
+	cmake-format --check $(cmake-files) > /dev/null
+	clang-format --dry-run --Werror $(cpp-files) > /dev/null
 	black --diff --check $(py-files)
 	ruff $(py-files)
+	darglint $(py-files)
 	mypy --install-types --non-interactive $(py-files)
 .PHONY: lint
 
