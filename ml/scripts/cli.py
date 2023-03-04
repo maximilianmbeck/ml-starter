@@ -1,7 +1,7 @@
 import logging
 import shlex
 import sys
-from typing import Callable, Dict
+from typing import Callable
 
 from omegaconf import DictConfig
 
@@ -23,17 +23,17 @@ def cli_main() -> None:
 
     set_random_seed()
 
-    without_objects_scripts: Dict[str, Callable[[DictConfig], None]] = {
+    without_objects_scripts: dict[str, Callable[[DictConfig], None]] = {
         "compile": compiler.compile_main,
         "mp_train": mp_train.mp_train_main,
         "stage": stage.stage_main,
     }
 
-    with_objects_scripts: Dict[str, Callable[[Objects], None]] = {
+    with_objects_scripts: dict[str, Callable[[Objects], None]] = {
         "train": train.train_main,
     }
 
-    scripts: Dict[str, Callable[..., None]] = {**with_objects_scripts, **without_objects_scripts}
+    scripts: dict[str, Callable[..., None]] = {**with_objects_scripts, **without_objects_scripts}
 
     def show_help() -> None:
         script_names = (colorize(script_name, "cyan") for script_name in scripts)

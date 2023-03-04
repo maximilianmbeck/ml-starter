@@ -1,4 +1,4 @@
-from typing import Dict, Literal, Tuple
+from typing import Literal
 
 RESET_SEQ = "\033[0m"
 COLOR_SEQ = "\033[1;%dm"
@@ -7,7 +7,7 @@ BOLD_SEQ = "\033[1m"
 
 Color = Literal["black", "red", "green", "yellow", "blue", "magenta", "cyan", "white", "grey"]
 
-COLOR_INDEX: Dict[Color, int] = {
+COLOR_INDEX: dict[Color, int] = {
     "black": 30,
     "red": 31,
     "green": 32,
@@ -20,7 +20,7 @@ COLOR_INDEX: Dict[Color, int] = {
 }
 
 
-def get_colorize_parts(color: Color) -> Tuple[str, str]:
+def get_colorize_parts(color: Color) -> tuple[str, str]:
     return COLOR_SEQ % COLOR_INDEX[color], RESET_SEQ
 
 

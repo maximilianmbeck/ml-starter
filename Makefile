@@ -57,19 +57,19 @@ cpp-files := $$(git ls-files '*.c' '*.cpp' '*.h' '*.hpp' '*.cu' '*.cuh')
 cmake-files := $$(git ls-files '*/CMakeLists.txt')
 
 format:
-	cmake-format -i $(cmake-files)
-	clang-format -i $(cpp-files)
 	black $(py-files)
 	ruff --fix $(py-files)
+	cmake-format -i $(cmake-files)
+	clang-format -i $(cpp-files)
 .PHONY: format
 
 static-checks:
-	cmake-format --check $(cmake-files) > /dev/null
-	clang-format --dry-run --Werror $(cpp-files) > /dev/null
 	black --diff --check $(py-files)
 	ruff $(py-files)
 	darglint $(py-files)
 	mypy --install-types --non-interactive $(py-files)
+	cmake-format --check $(cmake-files) > /dev/null
+	clang-format --dry-run --Werror $(cpp-files) > /dev/null
 .PHONY: lint
 
 mypy-daemon:

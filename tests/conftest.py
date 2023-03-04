@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 import torch
 from _pytest.mark import Mark
-from _pytest.python import Function
+from _pytest.python import Function, Metafunc
 
 
 @pytest.fixture(autouse=True)
@@ -20,6 +20,11 @@ def has_gpu() -> bool:
     return torch.cuda.is_available()
 
 
+@functools.lru_cache()
+def has_mps() -> bool:
+    return torch.backends.mps.is_available()
+
+
 def pytest_runtest_setup(item: Function) -> None:
     for mark in item.iter_markers():
         if mark.name == "has_gpu" and not has_gpu():
@@ -29,3 +34,13 @@ def pytest_runtest_setup(item: Function) -> None:
 def pytest_collection_modifyitems(items: list[Function]) -> None:
     empty_mark = Mark(name="", args=(), kwargs={})
     items.sort(key=lambda item: item.get_closest_marker("slow", default=empty_mark), reverse=False)
+
+
+def pytest_generate_tests(metafunc: Metafunc) -> None:
+    if "device" in metafunc.fixturenames:
+        torch_devices = [torch.device("cpu")]
+        if has_gpu():
+            torch_devices.append(torch.device("cuda"))
+        if has_mps():
+            torch_devices.append(torch.device("mps"))
+        metafunc.parametrize("device", torch_devices)

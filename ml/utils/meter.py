@@ -1,5 +1,5 @@
 import functools
-from typing import Any, List, cast
+from typing import Any, cast
 
 import torch
 import torch.distributed as dist
@@ -33,14 +33,14 @@ class Meter:
             self._total_val.add_(value)
         self._num_seen.add_(1)
 
-    def reduce(self) -> List[Any]:
+    def reduce(self) -> list[Any]:
         if self.has_reduce_been_called:
             raise RuntimeError("`reduce` should only be called once, otherwise you will end up with incorrect values")
         self.has_reduce_been_called = True
 
         # These are actually the work handles, they just don't have proper
         # type support yet.
-        works: List[Any] = []
+        works: list[Any] = []
 
         if self._min_val is not None:
             works.append(dist.all_reduce(self._min_val, dist.ReduceOp.MIN, async_op=True))

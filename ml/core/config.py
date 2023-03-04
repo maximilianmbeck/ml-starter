@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 import torch
 from omegaconf import MISSING, DictConfig
@@ -29,7 +29,7 @@ def conf_field(
         The correctly constructed dataclass field
     """
 
-    metadata: Dict[str, Any] = {}
+    metadata: dict[str, Any] = {}
     if help is not None:
         metadata["help"] = help
     if short is not None:
@@ -52,7 +52,7 @@ class BaseConfig:
     name: str = conf_field(MISSING, short="n", help="The referenced name of the object to construct")
 
     @classmethod
-    def get_defaults(cls: type[BaseConfigT]) -> Dict[str, BaseConfigT]:
+    def get_defaults(cls: type[BaseConfigT]) -> dict[str, BaseConfigT]:
         """Returns default configurations.
 
         Returns:

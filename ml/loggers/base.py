@@ -2,7 +2,7 @@ import datetime
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Dict, Generic, TypeVar, Union
+from typing import Callable, Generic, TypeVar, Union
 
 import numpy as np
 import torch
@@ -31,7 +31,7 @@ class BaseLogger(BaseObjectWithPointers[LoggerConfigT], Generic[LoggerConfigT], 
         super().__init__(config)
 
         self.start_time = datetime.datetime.now()
-        self.last_write_time: Dict[Phase, datetime.datetime] = {}
+        self.last_write_time: dict[Phase, datetime.datetime] = {}
 
     def initialize(self, log_directory: Path) -> None:
         self.log_directory = log_directory
@@ -101,7 +101,7 @@ class BaseLogger(BaseObjectWithPointers[LoggerConfigT], Generic[LoggerConfigT], 
             namespace: The namespace to be logged
         """
 
-    def log_config(self, config: Dict[str, int | float | str | bool], metrics: Dict[str, int | float]) -> None:
+    def log_config(self, config: dict[str, int | float | str | bool], metrics: dict[str, int | float]) -> None:
         """Logs a set of metrics and configuration.
 
         This is only called once, when metrics are computed for a whole dataset.

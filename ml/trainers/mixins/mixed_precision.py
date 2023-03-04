@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, ContextManager, Dict, TypeVar
+from typing import Any, ContextManager, TypeVar
 
 import torch
 from torch import Tensor
@@ -65,13 +65,13 @@ class MixedPrecisionTrainerMixin(BaseTrainer[MixedPrecisionConfigT]):
             if (scale := getattr(scaler, "_scale", None)) is not None:
                 self.logger.log_scalar("fp16_scale", scale)
 
-    def load_state_dict(self, ckpt: Dict[str, Any]) -> None:
+    def load_state_dict(self, ckpt: dict[str, Any]) -> None:
         if self.grad_scaler is not None:
             self.grad_scaler.load_state_dict(ckpt["grad_scaler"])
 
         super().load_state_dict(ckpt)
 
-    def update_state_dict(self, ckpt: Dict[str, Any]) -> None:
+    def update_state_dict(self, ckpt: dict[str, Any]) -> None:
         if self.grad_scaler is not None:
             assert "grad_scaler" not in ckpt
 

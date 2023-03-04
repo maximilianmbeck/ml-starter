@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Callable, Iterable, Tuple
+from typing import Callable, Iterable
 
 import torch
 from torch import nn
@@ -15,7 +15,7 @@ class Adan(Optimizer):
         self,
         params: Iterable[nn.Parameter],
         lr: float = 1e-3,
-        betas: Tuple[float, float, float] = (0.1, 0.1, 0.001),
+        betas: tuple[float, float, float] = (0.1, 0.1, 0.001),
         eps: float = 1e-8,
         weight_decay: float = 0.0,
     ) -> None:
@@ -82,7 +82,7 @@ class Adan(Optimizer):
 @dataclass
 class AdanOptimizerConfig(BaseOptimizerConfig):
     lr: float = conf_field(1e-3, help="Learning rate")
-    betas: Tuple[float, float, float] = conf_field((0.1, 0.1, 0.001), help="Beta coefficients")
+    betas: tuple[float, float, float] = conf_field((0.1, 0.1, 0.001), help="Beta coefficients")
     eps: float = conf_field(1e-4, help="Epsilon term")
     weight_decay: float = conf_field(1e-5, help="Weight decay regularization to use")
 

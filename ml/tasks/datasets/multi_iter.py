@@ -1,6 +1,6 @@
 import random
 from dataclasses import dataclass
-from typing import Generic, Iterable, Iterator, List, TypeVar
+from typing import Generic, Iterable, Iterator, TypeVar
 
 import numpy as np
 from torch.utils.data.dataset import IterableDataset
@@ -39,7 +39,7 @@ class MultiIterDataset(IterableDataset[T]):
         self.until_all_empty = until_all_empty
         self.iterate_forever = iterate_forever
 
-    iterators: List[Iterator[T]]
+    iterators: list[Iterator[T]]
     rate_cumsum: np.ndarray
 
     def __iter__(self) -> Iterator[T]:

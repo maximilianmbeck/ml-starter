@@ -9,7 +9,7 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Dict, List
+from typing import Callable
 
 import torch
 from omegaconf import MISSING, OmegaConf
@@ -30,7 +30,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 WRITE_PROC_TEXT_EVERY_N_SECONDS: int = 60 * 2
 
 
-def make_bold(strs: List[str]) -> str:
+def make_bold(strs: list[str]) -> str:
     strs = [s.strip() for s in strs]
     max_len = max(len(s) for s in strs)
     return "\n".join(["-" * max_len] + strs + ["-" * max_len])
@@ -54,12 +54,12 @@ class TensorboardLogger(BaseLogger[TensorboardLoggerConfig]):
     def __init__(self, config: TensorboardLoggerConfig) -> None:
         super().__init__(config)
 
-        self.scalars: Dict[Phase, Dict[str, Callable[[], int | float | Tensor]]] = defaultdict(dict)
-        self.strings: Dict[Phase, Dict[str, Callable[[], str]]] = defaultdict(dict)
-        self.images: Dict[Phase, Dict[str, Callable[[], Tensor]]] = defaultdict(dict)
-        self.videos: Dict[Phase, Dict[str, Callable[[], Tensor]]] = defaultdict(dict)
-        self.histograms: Dict[Phase, Dict[str, Callable[[], Tensor]]] = defaultdict(dict)
-        self.point_clouds: Dict[Phase, Dict[str, Callable[[], Tensor]]] = defaultdict(dict)
+        self.scalars: dict[Phase, dict[str, Callable[[], int | float | Tensor]]] = defaultdict(dict)
+        self.strings: dict[Phase, dict[str, Callable[[], str]]] = defaultdict(dict)
+        self.images: dict[Phase, dict[str, Callable[[], Tensor]]] = defaultdict(dict)
+        self.videos: dict[Phase, dict[str, Callable[[], Tensor]]] = defaultdict(dict)
+        self.histograms: dict[Phase, dict[str, Callable[[], Tensor]]] = defaultdict(dict)
+        self.point_clouds: dict[Phase, dict[str, Callable[[], Tensor]]] = defaultdict(dict)
 
         self.line_str: str | None = None
         self.last_tensorboard_write_time = time.time()
@@ -89,7 +89,7 @@ class TensorboardLogger(BaseLogger[TensorboardLoggerConfig]):
                 logger.info("Tensorboard command:\n%s", make_localhost(make_bold(tensorboard_command_strs)))
 
             else:
-                command: List[str] = [
+                command: list[str] = [
                     "tensorboard",
                     "serve",
                     "--logdir",
@@ -172,7 +172,7 @@ class TensorboardLogger(BaseLogger[TensorboardLoggerConfig]):
     def log_point_cloud(self, key: str, value: Callable[[], Tensor], state: State, namespace: str) -> None:
         self.point_clouds[state.phase][f"{namespace}/{key}"] = value
 
-    def log_config(self, config: Dict[str, int | float | str | bool], metrics: Dict[str, int | float]) -> None:
+    def log_config(self, config: dict[str, int | float | str | bool], metrics: dict[str, int | float]) -> None:
         self.test_writer.add_hparams(config, metrics, run_name=get_exp_name())
 
     def write(self, state: State) -> None:

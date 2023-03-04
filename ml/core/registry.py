@@ -11,19 +11,7 @@ import sys
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Dict,
-    Generic,
-    Iterator,
-    List,
-    Tuple,
-    Type,
-    TypeVar,
-    Union,
-    cast,
-)
+from typing import TYPE_CHECKING, Any, Generic, Iterator, TypeVar, cast
 from uuid import uuid4
 
 from omegaconf import DictConfig, ListConfig, OmegaConf
@@ -85,7 +73,7 @@ def stage_environment() -> Path:
     stage_dir = get_stage_dir()
 
     with Timer("getting files to stage"):
-        fpaths: List[Path] = []
+        fpaths: list[Path] = []
         for module in sys.modules.values():
             if (fpath_str := getattr(module, "__file__", None)) is None:
                 continue
@@ -142,8 +130,8 @@ class register_base(ABC, Generic[Entry, Config]):  # pylint: disable=invalid-nam
     ```
     """
 
-    REGISTRY: Dict[str, Tuple[Type[Entry], Type[Config]]] = {}
-    REGISTRY_LOCATIONS: Dict[str, Path] = {}
+    REGISTRY: dict[str, tuple[type[Entry], type[Config]]] = {}
+    REGISTRY_LOCATIONS: dict[str, Path] = {}
 
     @classmethod
     @abstractmethod
@@ -231,7 +219,7 @@ class register_base(ABC, Generic[Entry, Config]):  # pylint: disable=invalid-nam
 
         # This gets populated the first time we walk the directories, so that
         # the second time we can just iterate through it again.
-        subfiles: List[Path] = []
+        subfiles: list[Path] = []
 
         def iter_directory(curdir: Path) -> Iterator[Path]:
             for subpath in curdir.iterdir():
@@ -260,7 +248,7 @@ class register_base(ABC, Generic[Entry, Config]):  # pylint: disable=invalid-nam
 
     @classmethod
     @functools.lru_cache(None)
-    def lookup(cls, name: str) -> Tuple[Type[Entry], Type[Config]]:
+    def lookup(cls, name: str) -> tuple[type[Entry], type[Config]]:
         # Just loads the entry, if it already exists.
         if name in cls.REGISTRY:
             return cls.REGISTRY[name]
@@ -333,7 +321,7 @@ class register_base(ABC, Generic[Entry, Config]):  # pylint: disable=invalid-nam
         reg_cfg_cls.resolve(reg_cfg)
         raw_config[cls.config_key()] = reg_cfg
 
-    def __init__(self, name: str, config: Type[Config]) -> None:
+    def __init__(self, name: str, config: type[Config]) -> None:
         self.name = name
         self.config = config
 
@@ -341,16 +329,16 @@ class register_base(ABC, Generic[Entry, Config]):  # pylint: disable=invalid-nam
         if self.name in self.REGISTRY:
             raise RuntimeError(f"Found duplicate names: {self.name}")
 
-        registry_location = Path(inspect.getfile(cast(Type[Entry], entry)))
+        registry_location = Path(inspect.getfile(cast(type[Entry], entry)))
 
         # Adds the registry entry and the entry's location to their respective
         # dictionaries. We overwrite any outdated cache entries.
-        self.REGISTRY[self.name] = cast(Tuple[Type[Entry], Type[Config]], (entry, self.config))
+        self.REGISTRY[self.name] = cast(tuple[type[Entry], type[Config]], (entry, self.config))
         self.REGISTRY_LOCATIONS[self.name] = registry_location
 
         # Adds all default configurations as well.
         for key, default_cfg in self.config.get_defaults().items():
-            self.REGISTRY[key] = cast(Tuple[Type[Entry], Type[Config]], (entry, default_cfg))
+            self.REGISTRY[key] = cast(tuple[type[Entry], type[Config]], (entry, default_cfg))
             self.REGISTRY_LOCATIONS[key] = registry_location
 
         return entry
@@ -389,7 +377,7 @@ class multi_register_base(register_base[Entry, Config], Generic[Entry, Config]):
         raw_config[cls.config_key()] = reg_cfgs
 
     @classmethod
-    def build_entry(cls, raw_config: DictConfig) -> List[Entry] | None:  # type: ignore
+    def build_entry(cls, raw_config: DictConfig) -> list[Entry] | None:  # type: ignore
         if cls.config_key() not in raw_config:
             return None
         reg_cfgs = cast(ListConfig, raw_config[cls.config_key()])
@@ -407,8 +395,8 @@ class multi_register_base(register_base[Entry, Config], Generic[Entry, Config]):
 class register_model(register_base["BaseModel", "BaseModelConfig"]):  # pylint: disable=invalid-name
     """Defines a registry for holding modules."""
 
-    REGISTRY: Dict[str, Tuple[Type["BaseModel"], Type["BaseModelConfig"]]] = {}
-    REGISTRY_LOCATIONS: Dict[str, Path] = {}
+    REGISTRY: dict[str, tuple[type["BaseModel"], type["BaseModelConfig"]]] = {}
+    REGISTRY_LOCATIONS: dict[str, Path] = {}
 
     @classmethod
     def search_directory(cls) -> Path:
@@ -422,8 +410,8 @@ class register_model(register_base["BaseModel", "BaseModelConfig"]):  # pylint: 
 class register_task(register_base["BaseTask", "BaseTaskConfig"]):  # pylint: disable=invalid-name
     """Defines a registry for holding tasks."""
 
-    REGISTRY: Dict[str, Tuple[Type["BaseTask"], Type["BaseTaskConfig"]]] = {}
-    REGISTRY_LOCATIONS: Dict[str, Path] = {}
+    REGISTRY: dict[str, tuple[type["BaseTask"], type["BaseTaskConfig"]]] = {}
+    REGISTRY_LOCATIONS: dict[str, Path] = {}
 
     @classmethod
     def search_directory(cls) -> Path:
@@ -437,8 +425,8 @@ class register_task(register_base["BaseTask", "BaseTaskConfig"]):  # pylint: dis
 class register_trainer(register_base["BaseTrainer", "BaseTrainerConfig"]):  # pylint: disable=invalid-name
     """Defines a registry for holding trainers."""
 
-    REGISTRY: Dict[str, Tuple[Type["BaseTrainer"], Type["BaseTrainerConfig"]]] = {}
-    REGISTRY_LOCATIONS: Dict[str, Path] = {}
+    REGISTRY: dict[str, tuple[type["BaseTrainer"], type["BaseTrainerConfig"]]] = {}
+    REGISTRY_LOCATIONS: dict[str, Path] = {}
 
     @classmethod
     def search_directory(cls) -> Path:
@@ -452,8 +440,8 @@ class register_trainer(register_base["BaseTrainer", "BaseTrainerConfig"]):  # py
 class register_optimizer(register_base["BaseOptimizer", "BaseOptimizerConfig"]):  # pylint: disable=invalid-name
     """Defines a registry for holding optimizers."""
 
-    REGISTRY: Dict[str, Tuple[Type["BaseOptimizer"], Type["BaseOptimizerConfig"]]] = {}
-    REGISTRY_LOCATIONS: Dict[str, Path] = {}
+    REGISTRY: dict[str, tuple[type["BaseOptimizer"], type["BaseOptimizerConfig"]]] = {}
+    REGISTRY_LOCATIONS: dict[str, Path] = {}
 
     @classmethod
     def search_directory(cls) -> Path:
@@ -467,8 +455,8 @@ class register_optimizer(register_base["BaseOptimizer", "BaseOptimizerConfig"]):
 class register_lr_scheduler(register_base["BaseLRScheduler", "BaseLRSchedulerConfig"]):  # pylint: disable=invalid-name
     """Defines a registry for holding learning rate schedulers."""
 
-    REGISTRY: Dict[str, Tuple[Type["BaseLRScheduler"], Type["BaseLRSchedulerConfig"]]] = {}
-    REGISTRY_LOCATIONS: Dict[str, Path] = {}
+    REGISTRY: dict[str, tuple[type["BaseLRScheduler"], type["BaseLRSchedulerConfig"]]] = {}
+    REGISTRY_LOCATIONS: dict[str, Path] = {}
 
     @classmethod
     def search_directory(cls) -> Path:
@@ -482,8 +470,8 @@ class register_lr_scheduler(register_base["BaseLRScheduler", "BaseLRSchedulerCon
 class register_logger(multi_register_base["BaseLogger", "BaseLoggerConfig"]):  # pylint: disable=invalid-name
     """Defines a registry for holding loggers."""
 
-    REGISTRY: Dict[str, Tuple[Type["BaseLogger"], Type["BaseLoggerConfig"]]] = {}
-    REGISTRY_LOCATIONS: Dict[str, Path] = {}
+    REGISTRY: dict[str, tuple[type["BaseLogger"], type["BaseLoggerConfig"]]] = {}
+    REGISTRY_LOCATIONS: dict[str, Path] = {}
 
     @classmethod
     def search_directory(cls) -> Path:
@@ -502,7 +490,7 @@ class Objects:
     trainer: "BaseTrainer | None" = None
     optimizer: "BaseOptimizer | None" = None
     lr_scheduler: "BaseLRScheduler | None" = None
-    logger: "List[BaseLogger] | None" = None
+    logger: "list[BaseLogger] | None" = None
 
     def __post_init__(self) -> None:
         # After initializing the object container, we add a pointer to the
@@ -522,7 +510,7 @@ class Objects:
                 sublogger.set_objects(self)
 
     def summarize(self) -> str:
-        parts: Dict[str, str] = {}
+        parts: dict[str, str] = {}
         if self.model is not None:
             parts["Model"] = inspect.getfile(self.model.__class__)
         if self.task is not None:
@@ -590,7 +578,7 @@ class Objects:
         return objs
 
     @classmethod
-    def from_config_file(cls, config_path: Union[str, Path], **overrides: Any) -> "Objects":
+    def from_config_file(cls, config_path: str | Path, **overrides: Any) -> "Objects":
         config = OmegaConf.load(config_path)
         config = OmegaConf.merge(config, DictConfig(overrides))
         return cls.parse_raw_config(cast(DictConfig, config))

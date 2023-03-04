@@ -1,5 +1,6 @@
 # requirements.txt
 
+av
 ffmpeg-python
 matplotlib
 omegaconf
@@ -7,6 +8,6 @@ opencv-python
 pandas
 psutil
 tensorboard
-torch>=2.0
+torch>=2.0.0.dev
 torchvision
 tqdm

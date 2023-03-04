@@ -8,7 +8,6 @@ from typing import (
     ContextManager,
     Iterable,
     Iterator,
-    List,
     Mapping,
     Sequence,
     TypeVar,
@@ -62,7 +61,7 @@ class Prefetcher(Iterable[DeviceBatchT]):
         except StopIteration:
             self.next_sample = None
 
-    def recursive_chunk(self, item: Any, chunks: int) -> List[Any]:
+    def recursive_chunk(self, item: Any, chunks: int) -> list[Any]:
         """Applies a function recursively to tensors in an item.
 
         Args:

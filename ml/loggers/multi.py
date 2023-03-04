@@ -2,7 +2,7 @@ import functools
 import math
 import re
 from collections import defaultdict
-from typing import Any, Callable, Dict, Iterator, List, Sequence, Tuple, TypeVar, Union
+from typing import Any, Callable, Iterator, Sequence, TypeVar
 
 import torch
 import torch.nn.functional as F
@@ -16,15 +16,15 @@ from ml.core.state import State
 from ml.loggers.base import BaseLogger
 
 LogT = TypeVar("LogT")
-Number = Union[int, float, Tensor]
+Number = int | float | Tensor
 
 VALID_CHANNEL_COUNTS = {1, 3}
 TARGET_FPS = 12
 DEFAULT_NAMESPACE = "value"
 
 
-def flatten(d: Dict[str, Any] | List[Any] | Tuple[Any, ...]) -> Dict[str, int | float | str | bool]:
-    out_dict: Dict[str, int | float | str | bool] = {}
+def flatten(d: dict[str, Any] | list[Any] | tuple[Any, ...]) -> dict[str, int | float | str | bool]:
+    out_dict: dict[str, int | float | str | bool] = {}
 
     # Flattens dictionaries.
     if isinstance(d, dict):
@@ -58,7 +58,7 @@ def flatten(d: Dict[str, Any] | List[Any] | Tuple[Any, ...]) -> Dict[str, int | 
     return out_dict
 
 
-def _aminmax(t: Tensor) -> Tuple[Tensor, Tensor]:
+def _aminmax(t: Tensor) -> tuple[Tensor, Tensor]:
     # `aminmax` isn't supported for MPS tensors, fall back to separate calls.
     minv, maxv = (t.min(), t.max()) if t.is_mps else tuple(t.aminmax())
     return minv, maxv
@@ -69,7 +69,7 @@ def _chunk_lines(text: str, max_length: int) -> Iterator[str]:
         yield text[i : i + max_length]
 
 
-def standardize_text(text: str, max_line_length: int | None = None, remove_non_ascii: bool = False) -> List[str]:
+def standardize_text(text: str, max_line_length: int | None = None, remove_non_ascii: bool = False) -> list[str]:
     """Standardizes a text string to a list of lines.
 
     Args:
@@ -92,7 +92,7 @@ def standardize_text(text: str, max_line_length: int | None = None, remove_non_a
 def make_human_viewable_resolution(
     image: Tensor,
     interpolation: InterpolationMode = InterpolationMode.BILINEAR,
-    trg_res: Tuple[int, int] = (250, 250),
+    trg_res: tuple[int, int] = (250, 250),
 ) -> Tensor:
     """Resizes image to human-viewable resolution.
 
@@ -280,7 +280,7 @@ def standardize_videos(
 
 def image_with_text(
     image: Tensor,
-    text: List[str],
+    text: list[str],
     max_num_lines: int | None = None,
     line_spacing: int = 4,
     centered: bool = True,
@@ -325,7 +325,7 @@ def image_with_text(
 
 
 def normalize_fps(
-    video: Tensor | List[Tensor],
+    video: Tensor | list[Tensor],
     fps: int | None,
     length: int | None,
     stack_dim: int = 0,
@@ -405,7 +405,7 @@ def make_square_image_or_video(
 
     assert images_or_videos.dim() in (4, 5)
 
-    def ternary_search_optimal_side_counts(height: int, width: int, count: int) -> Tuple[int, int]:
+    def ternary_search_optimal_side_counts(height: int, width: int, count: int) -> tuple[int, int]:
         lo, hi = 1, count
 
         def squareness_penalty(val: int) -> float:
@@ -459,15 +459,15 @@ class MultiLogger:
     """Defines an intermediate container which holds values to log somewhere else."""
 
     def __init__(self, default_namespace: str = DEFAULT_NAMESPACE) -> None:
-        self.config: Tuple[DictConfig, Dict[str, int | float]] | None = None
+        self.config: tuple[DictConfig, dict[str, int | float]] | None = None
         self.has_logged_config = False
-        self.scalars: Dict[str, Dict[str, Callable[[], Number]]] = defaultdict(dict)
-        self.strings: Dict[str, Dict[str, Callable[[], str]]] = defaultdict(dict)
-        self.images: Dict[str, Dict[str, Callable[[], Tensor]]] = defaultdict(dict)
-        self.videos: Dict[str, Dict[str, Callable[[], Tensor]]] = defaultdict(dict)
-        self.histograms: Dict[str, Dict[str, Callable[[], Tensor]]] = defaultdict(dict)
-        self.point_clouds: Dict[str, Dict[str, Callable[[], Tensor]]] = defaultdict(dict)
-        self.poses: Dict[str, Dict[str, Callable[[], Tensor]]] = defaultdict(dict)
+        self.scalars: dict[str, dict[str, Callable[[], Number]]] = defaultdict(dict)
+        self.strings: dict[str, dict[str, Callable[[], str]]] = defaultdict(dict)
+        self.images: dict[str, dict[str, Callable[[], Tensor]]] = defaultdict(dict)
+        self.videos: dict[str, dict[str, Callable[[], Tensor]]] = defaultdict(dict)
+        self.histograms: dict[str, dict[str, Callable[[], Tensor]]] = defaultdict(dict)
+        self.point_clouds: dict[str, dict[str, Callable[[], Tensor]]] = defaultdict(dict)
+        self.poses: dict[str, dict[str, Callable[[], Tensor]]] = defaultdict(dict)
         self.default_namespace = default_namespace
 
     def resolve_namespace(self, namespace: str | None = None) -> str:
@@ -546,7 +546,7 @@ class MultiLogger:
     def log_labeled_image(
         self,
         key: str,
-        value: Callable[[], Tuple[Tensor, str]] | Tuple[Tensor, str],
+        value: Callable[[], tuple[Tensor, str]] | tuple[Tensor, str],
         *,
         namespace: str | None = None,
         max_line_length: int | None = None,
@@ -630,7 +630,7 @@ class MultiLogger:
     def log_labeled_images(
         self,
         key: str,
-        value: Callable[[], Tuple[Tensor, Sequence[str]]] | Tuple[Tensor, Sequence[str]],
+        value: Callable[[], tuple[Tensor, Sequence[str]]] | tuple[Tensor, Sequence[str]],
         *,
         namespace: str | None = None,
         max_line_length: int | None = None,
@@ -723,7 +723,7 @@ class MultiLogger:
     def log_videos(
         self,
         key: str,
-        value: Callable[[], Tensor | List[Tensor]] | Tensor | List[Tensor],
+        value: Callable[[], Tensor | list[Tensor]] | Tensor | list[Tensor],
         *,
         namespace: str | None = None,
         max_videos: int | None = None,
@@ -811,8 +811,8 @@ class MultiLogger:
 
     def write_dict(
         self,
-        loggers: List[BaseLogger],
-        values: Dict[str, Dict[str, Callable[[], LogT]]],
+        loggers: list[BaseLogger],
+        values: dict[str, dict[str, Callable[[], LogT]]],
         state: State,
         func: Callable[[BaseLogger], Callable[[str, Callable[[], LogT], State, str], None]],
     ) -> None:
@@ -822,12 +822,12 @@ class MultiLogger:
                     func(logger)(key, log_value, state, namespace)
         values.clear()
 
-    def log_config(self, config: DictConfig, metrics: Dict[str, int | float]) -> None:
+    def log_config(self, config: DictConfig, metrics: dict[str, int | float]) -> None:
         if self.config is not None:
             raise RuntimeError("Config has already been logged; don't log it twice")
         self.config = (config, metrics)
 
-    def write(self, loggers: List[BaseLogger], state: State) -> None:
+    def write(self, loggers: list[BaseLogger], state: State) -> None:
         self.write_dict(loggers, self.scalars, state, lambda logger: logger.log_scalar)
         self.write_dict(loggers, self.strings, state, lambda logger: logger.log_string)
         self.write_dict(loggers, self.images, state, lambda logger: logger.log_image)

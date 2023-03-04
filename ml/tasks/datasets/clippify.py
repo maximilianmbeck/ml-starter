@@ -1,7 +1,7 @@
 import logging
 import random
 from collections import deque
-from typing import Deque, Generic, Iterator, List, Tuple, TypeVar
+from typing import Deque, Generic, Iterator, TypeVar
 
 import torch
 from torch import Tensor
@@ -14,7 +14,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 Batch = TypeVar("Batch")
 
 
-class ClippifyDataset(IterableDataset[Tuple[Tensor, Batch]], Generic[Batch]):
+class ClippifyDataset(IterableDataset[tuple[Tensor, Batch]], Generic[Batch]):
     def __init__(
         self,
         image_dataset: IterableDataset[Batch],
@@ -55,13 +55,13 @@ class ClippifyDataset(IterableDataset[Tuple[Tensor, Batch]], Generic[Batch]):
         self.use_last = use_last
 
     image_iter: Iterator[Batch]
-    inds: List[int]
-    image_queue: Deque[Tuple[int, Batch]]
+    inds: list[int]
+    image_queue: Deque[tuple[int, Batch]]
     image_ptr: int
     image_queue_ptr: int
     hit_last: bool
 
-    def __iter__(self) -> Iterator[Tuple[Tensor, Batch]]:
+    def __iter__(self) -> Iterator[tuple[Tensor, Batch]]:
         self.image_iter = self.image_dataset.__iter__()
         self.inds = [i * self.stride for i in range(self.num_images)]
         self.image_queue = deque()
@@ -70,7 +70,7 @@ class ClippifyDataset(IterableDataset[Tuple[Tensor, Batch]], Generic[Batch]):
         self.hit_last = False
         return self
 
-    def __next__(self) -> Tuple[Tensor, Batch]:
+    def __next__(self) -> tuple[Tensor, Batch]:
         if self.hit_last:
             raise StopIteration
 

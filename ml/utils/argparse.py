@@ -1,6 +1,6 @@
 import argparse
 from dataclasses import MISSING, fields
-from typing import Any, Dict, List, Type, TypeVar, Union, cast, get_args, get_origin
+from typing import Any, Type, TypeVar, Union, cast, get_args, get_origin
 
 from omegaconf import OmegaConf
 
@@ -21,11 +21,11 @@ def get_type_from_string(type_name: str) -> Type:
 
 def add_args(parser: argparse.ArgumentParser, dc: Type[Config]) -> None:
     for field in fields(dc):
-        args: List[str] = []
+        args: list[str] = []
         if field.metadata.get("short") is not None:
             args.append(f"-{field.metadata['short']}")
         args.append(f"--{field.name.replace('_', '-')}")
-        kwargs: Dict[str, Any] = {}
+        kwargs: dict[str, Any] = {}
         if field.default != MISSING:
             kwargs["default"] = field.default
         elif field.default_factory != MISSING:
@@ -62,7 +62,7 @@ def add_args(parser: argparse.ArgumentParser, dc: Type[Config]) -> None:
 
 
 def from_args(args: argparse.Namespace, dc: Type[Config]) -> Config:
-    values: Dict[str, Any] = {}
+    values: dict[str, Any] = {}
     for field in fields(dc):
         values[field.name] = getattr(args, field.name)
     cfg = OmegaConf.structured(dc(**values))

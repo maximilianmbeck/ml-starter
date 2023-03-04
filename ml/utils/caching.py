@@ -2,18 +2,7 @@ import functools
 import json
 import logging
 import pickle
-from typing import (
-    Any,
-    Callable,
-    Generic,
-    List,
-    Literal,
-    Mapping,
-    Sequence,
-    Tuple,
-    TypeVar,
-    get_args,
-)
+from typing import Any, Callable, Generic, Literal, Mapping, Sequence, TypeVar, get_args
 
 import numpy as np
 
@@ -39,7 +28,7 @@ class cached_object:  # pylint: disable=invalid-name
 
             ```
             @cached_object("video-dataset-clips")
-            def get_clip_paths(dataset_name: str) -> List[str]:
+            def get_clip_paths(dataset_name: str) -> list[str]:
                 root_path = dataset_root / dataset_name
                 return [str(path.resolve()) for path in root_path.glob("**/*.mov")]
             ```
@@ -75,7 +64,7 @@ class cached_object:  # pylint: disable=invalid-name
             if self.obj is not None:
                 return self.obj
 
-            keys: List[str] = []
+            keys: list[str] = []
             for arg in args:
                 keys += [str(arg)]
             for key, val in sorted(kwargs.items()):
@@ -128,14 +117,14 @@ class Index(Generic[Tk, Tv]):
         self.items = items
 
     @functools.cached_property
-    def _item_list(self) -> List[Tuple[Tk, List[Tv]]]:
+    def _item_list(self) -> list[tuple[Tk, list[Tv]]]:
         return [(k, list(v)) for k, v in self.items.items()]
 
     @functools.cached_property
     def _indices(self) -> np.ndarray:
         return np.concatenate([np.array([0]), np.cumsum(np.array([len(i) for _, i in self._item_list]))])
 
-    def __getitem__(self, index: int) -> Tuple[Tk, Tv]:
+    def __getitem__(self, index: int) -> tuple[Tk, Tv]:
         a = np.searchsorted(self._indices, index, side="right") - 1
         b = index - self._indices[a]
         key, values = self._item_list[a]

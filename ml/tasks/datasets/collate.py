@@ -1,5 +1,5 @@
 from dataclasses import is_dataclass
-from typing import Any, Callable, List, Literal
+from typing import Any, Callable, Literal
 
 import numpy as np
 import torch
@@ -15,14 +15,14 @@ def is_named_tuple(obj: Any) -> bool:
 
 
 def pad_sequence(
-    tensors: List[Tensor],
+    tensors: list[Tensor],
     *,
     dim: int = 0,
     max_length: int | None = None,
     left_pad: bool = False,
     left_truncate: bool = False,
     pad_value: int | float | bool = 0,
-) -> List[Tensor]:
+) -> list[Tensor]:
     """Pads or truncates a sequence of tensors to the same length.
 
     Args:
@@ -70,13 +70,13 @@ def pad_sequence(
 
 
 def pad_all(
-    tensors: List[Tensor],
+    tensors: list[Tensor],
     *,
     max_length: int | None = None,
     left_pad: bool = False,
     left_truncate: bool = False,
     pad_value: int | float | bool = 0,
-) -> List[Tensor]:
+) -> list[Tensor]:
     """Pads all tensors to the same shape.
 
     Args:
@@ -115,10 +115,10 @@ def pad_all(
 
 
 def collate(
-    items: List[Any],
+    items: list[Any],
     *,
-    mode: CollateMode | Callable[[List[Tensor]], Tensor] = "stack",
-    pad: bool | Callable[[List[Tensor]], List[Tensor]] = False,
+    mode: CollateMode | Callable[[list[Tensor]], Tensor] = "stack",
+    pad: bool | Callable[[list[Tensor]], list[Tensor]] = False,
 ) -> Any | None:
     """Defines a general-purpose collating function.
 
@@ -208,10 +208,10 @@ def collate(
 
 
 def collate_non_null(
-    items: List[Any],
+    items: list[Any],
     *,
-    mode: CollateMode | Callable[[List[Tensor]], Tensor] = "stack",
-    pad: bool | Callable[[List[Tensor]], List[Tensor]] = False,
+    mode: CollateMode | Callable[[list[Tensor]], Tensor] = "stack",
+    pad: bool | Callable[[list[Tensor]], list[Tensor]] = False,
 ) -> Any:
     collated = collate(items, mode=mode, pad=pad)
     assert collated is not None

@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Literal, Tuple, TypeVar, cast, get_args
+from typing import Literal, TypeVar, cast, get_args
 
 from omegaconf import MISSING
 from torch import nn
@@ -11,7 +11,7 @@ Module = TypeVar("Module", bound=nn.Module)
 Phase = Literal["train", "valid", "test"]
 
 
-def set_phase(model: Module, phase: Phase) -> Tuple[Module, Phase]:
+def set_phase(model: Module, phase: Phase) -> tuple[Module, Phase]:
     if phase == "train":
         if not model.training:
             model = model.train()

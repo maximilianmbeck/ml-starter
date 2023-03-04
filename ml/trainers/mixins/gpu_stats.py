@@ -6,7 +6,7 @@ import re
 import shutil
 import subprocess
 from dataclasses import dataclass
-from typing import Dict, Iterable, Pattern, TypeVar
+from typing import Iterable, Pattern, TypeVar
 
 from torch.optim.optimizer import Optimizer
 
@@ -91,7 +91,7 @@ class GPUStatsMixin(BaseTrainer[GPUStatsConfigT]):
     def __init__(self, config: GPUStatsConfigT) -> None:
         super().__init__(config)
 
-        self._gpu_stats: Dict[int, GPUStats] = {}
+        self._gpu_stats: dict[int, GPUStats] = {}
         self._gpu_stats_queue: "mp.Queue[GPUStats]" | None = None
 
         if shutil.which("nvidia-smi") is not None:

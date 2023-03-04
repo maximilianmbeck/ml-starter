@@ -1,6 +1,5 @@
 import argparse
 from pathlib import Path
-from typing import List
 
 import matplotlib.pyplot as plt
 
@@ -37,8 +36,8 @@ def main() -> None:
     scheduler = scheduler_cls(scheduler_config)
 
     state = State.init_state()
-    xs: List[float] = []
-    ys: List[float] = []
+    xs: list[float] = []
+    ys: list[float] = []
     for i in range(0, num_iters, stride):
         state.num_steps = i
         lr_scale = scheduler.get_lr_scale(state)

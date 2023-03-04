@@ -1,7 +1,7 @@
 import logging
 import math
 import sys
-from typing import Any, Dict
+from typing import Any
 
 import tqdm
 from torch import Tensor
@@ -45,7 +45,7 @@ class ColoredFormatter(logging.Formatter):
     COLOR_SEQ = "\033[1;%dm"
     BOLD_SEQ = "\033[1m"
 
-    COLORS: Dict[str, Color] = {
+    COLORS: dict[str, Color] = {
         "WARNING": "yellow",
         "INFOALL": "magenta",
         "INFO": "cyan",

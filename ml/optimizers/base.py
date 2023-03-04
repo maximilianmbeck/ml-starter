@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Dict, Generic, TypeVar
+from typing import Any, Generic, TypeVar
 
 from torch import nn
 from torch.optim.optimizer import Optimizer
@@ -20,7 +20,7 @@ class BaseOptimizer(BaseObjectWithPointers[OptimizerConfigT], Generic[OptimizerC
     """Defines the base optimizer type."""
 
     @property
-    def common_kwargs(self) -> Dict[str, Any]:
+    def common_kwargs(self) -> dict[str, Any]:
         return {}
 
     @abstractmethod

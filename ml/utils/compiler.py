@@ -6,7 +6,7 @@ import sys
 from collections import deque
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Deque, Dict, Iterator, List, Set, Tuple, Type
+from typing import Deque, Iterator, Type
 
 from omegaconf import DictConfig
 
@@ -38,10 +38,10 @@ def lookup_path(config: DictConfig, registry: Type[register_base]) -> Path:
     return registry.lookup_path(config[registry.config_key()][NAME_KEY])
 
 
-def lookup_paths(config: DictConfig, registry: Type[multi_register_base]) -> List[Path]:
+def lookup_paths(config: DictConfig, registry: Type[multi_register_base]) -> list[Path]:
     if registry.config_key() not in config:
         raise KeyError(f"Key '{registry.config_key()}' not found in config")
-    paths: List[Path] = []
+    paths: list[Path] = []
     for subconfig in config[registry.config_key()]:
         if NAME_KEY not in subconfig:
             raise KeyError(f"'{NAME_KEY}' not found in {registry.config_key()} config")
@@ -60,7 +60,7 @@ class ImportItem:
     asname: str | None
 
 
-def toposort(data: Dict[str, Set[str]]) -> Iterator[str]:
+def toposort(data: dict[str, set[str]]) -> Iterator[str]:
     if len(data) == 0:
         return
     data = {item: set(e for e in dep if e != item) for item, dep in data.items()}
@@ -77,13 +77,13 @@ def toposort(data: Dict[str, Set[str]]) -> Iterator[str]:
 
 
 @functools.lru_cache
-def api_import_stmts() -> Dict[str, ast.ImportFrom]:
+def api_import_stmts() -> dict[str, ast.ImportFrom]:
     api_path = ROOT_PATH / BASE_NAME / "api.py"
 
     with open(api_path, "r", encoding="utf-8") as f:
         tree = ast.parse(f.read())
 
-    stmts: Dict[str, ast.ImportFrom] = {}
+    stmts: dict[str, ast.ImportFrom] = {}
     for stmt in tree.body:
         if isinstance(stmt, ast.Import):
             raise NotImplementedError("API should only have `from ... import ...` statements")
@@ -113,8 +113,8 @@ def replace_expr(base: ast.stmt, from_expr: ast.expr, to_expr: ast.expr) -> None
         raise ValueError("Error while replacing expression")
 
 
-def remove_api(api_name: str, tree: ast.AST) -> Set[ast.ImportFrom]:
-    api_modules: Set[str] = set()
+def remove_api(api_name: str, tree: ast.AST) -> set[ast.ImportFrom]:
+    api_modules: set[str] = set()
 
     todo: "Deque[ast.AST]" = deque([tree])
     while todo:
@@ -153,9 +153,9 @@ def preprocess_stmt(stmt: ast.stmt, tree: ast.AST) -> Iterator[ast.stmt]:
 
 def get_import_dag_for(
     path: Path,
-    path_mod_names: Dict[Path, str],
-    all_other_imports: Set[ImportItem],
-    deps: Dict[str, Set[str]],
+    path_mod_names: dict[Path, str],
+    all_other_imports: set[ImportItem],
+    deps: dict[str, set[str]],
 ) -> None:
     mod_name = path_mod_names[path]
     if mod_name in deps:
@@ -199,16 +199,16 @@ def get_import_dag_for(
         process_stmt(stmt)
 
 
-def get_import_dag(paths: List[Path]) -> Tuple[Dict[str, Set[str]], Set[ImportItem]]:
-    all_other_imports: Set[ImportItem] = set()
-    deps: Dict[str, Set[str]] = {}
+def get_import_dag(paths: list[Path]) -> tuple[dict[str, set[str]], set[ImportItem]]:
+    all_other_imports: set[ImportItem] = set()
+    deps: dict[str, set[str]] = {}
     path_mod_names = {Path(inspect.getfile(v)): k for k, v in sys.modules.items() if k.startswith(BASE_MODULE_PREFIX)}
     for path in paths:
         get_import_dag_for(path, path_mod_names, all_other_imports, deps)
     return deps, all_other_imports
 
 
-def get_import_code_block(imports: Set[ImportItem]) -> str:
+def get_import_code_block(imports: set[ImportItem]) -> str:
     """Builds a code block for the import statements.
 
     Args:
@@ -219,13 +219,13 @@ def get_import_code_block(imports: Set[ImportItem]) -> str:
     """
 
     # Adds import statements.
-    body: List[ast.stmt] = []
+    body: list[ast.stmt] = []
     import_names = (i for i in imports if i.name is None)
     for name, asname in sorted({(i.module, i.asname) for i in import_names}):
         body.append(ast.Import(names=[ast.alias(name=name, asname=asname)]))
 
     # Adds import from lines.
-    import_from_map: Dict[str, Set[Tuple[str, str | None]]] = {i.module: set() for i in imports if i.name is not None}
+    import_from_map: dict[str, set[tuple[str, str | None]]] = {i.module: set() for i in imports if i.name is not None}
     for i in imports:
         if i.name is not None:
             import_from_map[i.module].add((i.name, i.asname))
@@ -247,7 +247,7 @@ def get_file_block(mod_path: Path) -> str:
     with open(mod_path, "r", encoding="utf-8") as f:
         tree = ast.parse(f.read(), filename=str(mod_path))
 
-    new_stmts: List[ast.stmt] = []
+    new_stmts: list[ast.stmt] = []
 
     for stmt in (s for stmt in tree.body for s in preprocess_stmt(stmt, tree)):
         if isinstance(stmt, (ast.Import, ast.ImportFrom)):
@@ -264,10 +264,10 @@ def make_title(title: str) -> str:
     return "\n".join(["#" * (len(title) + 4), f"# {title} #", "#" * (len(title) + 4)])
 
 
-def get_full_file(deps: Dict[str, Set[str]], imports: Set[ImportItem]) -> str:
+def get_full_file(deps: dict[str, set[str]], imports: set[ImportItem]) -> str:
     header = "#!/usr/bin/env python\n\n"
 
-    parts: List[Tuple[str, str]] = []
+    parts: list[tuple[str, str]] = []
     parts.append(("imports", get_import_code_block(imports)))
 
     # Iterates through dependencies in topographical order.

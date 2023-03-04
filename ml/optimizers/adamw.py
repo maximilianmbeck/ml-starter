@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Tuple
+from typing import Any, Iterable
 
 from torch import nn
 from torch.optim.adamw import AdamW
@@ -9,7 +9,7 @@ from ml.core.registry import register_optimizer
 from ml.optimizers.base import BaseOptimizer, BaseOptimizerConfig
 
 
-def separate_weight_decayable_params(params: Iterable[nn.Parameter]) -> Iterable[Dict[str, Any]]:
+def separate_weight_decayable_params(params: Iterable[nn.Parameter]) -> Iterable[dict[str, Any]]:
     """Don't weight decay biases.
 
     This was something that `lucidrains` does.
@@ -21,8 +21,8 @@ def separate_weight_decayable_params(params: Iterable[nn.Parameter]) -> Iterable
         The dictionary to pass to the optimizer
     """
 
-    wd_params: List[nn.Parameter] = []
-    no_wd_params: List[nn.Parameter] = []
+    wd_params: list[nn.Parameter] = []
+    no_wd_params: list[nn.Parameter] = []
     for param in params:
         param_list = no_wd_params if param.ndim < 2 else wd_params
         param_list.append(param)
@@ -36,14 +36,14 @@ def separate_weight_decayable_params(params: Iterable[nn.Parameter]) -> Iterable
 @dataclass
 class AdamWOptimizerConfig(BaseOptimizerConfig):
     lr: float = conf_field(1e-3, help="Learning rate")
-    betas: Tuple[float, float] = conf_field((0.9, 0.999), help="Beta coefficients")
+    betas: tuple[float, float] = conf_field((0.9, 0.999), help="Beta coefficients")
     eps: float = conf_field(1e-4, help="Epsilon term to add to the denominator for stability")
     weight_decay: float = conf_field(1e-5, help="Weight decay regularization to use")
     amsgrad: bool = conf_field(False, help="Whether to use the AMSGrad variant of the algorithm")
     weight_decay_bias: bool = conf_field(False, help="If set, apply weight decay to biases")
 
     @classmethod
-    def get_defaults(cls) -> Dict[str, "AdamWOptimizerConfig"]:
+    def get_defaults(cls) -> dict[str, "AdamWOptimizerConfig"]:
         return {
             "gpt-3-small": AdamWOptimizerConfig(
                 lr=6e-4,

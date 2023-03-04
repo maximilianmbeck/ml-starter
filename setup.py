@@ -11,7 +11,6 @@ import sys
 import sysconfig
 from multiprocessing import cpu_count
 from pathlib import Path
-from typing import List
 
 from setuptools import Extension, setup
 from setuptools.command.build_ext import build_ext
@@ -30,7 +29,7 @@ def get_arch_list() -> str:
     if torch.cuda.is_available():
         major_num, minor_num = torch.cuda.get_device_capability()
         return f"{major_num}.{minor_num}"
-    arch_list: List[str] = []
+    arch_list: list[str] = []
     for arch in torch.cuda.get_arch_list():
         match = re.match(r"sm_(\d+)", arch)
         assert match, f"Invalid arch list: {torch.cuda.get_arch_list()}"
@@ -87,9 +86,9 @@ class CMakeBuild(build_ext):
         import cmake  # noqa: F401
         import pybind11  # noqa: F401
         import torch._C  # noqa: F401
-        from torch.utils.cpp_extension import (
+        from torch.utils.cpp_extension import (  # noqa: F401
             CUDA_HOME,
-            include_paths as torch_include_paths,  # noqa: F401
+            include_paths as torch_include_paths,
         )
 
         if CUDA_HOME is not None and not shutil.which("nvcc"):
@@ -105,7 +104,7 @@ class CMakeBuild(build_ext):
         cmake_generator = os.environ.get("CMAKE_GENERATOR", "")
 
         # Need to copy PyBind flags.
-        cmake_cxx_flags: List[str] = []
+        cmake_cxx_flags: list[str] = []
         for name in ["COMPILER_TYPE", "STDLIB", "BUILD_ABI"]:
             val = getattr(torch._C, f"_PYBIND11_{name}")
             if val is not None:
@@ -190,7 +189,7 @@ class CMakeBuild(build_ext):
         if not build_temp.exists():
             build_temp.mkdir(parents=True)
 
-        def show_and_run(cmd: List[str]) -> None:
+        def show_and_run(cmd: list[str]) -> None:
             print(" ".join(cmd))
             subprocess.run(cmd, env=env, check=True)
 
@@ -218,11 +217,11 @@ with open("README.md", "r", encoding="utf-8") as f:
 
 
 with open("requirements.txt", "r", encoding="utf-8") as f:
-    requirements: List[str] = f.read().splitlines()
+    requirements: list[str] = f.read().splitlines()
 
 
 with open("requirements-dev.txt", "r", encoding="utf-8") as f:
-    requirements_dev: List[str] = f.read().splitlines()
+    requirements_dev: list[str] = f.read().splitlines()
 
 
 setup(

@@ -1,5 +1,5 @@
 import random
-from typing import List, Tuple, TypeVar
+from typing import TypeVar
 
 import torch
 import torchvision.transforms.functional as V
@@ -9,7 +9,7 @@ from torchvision.transforms import InterpolationMode
 
 Image = TypeVar("Image", Tensor, PILImage)
 
-NormParams = Tuple[float, float, float]
+NormParams = tuple[float, float, float]
 
 # Default image normalization parameters.
 MEAN: NormParams = 0.48145466, 0.4578275, 0.40821073
@@ -77,7 +77,7 @@ def random_square_crop(img: Image) -> Image:
     return V.crop(img, top, left, height, width)
 
 
-def random_square_crop_multi(imgs: List[Image]) -> List[Image]:
+def random_square_crop_multi(imgs: list[Image]) -> list[Image]:
     img_dims = V.get_image_size(imgs[0])
     assert all(V.get_image_size(i) == img_dims for i in imgs[1:])
     img_width, img_height = img_dims
@@ -86,7 +86,7 @@ def random_square_crop_multi(imgs: List[Image]) -> List[Image]:
     return [V.crop(i, top, left, height, width) for i in imgs]
 
 
-def make_size(img: Image, ref_size: Tuple[int, int]) -> Image:
+def make_size(img: Image, ref_size: tuple[int, int]) -> Image:
     """Converts an image to a specific size, zero-padding smaller dimension.
 
     Args:

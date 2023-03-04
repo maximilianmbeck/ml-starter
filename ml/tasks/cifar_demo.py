@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Tuple, cast
+from typing import cast
 
 import torch.nn.functional as F
 import torchvision
@@ -32,22 +32,11 @@ class CIFARDemoTask(M.BaseTask[CIFARDemoTaskConfig]):
             ]
         )
 
-    def run_model(
-        self,
-        model: M.BaseModel,
-        batch: Tuple[Tensor, Tensor],
-        state: M.State,
-    ) -> Tensor:
+    def run_model(self, model: M.BaseModel, batch: tuple[Tensor, Tensor], state: M.State) -> Tensor:
         image, _ = batch
         return model(image)
 
-    def compute_loss(
-        self,
-        model: M.BaseModel,
-        batch: Tuple[Tensor, Tensor],
-        state: M.State,
-        output: Tensor,
-    ) -> Tensor:
+    def compute_loss(self, model: M.BaseModel, batch: tuple[Tensor, Tensor], state: M.State, output: Tensor) -> Tensor:
         (image, classes), preds = batch, output
         pred_classes = preds.argmax(dim=1, keepdim=True)
 

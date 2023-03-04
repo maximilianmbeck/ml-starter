@@ -1,6 +1,6 @@
 import functools
 import logging
-from typing import List, Type
+from typing import Type
 
 from ml.trainers.mixins.device.base import BaseDevice
 from ml.trainers.mixins.device.cpu import CPUDevice
@@ -12,7 +12,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 # These devices are ordered by priority, so an earlier device in the list
 # is preferred to a later device in the list.
-ALL_DEVICES: List[Type[BaseDevice]] = [
+ALL_DEVICES: list[Type[BaseDevice]] = [
     MetalDevice,
     GPUDevice,
     CPUDevice,

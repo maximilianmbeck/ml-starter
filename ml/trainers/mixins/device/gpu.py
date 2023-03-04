@@ -42,4 +42,7 @@ class GPUDevice(BaseDevice):
 
     @classmethod
     def get_torch_compile_backend(cls) -> str | Callable:
-        return "inductor"
+        capability = torch.cuda.get_device_capability()
+        if capability >= (7, 0):
+            return "inductor"
+        return "aot_ts_nvfuser"

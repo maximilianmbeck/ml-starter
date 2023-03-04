@@ -1,6 +1,6 @@
 import itertools
 import unittest
-from typing import Iterator, List
+from typing import Iterator
 
 from torch.utils.data.dataset import IterableDataset
 
@@ -12,7 +12,7 @@ class TestStreamingDataset(unittest.TestCase):
 
     def test_streaming_dataset(self) -> None:
         class TestDataset(IterableDataset[str]):
-            def __init__(self, values: List[str]) -> None:
+            def __init__(self, values: list[str]) -> None:
                 super().__init__()
 
                 self.vals = values

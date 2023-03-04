@@ -19,7 +19,7 @@ import signal
 from dataclasses import dataclass
 from pathlib import Path
 from types import FrameType
-from typing import Callable, Dict, TypeVar, cast
+from typing import Callable, TypeVar, cast
 
 import torch
 from torch import Tensor, nn
@@ -122,7 +122,7 @@ class VanillaTrainer(
         model: BaseModel,
         optim: Optimizer,
         lr_sched: SchedulerAdapter,
-    ) -> Dict[str, Tensor]:
+    ) -> dict[str, Tensor]:
         with self.step_context("change_mode"):
             task_model, state.phase = set_phase(task_model, "train")
         with self.step_context("forward"), self.autocast_context():

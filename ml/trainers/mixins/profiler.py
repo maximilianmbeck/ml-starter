@@ -3,7 +3,7 @@ import datetime
 import logging
 import time
 from dataclasses import dataclass
-from typing import Any, ContextManager, Dict, Iterator, Set, TypeVar
+from typing import Any, ContextManager, Iterator, Set, TypeVar
 
 import torch
 
@@ -64,7 +64,7 @@ class ProfilerTrainerMixin(
     def __init__(self, config: ProfilerTrainerConfigT) -> None:
         super().__init__(config)
 
-        self.step_times: Dict[StepType, float] = {}
+        self.step_times: dict[StepType, float] = {}
 
     def step_context(self, step: StepType) -> ContextManager:
         ctx = super().step_context(step)

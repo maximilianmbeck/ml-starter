@@ -1,7 +1,7 @@
-from typing import Any, Dict, Union
+from typing import Any, Union
 
 from torch import Tensor
 
 Batch = Any
 Output = Any
-Loss = Union[Tensor, Dict[str, Tensor]]
+Loss = Union[Tensor, dict[str, Tensor]]
