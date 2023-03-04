@@ -22,13 +22,20 @@ class KineticsDemoTaskConfig(M.BaseTaskConfig):
     num_workers: int = M.conf_field(10, help="Number of workers to process videos")
 
 
-@M.register_task("hmdb_demo", KineticsDemoTaskConfig)
+@M.register_task("kinetics_demo", KineticsDemoTaskConfig)
 class KineticsDemoTask(M.BaseTask[KineticsDemoTaskConfig]):
     def __init__(self, config: KineticsDemoTaskConfig) -> None:
         super().__init__(config)
 
-        # Gets the class names for each index.
-        self.idx_to_classes = cast(torchvision.datasets.HMDB51, self.get_dataset("test")).classes
+        # Gets all the classes in the dataset.
+        all_classes = set(
+            cast(torchvision.datasets.HMDB51, self.get_dataset("train")).classes
+            + cast(torchvision.datasets.HMDB51, self.get_dataset("valid")).classes
+            + cast(torchvision.datasets.HMDB51, self.get_dataset("test")).classes
+        )
+
+        # Gets a list of classes, with a mapping from the name to the index.
+        self.idx_to_classes = sorted(list(all_classes))
         self.classes_to_idx = {class_name: idx for idx, class_name in enumerate(self.idx_to_classes)}
 
     def run_model(self, model: M.BaseModel, batch: tuple[Tensor, Tensor], state: M.State) -> Tensor:
@@ -40,8 +47,17 @@ class KineticsDemoTask(M.BaseTask[KineticsDemoTaskConfig]):
     def get_dataset(self, phase: M.Phase) -> Dataset:
         root_dir = M.get_data_dir() / "Kinetics"
 
+        split_name: str
+        match phase:
+            case "train" | "test":
+                split_name = phase
+            case "valid":
+                split_name = "val"
+            case _:
+                raise ValueError(f"Invalid phase: {phase}")
+
         # Cache the metadata for the dataset.
-        metadata_file = root_dir / "metadata.pt"
+        metadata_file = root_dir / f"metadata_{split_name}.pt"
         metadata: dict[str, Any] | None = None
         if metadata_file.exists():
             metadata = torch.load(metadata_file)
@@ -50,8 +66,8 @@ class KineticsDemoTask(M.BaseTask[KineticsDemoTaskConfig]):
             root=root_dir,
             frames_per_clip=self.config.frames_per_clip,
             num_classes=self.config.key,
-            split=phase,
-            download=not (root_dir / "test").exists(),
+            split=split_name,
+            download=not (root_dir / split_name).exists(),
             step_between_clips=self.config.step_between_clips,
             num_download_workers=self.config.num_download_workers,
             num_workers=self.config.num_workers,
@@ -65,7 +81,7 @@ class KineticsDemoTask(M.BaseTask[KineticsDemoTaskConfig]):
         return dataset
 
 
-def run_hmdb_demo_adhoc_test() -> None:
+def run_kinetics_demo_adhoc_test() -> None:
     """Runs a quick test to make sure the task runs.
 
     Usage:
@@ -83,4 +99,4 @@ def run_hmdb_demo_adhoc_test() -> None:
 
 
 if __name__ == "__main__":
-    run_hmdb_demo_adhoc_test()
+    run_kinetics_demo_adhoc_test()

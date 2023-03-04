@@ -12,7 +12,6 @@ Summary table:
 | loss    | E(x, o)      |
 """
 
-
 import contextlib
 import logging
 import signal
@@ -80,7 +79,6 @@ class TorchCompileConfig:
     dynamic: bool = conf_field(False, help="Whether to use dynamic shape tracing")
     backend: str = conf_field("auto", help="The backend to use")
     mode: str | None = conf_field("max-autotune", help="Can be either 'default', 'reduce-overhead' or 'max-autotune'")
-    options: dict[str, str | int | bool] | None = conf_field(None, help="Options to pass to the backend")
 
 
 @dataclass
@@ -267,7 +265,6 @@ class VanillaTrainer(
                     dynamic=self.config.torch_compile.dynamic,
                     backend=backend,
                     mode=self.config.torch_compile.mode,
-                    options=self.config.torch_compile.options,
                     disable=not self.config.torch_compile.enabled,
                 ),
             )
