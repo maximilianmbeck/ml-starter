@@ -43,7 +43,14 @@ def resolve(path: str) -> str:
     return str(Path(path).resolve())
 
 
+def cpu_count(default: int) -> int:
+    if (cpu_count := os.cpu_count()) is not None:
+        return cpu_count
+    return default
+
+
 OmegaConf.register_new_resolver("resolve", resolve)
+OmegaConf.register_new_resolver("cpu_count", cpu_count)
 
 LockType = Literal["running", "scheduled", "ckpt"]
 
