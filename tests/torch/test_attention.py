@@ -9,7 +9,7 @@ from torch import Tensor
 @pytest.mark.parametrize("is_causal", [True, False])
 @pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float16, torch.float32])
 def test_scaled_dot_product_attention(is_causal: bool, dtype: torch.dtype, device: torch.device) -> None:
-    if device.type == "cpu" and dtype in (torch.bfloat16, torch.float16):
+    if device.type in ("cpu", "mps") and dtype in (torch.bfloat16, torch.float16):
         pytest.skip("CPU does not support bfloat16 and float16")
 
     query, key, value = torch.randn(2, 3, 16 * 3, dtype=dtype, device=device).tensor_split(3, dim=-1)
