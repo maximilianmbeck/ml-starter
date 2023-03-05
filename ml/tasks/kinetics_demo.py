@@ -9,7 +9,6 @@ from torch import Tensor
 from torch.utils.data.dataset import Dataset
 
 import ml.api as M
-from ml.trainers.base import cpu_count
 
 logger = logging.getLogger(__name__)
 
@@ -19,8 +18,8 @@ class KineticsDemoTaskConfig(M.BaseTaskConfig):
     frames_per_clip: int = M.conf_field(16, help="Number of frames per clip")
     key: str = M.conf_field("400", help="Kinetics dataset key")
     step_between_clips: int = M.conf_field(1, help="Number of frames between clips")
-    num_download_workers: int = M.conf_field(10, help="Number of workers to download videos")
-    num_workers: int = M.conf_field(cpu_count(10), help="Number of workers to process videos")
+    num_download_workers: int = M.conf_field(16, help="Number of workers to download videos")
+    num_workers: int = M.conf_field(16, help="Number of workers to process videos")
 
 
 @M.register_task("kinetics_demo", KineticsDemoTaskConfig)
