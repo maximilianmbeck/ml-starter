@@ -40,11 +40,17 @@ def get_tasks_outstanding(dataloader_iter: _BaseDataLoaderIter) -> int:
 class Prefetcher(Iterable[DeviceBatchT]):
     """Helper class for pre-loading samples into device memory."""
 
-    def __init__(self, to_device_func: Callable[[Any], Any], dataloader: DataLoader) -> None:
+    def __init__(
+        self,
+        to_device_func: Callable[[Any], Any],
+        dataloader: DataLoader,
+        raise_stop_iter: bool = False,
+    ) -> None:
         super().__init__()
 
         self.to_device_func = to_device_func
         self.dataloader = dataloader
+        self.raise_stop_iter = raise_stop_iter
         self.dataloader_iter = iter(self.dataloader)
         self.next_sample = None
         self.get_batch_time = -1.0
@@ -133,7 +139,8 @@ class Prefetcher(Iterable[DeviceBatchT]):
         except StopIteration:
             # Resets the dataloader if the iteration has completed.
             self.dataloader_iter = iter(self.dataloader)
-            raise
+            if self.raise_stop_iter:
+                raise
 
 
 class InfinitePrefetcher(Iterable[DeviceBatchT]):
