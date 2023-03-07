@@ -53,10 +53,12 @@ class ExceptionSummary:
         lines: list[str] = []
 
         def get_log_line(k: str, v: int) -> str:
-            if len(k) > 60:
-                k = f"{k[:57]}..."
+            chunks = [k[i : i + 60] for i in range(0, len(k), 60)]
             v_int, v_prct = f"{v}", f"{int(v * 100 / self.steps)} %"
-            return f"| {k:60s} | {v_int:10s} | {v_prct:10s} |"
+            log_lines = [f"| {chunks[0]:60s} | {v_int:10s} | {v_prct:10s} |"]
+            for chunk in chunks[1:]:
+                log_lines += [f"| {chunk:60s} | {'':10s} | {'':10s} |"]
+            return "\n".join(log_lines)
 
         def get_line_break() -> str:
             return f"=={'=' * 60}==={'=' * 10}==={'=' * 10}=="

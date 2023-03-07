@@ -1,9 +1,8 @@
 model:
-  name: resnet18
-  num_classes: 10
+  name: r3d_18
 
 task:
-  name: kinetics_demo
+  name: moving_mnist_demo
   finished:
     max_steps: 100_000
   dataloader:

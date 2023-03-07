@@ -14,6 +14,7 @@ Summary table:
 
 import contextlib
 import logging
+import os
 import signal
 from dataclasses import dataclass
 from pathlib import Path
@@ -251,7 +252,7 @@ class VanillaTrainer(
                 self.save_config()
 
         # Compiles the model.
-        if self.config.torch_compile.enabled:
+        if self.config.torch_compile.enabled and os.environ.get("TORCH_COMPILE_DISABLE", "0") == "0":
             backend: str | Callable = self.config.torch_compile.backend
             if backend == "auto":
                 backend = self._device.get_torch_compile_backend()

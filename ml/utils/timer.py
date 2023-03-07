@@ -6,7 +6,7 @@ import signal
 import time
 from typing import Any, Callable, TypeVar
 
-logger: logging.Logger = logging.getLogger(__name__)
+timer_logger: logging.Logger = logging.getLogger(__name__)
 
 TimeoutFunc = TypeVar("TimeoutFunc", bound=Callable[..., Any])
 
@@ -14,11 +14,17 @@ TimeoutFunc = TypeVar("TimeoutFunc", bound=Callable[..., Any])
 class Timer:
     """Defines a simple timer for logging an event."""
 
-    def __init__(self, description: str, min_seconds_to_print: float = 1.0) -> None:
+    def __init__(
+        self,
+        description: str,
+        min_seconds_to_print: float = 1.0,
+        logger: logging.Logger | None = None,
+    ) -> None:
         self.description = description
         self.min_seconds_to_print = min_seconds_to_print
         self._start_time: float | None = None
         self._elapsed_time: float | None = None
+        self._logger = timer_logger if logger is None else logger
 
     @property
     def elapsed_time(self) -> float:
@@ -33,7 +39,7 @@ class Timer:
         assert self._start_time is not None
         self._elapsed_time = time.time() - self._start_time
         if self._elapsed_time > self.min_seconds_to_print:
-            logger.warning("Finished %s in %.3g seconds", self.description, self._elapsed_time)
+            self._logger.warning("Finished %s in %.3g seconds", self.description, self._elapsed_time)
 
 
 def timeout(seconds: int, error_message: str = os.strerror(errno.ETIME)) -> Callable[[TimeoutFunc], TimeoutFunc]:
