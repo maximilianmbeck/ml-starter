@@ -46,11 +46,12 @@ class _StrSetEnvVar:
 
 
 class _BoolEnvVar:
-    def __init__(self, key: str) -> None:
+    def __init__(self, key: str, default: bool = False) -> None:
         self.key = key
+        self.default = default
 
     def get(self) -> bool:
-        return self.key in os.environ and bool(int(os.environ[self.key]))
+        return bool(int(os.environ.get(self.key, "0" if self.default else "1")))
 
     def set(self, val: bool) -> None:
         os.environ[self.key] = "1" if val else "0"
@@ -142,6 +143,10 @@ GlobalTags = _StrSetEnvVar("GLOBAL_MODEL_TAGS")
 get_global_tags = GlobalTags.get
 set_global_tags = GlobalTags.set
 add_global_tag = GlobalTags.add
+
+# Determines if the model should be compiled.
+TorchCompile = _BoolEnvVar("TORCH_COMPILE", default=True)
+is_torch_compiled = TorchCompile.get
 
 
 def get_distributed_backend() -> dist.Backend:

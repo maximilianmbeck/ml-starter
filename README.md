@@ -46,11 +46,11 @@ runml mp_train configs/cifar_demo.yaml trainer.name=slurm
 
 A new project is broken down into five parts:
 
-1. *Task*: Defines the dataset and calls the model on a sample. Similar to a [LightningModule](https://pytorch-lightning.readthedocs.io/en/stable/common/lightning_module.html).
-2. *Model*: Just a PyTorch `nn.Module`
-3. *Trainer*: Defines the main training loop, and optionally how to distribute training when using multiple GPUs
-4. *Optimizer*: Just a PyTorch `optim.Optimizer`
-5. *LR Scheduler*: Just a PyTorch `optim.LRScheduler`
+1. _Task_: Defines the dataset and calls the model on a sample. Similar to a [LightningModule](https://pytorch-lightning.readthedocs.io/en/stable/common/lightning_module.html).
+2. _Model_: Just a PyTorch `nn.Module`
+3. _Trainer_: Defines the main training loop, and optionally how to distribute training when using multiple GPUs
+4. _Optimizer_: Just a PyTorch `optim.Optimizer`
+5. _LR Scheduler_: Just a PyTorch `optim.LRScheduler`
 
 Most projects should just have to implement the Task and Model, and use a default trainer, optimizer and learning rate scheduler. Running the training command above will log the location of each component.
 
@@ -102,3 +102,7 @@ This template automatically runs `black`, `isort`, `pylint` and `mypy` against y
 ### Lots of Timers
 
 The training loop is pretty well optimized, but sometimes you can do stupid things when implementing a task that impact your performance. This adds a lot of timers which make it easy to spot likely training slowdowns, or you can run the full profiler if you want a more detailed breakdown.
+
+### Compiled models
+
+By default, models are run using `torch.compile`. To disable this behavior and use eager mode execution, set `TORCH_COMPILE=0`. If you try to launch a Slurm job with this flag set, it will show a warning.

@@ -10,6 +10,7 @@ from ml.core.config import conf_field
 from ml.core.registry import register_logger
 from ml.core.state import Phase, State
 from ml.loggers.base import BaseLogger, BaseLoggerConfig
+from ml.utils.colors import colorize
 from ml.utils.datetime import format_timedelta
 
 
@@ -78,12 +79,27 @@ class StdoutLogger(BaseLogger[StdoutLoggerConfig]):
         elapsed_time_str = format_timedelta(elapsed_time)
 
         def get_section_string(name: str, section: dict[str, Any]) -> str:
-            inner_str = ", ".join(f'"{k}": {as_str(v(), self.config.precision)}' for k, v in sorted(section.items()))
-            return '"' + name + '": {' + inner_str + "}"
+            get_line = lambda kv: f'"{kv[0]}": {as_str(kv[1](), self.config.precision)}'
+            inner_str = ", ".join(map(get_line, sorted(section.items())))
+            return '"' + colorize(name, "cyan") + '": {' + inner_str + "}"
+
+        def colorize_phase(phase: Phase) -> str:
+            match phase:
+                case "train":
+                    return colorize(phase, "green", bold=True)
+                case "valid":
+                    return colorize(phase, "yellow", bold=True)
+                case "test":
+                    return colorize(phase, "red", bold=True)
+                case _:
+                    return colorize(phase, "white", bold=True)
+
+        def colorize_time(time: str) -> str:
+            return colorize(time, "light-magenta")
 
         # Writes a log string to stdout.
         log_string = ", ".join(get_section_string(k, v) for k, v in sorted(phase_log_values.items()))
-        self.logger.info("%s [%s] {%s}", state.phase, elapsed_time_str, log_string)
+        self.logger.info("%s [%s] {%s}", colorize_phase(state.phase), colorize_time(elapsed_time_str), log_string)
 
     def clear(self, state: State) -> None:
         if state.phase in self.log_values:
