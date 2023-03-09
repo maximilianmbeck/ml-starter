@@ -2,6 +2,7 @@ import asyncio
 import re
 import shutil
 from dataclasses import dataclass
+from fractions import Fraction
 from pathlib import Path
 from typing import AsyncGenerator, Callable, Iterator, Literal
 
@@ -25,7 +26,7 @@ class VideoProps:
     frame_width: int
     frame_height: int
     frame_count: int
-    fps: int
+    fps: Fraction
 
     @classmethod
     def from_file_opencv(cls, fpath: str | Path) -> "VideoProps":
@@ -35,7 +36,7 @@ class VideoProps:
             frame_width=int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
             frame_height=int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
             frame_count=int(cap.get(cv2.CAP_PROP_FRAME_COUNT)),
-            fps=int(cap.get(cv2.CAP_PROP_FPS)),
+            fps=Fraction(cap.get(cv2.CAP_PROP_FPS)),
         )
 
     @classmethod
@@ -46,13 +47,11 @@ class VideoProps:
             if stream["codec_type"] == "video":
                 width, height, count = stream["width"], stream["height"], int(stream["nb_frames"])
                 fps_num, fps_denom = stream["r_frame_rate"].split("/")
-                assert fps_denom == "1", f"Unexpected frame rate: {stream['r_frame_rate']}"
-                fps = int(fps_num)
                 return cls(
                     frame_width=width,
                     frame_height=height,
                     frame_count=count,
-                    fps=fps,
+                    fps=Fraction(int(fps_num), int(fps_denom)),
                 )
 
         raise ValueError(f"Could not parse video properties from video in {fpath}")
@@ -77,7 +76,7 @@ def read_video_ffmpeg(
     props = VideoProps.from_file_ffmpeg(in_file)
 
     stream = ffmpeg.input(str(in_file))
-    stream = ffmpeg.output(stream, "pipe:", format="rawvideo", pix_fmt=output_fmt, r=props.fps)
+    stream = ffmpeg.output(stream, "pipe:", format="rawvideo", pix_fmt=output_fmt, r=float(props.fps))
     stream = ffmpeg.run_async(stream, pipe_stdout=True)
 
     while True:
@@ -131,7 +130,7 @@ async def read_video_with_timestamps_ffmpeg(
     vf.append("showinfo")
 
     stream = ffmpeg.input(str(in_file))
-    stream = ffmpeg.output(stream, "pipe:", format="rawvideo", pix_fmt=output_fmt, r=props.fps, vf=",".join(vf))
+    stream = ffmpeg.output(stream, "pipe:", format="rawvideo", pix_fmt=output_fmt, r=float(props.fps), vf=",".join(vf))
     stream = ffmpeg.run_async(stream, pipe_stdout=True, pipe_stderr=True)
 
     async def gen_frames() -> AsyncGenerator[np.ndarray, None]:
@@ -191,7 +190,7 @@ def read_video_opencv(in_file: str | Path) -> Iterator[np.ndarray]:
 def write_video_opencv(
     itr: Iterator[np.ndarray],
     out_file: str | Path,
-    fps: int = 30,
+    fps: int | Fraction = 30,
     codec: str = "MP4V",
 ) -> None:
     """Function that writes a video from a stream of numpy arrays using OpenCV.
@@ -208,7 +207,7 @@ def write_video_opencv(
     height, width, _ = first_img.shape
 
     fourcc = cv2.VideoWriter_fourcc(*codec)
-    stream = cv2.VideoWriter(str(out_file), fourcc, fps, (width, height))
+    stream = cv2.VideoWriter(str(out_file), fourcc, fps if isinstance(fps, int) else round(fps), (width, height))
 
     def write_frame(img: np.ndarray) -> None:
         stream.write(as_uint8(img))
@@ -224,8 +223,8 @@ def write_video_opencv(
 def write_video_ffmpeg(
     itr: Iterator[np.ndarray],
     out_file: str | Path,
-    fps: int = 30,
-    out_fps: int = 30,
+    fps: int | Fraction = 30,
+    out_fps: int | Fraction = 30,
     vcodec: str = "libx264",
     input_fmt: str = "rgb24",
     output_fmt: str = "yuv420p",
@@ -245,8 +244,8 @@ def write_video_ffmpeg(
     first_img = next(itr)
     height, width, _ = first_img.shape
 
-    stream = ffmpeg.input("pipe:", format="rawvideo", pix_fmt=input_fmt, s=f"{width}x{height}", r=fps)
-    stream = ffmpeg.output(stream, str(out_file), pix_fmt=output_fmt, vcodec=vcodec, r=out_fps)
+    stream = ffmpeg.input("pipe:", format="rawvideo", pix_fmt=input_fmt, s=f"{width}x{height}", r=float(fps))
+    stream = ffmpeg.output(stream, str(out_file), pix_fmt=output_fmt, vcodec=vcodec, r=float(out_fps))
     stream = ffmpeg.overwrite_output(stream)
     stream = ffmpeg.run_async(stream, pipe_stdin=True)
 
@@ -266,7 +265,7 @@ def write_video_matplotlib(
     itr: Iterator[np.ndarray],
     out_file: str | Path,
     dpi: int = 50,
-    fps: int = 30,
+    fps: int | Fraction = 30,
     title: str = "Video",
     comment: str | None = None,
     writer: str = "ffmpeg",
@@ -307,7 +306,7 @@ def write_video_matplotlib(
         "comment": comment,
     }
     mpl_writer = writer_obj(
-        fps=fps,
+        fps=fps if isinstance(fps, int) else round(fps),
         metadata={k: v for k, v in metadata.items() if v is not None},
     )
 
