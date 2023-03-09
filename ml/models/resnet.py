@@ -3,7 +3,14 @@ from typing import Callable
 
 from omegaconf import MISSING
 from torch import Tensor, nn
-from torchvision.models.resnet import ResNet, resnet18, resnet34, resnet50, resnet101, resnet152
+from torchvision.models.resnet import (
+    ResNet,
+    resnet18,
+    resnet34,
+    resnet50,
+    resnet101,
+    resnet152,
+)
 
 from ml import api
 

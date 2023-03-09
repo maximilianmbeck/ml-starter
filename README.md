@@ -33,13 +33,13 @@ mamba install cmake-format clang-format
 Run the CIFAR training example:
 
 ```bash
-runml train configs/cifar_demo.yaml
+runml train configs/image_demo.yaml
 ```
 
 Launch a Slurm job (requires setting the `SLURM_PARTITION` environment variable):
 
 ```bash
-runml mp_train configs/cifar_demo.yaml trainer.name=slurm
+runml mp_train configs/image_demo.yaml trainer.name=slurm
 ```
 
 ### Architecture

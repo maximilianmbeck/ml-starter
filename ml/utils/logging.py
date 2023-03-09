@@ -124,6 +124,10 @@ def configure_logging(
     root_logger.addHandler(handler)
     root_logger.setLevel(logging.DEBUG if is_debugging() else logging.INFO)
 
+    # Avoid junk logs from other libraries.
+    logging.getLogger("matplotlib").setLevel(logging.WARNING)
+    logging.getLogger("PIL").setLevel(logging.WARNING)
+
 
 def get_log_item(item: Any) -> Any:
     if isinstance(item, Tensor):

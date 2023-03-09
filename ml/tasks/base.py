@@ -18,15 +18,18 @@ from torch.utils.data.dataloader import DataLoader
 from torch.utils.data.dataset import Dataset
 from torch.utils.data.sampler import Sampler
 
+from ml.core.common_types import Batch, Loss, Output
 from ml.core.config import BaseConfig, BaseObjectWithPointers, conf_field
 from ml.core.env import is_debugging
 from ml.core.state import Phase, State, cast_phase
-from ml.core.types import Batch, Loss, Output
 from ml.loggers.multi import MultiLogger
 from ml.lr_schedulers.base import SchedulerAdapter
 from ml.models.base import BaseModel
 from ml.tasks.datasets.collate import CollateMode, collate
-from ml.tasks.datasets.error_handling import ErrorHandlingConfig, get_error_handling_dataset
+from ml.tasks.datasets.error_handling import (
+    ErrorHandlingConfig,
+    get_error_handling_dataset,
+)
 from ml.tasks.losses.reduce import cast_reduce_type, reduce
 from ml.utils.random import set_random_seed
 
@@ -187,9 +190,15 @@ class BaseTaskConfig(BaseConfig):
 
 
 TaskConfigT = TypeVar("TaskConfigT", bound=BaseTaskConfig)
+ModelT = TypeVar("ModelT", bound=BaseModel)
 
 
-class BaseTask(nn.Module, BaseObjectWithPointers[TaskConfigT], Generic[TaskConfigT], ABC):
+class BaseTask(
+    nn.Module,
+    BaseObjectWithPointers[TaskConfigT],
+    Generic[TaskConfigT, ModelT, Batch, Output, Loss],
+    ABC,
+):
     """Defines the base task type."""
 
     def __init__(self, config: TaskConfigT) -> None:
@@ -215,7 +224,7 @@ class BaseTask(nn.Module, BaseObjectWithPointers[TaskConfigT], Generic[TaskConfi
         self.__final_loss_reduce_type = cast_reduce_type(self.config.loss.reduce_type)
 
     @abstractmethod
-    def run_model(self, model: BaseModel, batch: Batch, state: State) -> Output:
+    def run_model(self, model: ModelT, batch: Batch, state: State) -> Output:
         """Runs a single training step and returns the outputs.
 
         Args:
@@ -228,7 +237,7 @@ class BaseTask(nn.Module, BaseObjectWithPointers[TaskConfigT], Generic[TaskConfi
         """
 
     @abstractmethod
-    def compute_loss(self, model: BaseModel, batch: Batch, state: State, output: Output) -> Loss:
+    def compute_loss(self, model: ModelT, batch: Batch, state: State, output: Output) -> Loss:
         """Computes the loss for a given output.
 
         If the loss is a tensor, it should have shape (B). If the loss is a
@@ -446,20 +455,20 @@ class BaseTask(nn.Module, BaseObjectWithPointers[TaskConfigT], Generic[TaskConfi
     def on_after_save_checkpoint(self, ckpt_path: Path) -> None:
         pass
 
-    def on_before_forward_step(self, model: BaseModel, batch: Batch, state: State) -> None:
+    def on_before_forward_step(self, model: ModelT, batch: Batch, state: State) -> None:
         pass
 
-    def on_after_forward_step(self, model: BaseModel, batch: Batch, output: Output, state: State) -> None:
+    def on_after_forward_step(self, model: ModelT, batch: Batch, output: Output, state: State) -> None:
         pass
 
-    def on_after_compute_loss(self, model: BaseModel, batch: Batch, output: Output, loss: Loss, state: State) -> None:
+    def on_after_compute_loss(self, model: ModelT, batch: Batch, output: Output, loss: Loss, state: State) -> None:
         pass
 
     def on_step_start(
         self,
         state: State,
         train_batch: Batch,
-        model: BaseModel,
+        model: ModelT,
         optim: Optimizer,
         lr_sched: SchedulerAdapter,
     ) -> None:
@@ -470,7 +479,7 @@ class BaseTask(nn.Module, BaseObjectWithPointers[TaskConfigT], Generic[TaskConfi
         state: State,
         train_batch: Batch,
         loss_dict: dict[str, Tensor],
-        model: BaseModel,
+        model: ModelT,
         optim: Optimizer,
         lr_sched: SchedulerAdapter,
     ) -> None:
@@ -479,7 +488,7 @@ class BaseTask(nn.Module, BaseObjectWithPointers[TaskConfigT], Generic[TaskConfi
     def on_epoch_start(
         self,
         state: State,
-        model: BaseModel,
+        model: ModelT,
         optim: Optimizer,
         lr_sched: SchedulerAdapter,
     ) -> None:
@@ -488,7 +497,7 @@ class BaseTask(nn.Module, BaseObjectWithPointers[TaskConfigT], Generic[TaskConfi
     def on_epoch_end(
         self,
         state: State,
-        model: BaseModel,
+        model: ModelT,
         optim: Optimizer,
         lr_sched: SchedulerAdapter,
     ) -> None:

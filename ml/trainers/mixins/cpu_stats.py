@@ -9,9 +9,9 @@ from typing import TypeVar
 import psutil
 from torch.optim.optimizer import Optimizer
 
+from ml.core.common_types import Batch
 from ml.core.config import conf_field
 from ml.core.state import State
-from ml.core.types import Batch
 from ml.lr_schedulers.base import SchedulerAdapter
 from ml.models.base import BaseModel
 from ml.tasks.base import BaseTask

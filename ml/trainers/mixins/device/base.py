@@ -2,16 +2,7 @@ import contextlib
 import functools
 from abc import ABC, abstractmethod
 from dataclasses import is_dataclass
-from typing import (
-    Any,
-    Callable,
-    ContextManager,
-    Iterable,
-    Iterator,
-    Mapping,
-    Sequence,
-    TypeVar,
-)
+from typing import Any, Callable, ContextManager, Iterable, Iterator, Mapping, Sequence
 
 import numpy as np
 import torch
@@ -22,10 +13,8 @@ from torch.utils.data.dataloader import (
     _MultiProcessingDataLoaderIter,
 )
 
-from ml.core.types import Batch
+from ml.core.common_types import Batch
 from ml.utils.timer import Timer
-
-DeviceBatchT = TypeVar("DeviceBatchT", bound=Batch)  # pylint: disable=invalid-name
 
 
 def get_tasks_outstanding(dataloader_iter: _BaseDataLoaderIter) -> int:
@@ -37,7 +26,7 @@ def get_tasks_outstanding(dataloader_iter: _BaseDataLoaderIter) -> int:
     return -1
 
 
-class Prefetcher(Iterable[DeviceBatchT]):
+class Prefetcher(Iterable[Batch]):
     """Helper class for pre-loading samples into device memory."""
 
     def __init__(
@@ -123,7 +112,7 @@ class Prefetcher(Iterable[DeviceBatchT]):
             return [cls.recursive_apply(i, func) for i in item]
         return item
 
-    def __iter__(self) -> Iterator[DeviceBatchT]:
+    def __iter__(self) -> Iterator[Batch]:
         self.prefetch()
 
         try:
@@ -143,11 +132,11 @@ class Prefetcher(Iterable[DeviceBatchT]):
                 raise
 
 
-class InfinitePrefetcher(Iterable[DeviceBatchT]):
-    def __init__(self, prefetcher: Prefetcher[DeviceBatchT]) -> None:
+class InfinitePrefetcher(Iterable[Batch]):
+    def __init__(self, prefetcher: Prefetcher[Batch]) -> None:
         self.prefetcher = prefetcher
 
-    def __iter__(self) -> Iterator[DeviceBatchT]:
+    def __iter__(self) -> Iterator[Batch]:
         while True:
             for batch in self.prefetcher:
                 yield batch

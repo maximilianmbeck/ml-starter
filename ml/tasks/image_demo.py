@@ -1,30 +1,42 @@
 from dataclasses import dataclass
-from typing import cast
 
 import torch.nn.functional as F
 import torchvision
 from torch import Tensor
-from torch.utils.data.dataset import Dataset
 
 import ml.api as M
 from ml.api import register_task
+from ml.models.resnet import ResNetModel
+
+CLASS_TO_IDX = {
+    "airplane": 0,
+    "automobile": 1,
+    "bird": 2,
+    "cat": 3,
+    "deer": 4,
+    "dog": 5,
+    "frog": 6,
+    "horse": 7,
+    "ship": 8,
+    "truck": 9,
+}
 
 
 @dataclass
-class CIFARDemoTaskConfig(M.BaseTaskConfig):
+class ImageDemoTaskConfig(M.BaseTaskConfig):
     pass
 
 
-@register_task("cifar_demo", CIFARDemoTaskConfig)
-class CIFARDemoTask(M.BaseTask[CIFARDemoTaskConfig]):
-    def __init__(self, config: CIFARDemoTaskConfig) -> None:
+@register_task("image_demo", ImageDemoTaskConfig)
+class ImageDemoTask(M.BaseTask[ImageDemoTaskConfig, ResNetModel, tuple[Tensor, Tensor], Tensor, Tensor]):
+    def __init__(self, config: ImageDemoTaskConfig) -> None:
         super().__init__(config)
 
         # Gets the class names for each index.
-        class_to_idx = cast(torchvision.datasets.CIFAR10, self.get_dataset("test")).class_to_idx
-        self.idx_to_class = {i: name for name, i in class_to_idx.items()}
+        # class_to_idx = self.get_dataset("test").class_to_idx
+        self.idx_to_class = {i: name for name, i in CLASS_TO_IDX.items()}
 
-    def get_label(self, true_class: int | float, pred_class: int | float) -> str:
+    def get_label(self, true_class: int, pred_class: int) -> str:
         return "\n".join(
             [
                 f"True: {self.idx_to_class.get(true_class, 'MISSING')}",
@@ -32,11 +44,11 @@ class CIFARDemoTask(M.BaseTask[CIFARDemoTaskConfig]):
             ]
         )
 
-    def run_model(self, model: M.BaseModel, batch: tuple[Tensor, Tensor], state: M.State) -> Tensor:
+    def run_model(self, model: ResNetModel, batch: tuple[Tensor, Tensor], state: M.State) -> Tensor:
         image, _ = batch
         return model(image)
 
-    def compute_loss(self, model: M.BaseModel, batch: tuple[Tensor, Tensor], state: M.State, output: Tensor) -> Tensor:
+    def compute_loss(self, model: ResNetModel, batch: tuple[Tensor, Tensor], state: M.State, output: Tensor) -> Tensor:
         (image, classes), preds = batch, output
         pred_classes = preds.argmax(dim=1, keepdim=True)
 
@@ -48,12 +60,12 @@ class CIFARDemoTask(M.BaseTask[CIFARDemoTaskConfig]):
         # On validation and test steps, logs images to each image logger.
         if state.phase in ("valid", "test"):
             bsz = classes.shape[0]
-            texts = [self.get_label(classes[i].item(), pred_classes[i].item()) for i in range(bsz)]
+            texts = [self.get_label(int(classes[i].item()), int(pred_classes[i].item())) for i in range(bsz)]
             self.logger.log_labeled_images("image", (image, texts))
 
         return F.cross_entropy(preds, classes.flatten().long(), reduction="none")
 
-    def get_dataset(self, phase: M.Phase) -> Dataset:
+    def get_dataset(self, phase: M.Phase) -> torchvision.datasets.CIFAR10:
         return torchvision.datasets.CIFAR10(
             root=M.get_data_dir(),
             train=phase == "train",

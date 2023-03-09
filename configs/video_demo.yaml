@@ -2,7 +2,7 @@ model:
   name: r3d_18
 
 task:
-  name: moving_mnist_demo
+  name: video_demo
   finished:
     max_steps: 100_000
   dataloader:

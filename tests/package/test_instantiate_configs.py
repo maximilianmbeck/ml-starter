@@ -11,7 +11,7 @@ from ml.utils.cli import parse_cli
 # Be mindful that these configs are supposed to run regularly in CI
 # and therefore should not be too expensive.
 CONFIGS_TO_CHECK: list[list[str]] = [
-    ["configs/cifar_demo.yaml", "model.pretrained=False"],
+    ["configs/image_demo.yaml", "model.pretrained=False"],
 ]
 
 

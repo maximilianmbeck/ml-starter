@@ -12,9 +12,9 @@ from omegaconf import II, MISSING, DictConfig, ListConfig, OmegaConf
 from torch import Tensor
 from torch.optim.optimizer import Optimizer
 
+from ml.core.common_types import Batch
 from ml.core.config import BaseConfig, BaseObjectWithPointers, conf_field
 from ml.core.state import State
-from ml.core.types import Batch
 from ml.loggers.base import BaseLogger
 from ml.loggers.multi import MultiLogger
 from ml.lr_schedulers.base import BaseLRScheduler, SchedulerAdapter

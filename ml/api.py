@@ -29,7 +29,7 @@ from ml.core.registry import (
     register_trainer,
 )
 from ml.core.state import Phase, State
-from ml.core.types import Batch, Loss, Output
+from ml.core.common_types import Batch, Loss, Output
 from ml.lr_schedulers.base import BaseLRScheduler, BaseLRSchedulerConfig
 from ml.models.activations import cast_activation_type, get_activation
 from ml.models.base import BaseModel, BaseModelConfig

@@ -18,17 +18,17 @@ import signal
 from dataclasses import dataclass
 from pathlib import Path
 from types import FrameType
-from typing import Callable, TypeVar, cast
+from typing import Callable, Generic, TypeVar, cast
 
 import torch
 from torch import Tensor, nn
 from torch.optim import Optimizer
 
+from ml.core.common_types import Batch, Loss
 from ml.core.config import conf_field
 from ml.core.env import is_torch_compiled
 from ml.core.registry import register_trainer
 from ml.core.state import State, set_phase
-from ml.core.types import Batch, Loss
 from ml.loggers.meter import MeterLogger, MeterLoggerConfig
 from ml.lr_schedulers.base import BaseLRScheduler, SchedulerAdapter
 from ml.models.base import BaseModel
@@ -57,8 +57,12 @@ class TrainingFinishedException(Exception):
     pass
 
 
-class TaskModel(nn.Module):
-    def __init__(self, task: BaseTask, model: BaseModel) -> None:
+TaskT = TypeVar("TaskT", bound=BaseTask)
+ModelT = TypeVar("ModelT", bound=BaseModel)
+
+
+class TaskModel(nn.Module, Generic[ModelT, TaskT, Batch, Loss]):
+    def __init__(self, task: TaskT, model: ModelT) -> None:
         super().__init__()
 
         self.task = task

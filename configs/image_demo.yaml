@@ -3,7 +3,7 @@ model:
   num_classes: 10
 
 task:
-  name: cifar_demo
+  name: image_demo
   finished:
     max_steps: 100_000
   dataloader:
