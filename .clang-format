@@ -3,4 +3,3 @@ IndentWidth: 4
 ColumnLimit: 120
 IncludeBlocks: Regroup
 NamespaceIndentation: Inner
-SortUsingDeclarations: True
