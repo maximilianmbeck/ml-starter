@@ -14,9 +14,7 @@ from ml.core.common_types import Batch
 from ml.core.config import conf_field
 from ml.core.state import State
 from ml.lr_schedulers.base import SchedulerAdapter
-from ml.models.base import BaseModel
-from ml.tasks.base import BaseTask
-from ml.trainers.base import BaseTrainer, BaseTrainerConfig
+from ml.trainers.base import BaseTrainer, BaseTrainerConfig, ModelT, TaskT
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -85,7 +83,7 @@ def worker(config: GPUStatsConfigT, queue: "mp.Queue[GPUStats]") -> None:
         queue.put(gpu_stat)
 
 
-class GPUStatsMixin(BaseTrainer[GPUStatsConfigT]):
+class GPUStatsMixin(BaseTrainer[GPUStatsConfigT, ModelT, TaskT]):
     """Defines a trainer mixin for getting GPU statistics."""
 
     def __init__(self, config: GPUStatsConfigT) -> None:
@@ -105,8 +103,8 @@ class GPUStatsMixin(BaseTrainer[GPUStatsConfigT]):
         self,
         state: State,
         train_batch: Batch,
-        task: BaseTask,
-        model: BaseModel,
+        task: TaskT,
+        model: ModelT,
         optim: Optimizer,
         lr_sched: SchedulerAdapter,
     ) -> None:

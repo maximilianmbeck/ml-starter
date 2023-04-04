@@ -1,0 +1,106 @@
+"""Defines the replay buffer classes for storing sessions from an environment."""
+
+import random
+from collections import deque
+from typing import Callable, Deque, Generic, Iterator, TypeVar
+
+from torch.utils.data.dataset import IterableDataset
+
+from ml.tasks.datasets.collate import collate
+
+T = TypeVar("T")
+
+
+class ReplaySamples(Generic[T]):
+    def __init__(self, samples: list[T]) -> None:
+        super().__init__()
+
+        self.samples = samples
+
+    def sample(self, clip_size: int, stride: int = 1, only_last: bool = False) -> list[T]:
+        # clip_size = 3, stride = 2: [0, 2, 4]; clip_size = 4, stride = 3: [0, 3, 6, 9]
+        length, qsize = (clip_size - 1) * stride + 1, len(self)
+        assert length <= qsize, f"{length=} is greater than {qsize=}"
+        start = qsize - length if only_last else random.randint(0, qsize - length)
+        items = [self[i] for i in range(start, start + length, stride)]
+        if len(items) != clip_size:
+            raise ValueError(f"Got {len(items)} item(s), expected {clip_size}")
+        return items
+
+    def __getitem__(self, index: int) -> T:
+        if isinstance(self.samples, list):
+            return self.samples[index]
+        raise NotImplementedError(f"Unsupported sample type: {type(self.samples)}")
+
+    def __len__(self) -> int:
+        if isinstance(self.samples, list):
+            return len(self.samples)
+        raise NotImplementedError(f"Unsupported sample type: {type(self.samples)}")
+
+    def __iter__(self) -> Iterator[T]:
+        for i in range(len(self)):
+            yield self[i]
+
+
+class MultiReplaySamples(Generic[T]):
+    def __init__(self, samples: list[ReplaySamples[T]]) -> None:
+        super().__init__()
+
+        self.samples = samples
+
+    def sample(self, clip_size: int, stride: int = 1, only_last: bool = False) -> list[list[T]]:
+        return [s.sample(clip_size, stride=stride, only_last=only_last) for s in self.samples]
+
+    def __getitem__(self, index: int) -> ReplaySamples[T]:
+        if isinstance(self.samples, list):
+            return self.samples[index]
+        raise NotImplementedError(f"Unsupported sample type: {type(self.samples)}")
+
+    def __len__(self) -> int:
+        if isinstance(self.samples, list):
+            return len(self.samples)
+        raise NotImplementedError(f"Unsupported sample type: {type(self.samples)}")
+
+    def __iter__(self) -> Iterator[ReplaySamples[T]]:
+        for i in range(len(self)):
+            yield self[i]
+
+
+class ReplayBuffer(Generic[T]):
+    def __init__(self, max_size: int = 1) -> None:
+        super().__init__()
+
+        self.buffer: Deque[MultiReplaySamples[T]] = deque()
+        self.num_elements = 0
+        self.max_size = max_size
+
+    def add(self, samples: MultiReplaySamples[T]) -> None:
+        num_samples = len(samples)
+        while self.num_elements + num_samples > self.max_size:
+            self.num_elements -= len(self.buffer.popleft())
+        self.buffer.append(samples)
+        self.num_elements += num_samples
+
+
+class ReplayDataset(IterableDataset[T], Generic[T]):
+    def __init__(
+        self,
+        buffer: ReplayBuffer[T],
+        clip_size: int,
+        stride: int = 1,
+        collate_fn: Callable[[list[T]], T] = collate,  # type: ignore
+    ) -> None:
+        super().__init__()
+
+        self.buffer = buffer
+        self.clip_size = clip_size
+        self.stride = stride
+        self.collate_fn = collate_fn
+
+    def __iter__(self) -> Iterator[T]:
+        return self
+
+    def __next__(self) -> T:
+        samples = random.choice(self.buffer.buffer)
+        sample = random.choice(samples)
+        return self.collate_fn(sample.sample(clip_size=self.clip_size, stride=self.stride, only_last=False))

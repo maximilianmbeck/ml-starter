@@ -2,12 +2,14 @@ from abc import ABC
 from types import TracebackType
 from typing import ContextManager, Literal, TypeVar
 
-from ml.trainers.base import BaseTrainer, BaseTrainerConfig
+from ml.trainers.base import BaseTrainer, BaseTrainerConfig, ModelT, TaskT
 
 StepType = Literal[
     "backward",
+    "build_rl_dataset",
     "change_mode",
     "clip_grads",
+    "collect_rl_samples",
     "forward",
     "get_single_loss",
     "log_losses",
@@ -45,6 +47,6 @@ class StepContext(ContextManager):
         StepContext.CURRENT_STEP = None
 
 
-class StepContextMixin(BaseTrainer[BaseTrainerConfigT], ABC):
+class StepContextMixin(BaseTrainer[BaseTrainerConfigT, ModelT, TaskT], ABC):
     def step_context(self, step: StepType) -> ContextManager:
         return StepContext(step)

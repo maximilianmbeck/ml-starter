@@ -23,12 +23,12 @@ CLASS_TO_IDX = {
 
 
 @dataclass
-class ImageDemoTaskConfig(M.BaseTaskConfig):
+class ImageDemoTaskConfig(M.SupervisedLearningTaskConfig):
     pass
 
 
 @register_task("image_demo", ImageDemoTaskConfig)
-class ImageDemoTask(M.BaseTask[ImageDemoTaskConfig, ResNetModel, tuple[Tensor, Tensor], Tensor, Tensor]):
+class ImageDemoTask(M.SupervisedLearningTask[ImageDemoTaskConfig, ResNetModel, tuple[Tensor, Tensor], Tensor, Tensor]):
     def __init__(self, config: ImageDemoTaskConfig) -> None:
         super().__init__(config)
 

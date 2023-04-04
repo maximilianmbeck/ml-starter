@@ -210,12 +210,6 @@ def save_config(exp_dir: Path, raw_config: DictConfig) -> None:
 
 
 @dataclass
-class ValidationConfig:
-    valid_every_n_steps: int | None = conf_field(100, help="Number of training steps to run per test step")
-    num_init_valid_steps: int | None = conf_field(2, help="Number of initial validation steps")
-
-
-@dataclass
 class CheckpointConfig:
     save_every_n_steps: int | None = conf_field(None, help="Save a checkpoint every N steps")
     only_save_most_recent: bool = conf_field(False, help="Only keep the most recent checkpoint")
@@ -230,7 +224,6 @@ class BaseTrainerConfig(BaseConfig):
     base_run_dir: str = conf_field(II("resolve:${oc.env:RUN_DIR}"), help="The base directory for all runs")
     run_id: int = conf_field(MISSING, help="The run ID to use")
     use_double_weight_precision: bool = conf_field(False, help="If set, use doubles for weights instead of floats")
-    validation: ValidationConfig = conf_field(ValidationConfig())
     checkpoint: CheckpointConfig = conf_field(CheckpointConfig())
 
     @classmethod
@@ -241,9 +234,11 @@ class BaseTrainerConfig(BaseConfig):
 
 
 TrainerConfigT = TypeVar("TrainerConfigT", bound=BaseTrainerConfig)
+ModelT = TypeVar("ModelT", bound=BaseModel)
+TaskT = TypeVar("TaskT", bound=BaseTask)
 
 
-class BaseTrainer(BaseObjectWithPointers[TrainerConfigT], Generic[TrainerConfigT], ABC):
+class BaseTrainer(BaseObjectWithPointers[TrainerConfigT], Generic[TrainerConfigT, ModelT, TaskT], ABC):
     """Defines the base trainer type."""
 
     logger: MultiLogger
@@ -262,7 +257,7 @@ class BaseTrainer(BaseObjectWithPointers[TrainerConfigT], Generic[TrainerConfigT
 
     @functools.cached_property
     def _device(self) -> type[BaseDevice]:
-        return AutoDevice.get_device_from_key(self.config.device)
+        return AutoDevice.detect_device()
 
     @functools.cached_property
     def _device_type(self) -> str:
@@ -305,8 +300,8 @@ class BaseTrainer(BaseObjectWithPointers[TrainerConfigT], Generic[TrainerConfigT
     def load_checkpoint(
         self,
         ckpt_path: Path,
-        task: BaseTask,
-        model: BaseModel,
+        task: TaskT,
+        model: ModelT,
         optim: Optimizer,
         lr_sched: SchedulerAdapter,
     ) -> State:
@@ -324,8 +319,8 @@ class BaseTrainer(BaseObjectWithPointers[TrainerConfigT], Generic[TrainerConfigT
     def save_checkpoint(
         self,
         state: State,
-        task: BaseTask,
-        model: BaseModel,
+        task: TaskT,
+        model: ModelT,
         optim: Optimizer,
         lr_sched: SchedulerAdapter,
     ) -> None:
@@ -362,7 +357,7 @@ class BaseTrainer(BaseObjectWithPointers[TrainerConfigT], Generic[TrainerConfigT
         """Launches a multiprocess command."""
 
     @abstractmethod
-    def train(self, model: BaseModel, task: BaseTask, optimizer: BaseOptimizer, lr_scheduler: BaseLRScheduler) -> None:
+    def train(self, model: ModelT, task: TaskT, optimizer: BaseOptimizer, lr_scheduler: BaseLRScheduler) -> None:
         """Runs the training loop.
 
         Args:
@@ -373,7 +368,7 @@ class BaseTrainer(BaseObjectWithPointers[TrainerConfigT], Generic[TrainerConfigT
         """
 
     @abstractmethod
-    def evaluate(self, model: BaseModel, task: BaseTask) -> None:
+    def evaluate(self, model: ModelT, task: TaskT) -> None:
         """Runs the evaluation loop.
 
         Args:
@@ -381,7 +376,7 @@ class BaseTrainer(BaseObjectWithPointers[TrainerConfigT], Generic[TrainerConfigT
             task: The current task
         """
 
-    def write_logs(self, task: BaseTask, model: BaseModel, state: State) -> None:
+    def write_logs(self, task: TaskT, model: ModelT, state: State) -> None:
         model.logger.write(self.loggers, state)
         task.logger.write(self.loggers, state)
         self.logger.write(self.loggers, state)
@@ -412,8 +407,8 @@ class BaseTrainer(BaseObjectWithPointers[TrainerConfigT], Generic[TrainerConfigT
         self,
         state: State,
         train_batch: Batch,
-        task: BaseTask,
-        model: BaseModel,
+        task: TaskT,
+        model: ModelT,
         optim: Optimizer,
         lr_sched: SchedulerAdapter,
     ) -> None:
@@ -424,8 +419,8 @@ class BaseTrainer(BaseObjectWithPointers[TrainerConfigT], Generic[TrainerConfigT
         state: State,
         train_batch: Batch,
         loss_dict: dict[str, Tensor],
-        task: BaseTask,
-        model: BaseModel,
+        task: TaskT,
+        model: ModelT,
         optim: Optimizer,
         lr_sched: SchedulerAdapter,
     ) -> None:
@@ -434,8 +429,8 @@ class BaseTrainer(BaseObjectWithPointers[TrainerConfigT], Generic[TrainerConfigT
     def on_epoch_start(
         self,
         state: State,
-        task: BaseTask,
-        model: BaseModel,
+        task: TaskT,
+        model: ModelT,
         optim: Optimizer,
         lr_sched: SchedulerAdapter,
     ) -> None:
@@ -444,8 +439,8 @@ class BaseTrainer(BaseObjectWithPointers[TrainerConfigT], Generic[TrainerConfigT
     def on_epoch_end(
         self,
         state: State,
-        task: BaseTask,
-        model: BaseModel,
+        task: TaskT,
+        model: ModelT,
         optim: Optimizer,
         lr_sched: SchedulerAdapter,
     ) -> None:

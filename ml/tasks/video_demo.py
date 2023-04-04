@@ -14,12 +14,20 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class VideoDemoTaskConfig(M.BaseTaskConfig):
+class VideoDemoTaskConfig(M.SupervisedLearningTaskConfig):
     split_ratio: int = M.conf_field(10, help="Dataset split ratio")
 
 
 @M.register_task("video_demo", VideoDemoTaskConfig)
-class VideoDemoTask(M.BaseTask[VideoDemoTaskConfig, VideoResNetModel, Tensor, tuple[Tensor, Tensor], Tensor]):
+class VideoDemoTask(
+    M.SupervisedLearningTask[
+        VideoDemoTaskConfig,
+        VideoResNetModel,
+        Tensor,
+        tuple[Tensor, Tensor],
+        Tensor,
+    ],
+):
     def __init__(self, config: VideoDemoTaskConfig) -> None:
         super().__init__(config)
 
@@ -38,6 +46,8 @@ class VideoDemoTask(M.BaseTask[VideoDemoTaskConfig, VideoResNetModel, Tensor, tu
         output_left, output_right = output
         dot_prod = output_left @ output_right.transpose(0, 1)
         loss = F.cross_entropy(dot_prod, torch.arange(len(dot_prod), device=dot_prod.device), reduction="none")
+        if state.phase == "valid":
+            self.logger.log_videos("sample", batch)
         return loss
 
     def get_dataset(self, phase: M.Phase) -> MovingMNIST:

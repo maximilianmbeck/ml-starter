@@ -34,7 +34,9 @@ class State:
 
     num_epochs: int = conf_field(MISSING, help="Number of epochs so far")
     num_steps: int = conf_field(MISSING, help="Number of steps so far")
+    num_epoch_steps: int = conf_field(MISSING, help="Number of steps in the current epoch")
     num_samples: int = conf_field(MISSING, help="Number of sample so far")
+    num_epoch_samples: int = conf_field(MISSING, help="Number of samples in the current epoch")
     num_valid_steps: int = conf_field(MISSING, help="Number of validation steps so far")
     num_test_steps: int = conf_field(MISSING, help="Number of test steps so far")
     raw_phase: str = conf_field(MISSING, help="Current training phase")
@@ -52,7 +54,9 @@ class State:
         return cls(
             num_epochs=0,
             num_steps=0,
+            num_epoch_steps=0,
             num_samples=0,
+            num_epoch_samples=0,
             num_valid_steps=0,
             num_test_steps=0,
             raw_phase="train",

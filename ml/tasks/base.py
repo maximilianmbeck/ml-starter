@@ -1,6 +1,5 @@
 # pylint: disable=too-many-public-methods
 
-
 import functools
 import logging
 import time
@@ -31,6 +30,8 @@ from ml.tasks.datasets.error_handling import (
     get_error_handling_dataset,
 )
 from ml.tasks.losses.reduce import cast_reduce_type, reduce
+from ml.trainers.mixins.device.auto import AutoDevice
+from ml.trainers.mixins.device.base import BaseDevice
 from ml.utils.random import set_random_seed
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -136,7 +137,7 @@ class DataLoaderConfig:
     drop_last: bool = conf_field(MISSING, help="Should the last batch be dropped if not full")
     timeout: float = conf_field(0, help="How long to wait for a sample to be ready")
     prefetch_factor: int | None = conf_field(None, help="Number of items to pre-fetch on each worker")
-    persistent_workers: bool = conf_field(False, help="Persiste worker processes between epochs")
+    persistent_workers: bool = conf_field(False, help="Persist worker processes between epochs")
     seed: int = conf_field(1337, help="Dataloader random seed")
 
 
@@ -183,25 +184,25 @@ class LossConfig:
 class BaseTaskConfig(BaseConfig):
     """Defines the base config for all tasks."""
 
-    dataloader: dict[str, DataLoaderConfig] = conf_field(DEFAULT_DATALOADER_CONFIGS, help="Dataloader config")
     finished: FinishTrainingConfig = conf_field(FinishTrainingConfig(), help="Finish training config")
     error_handling: ErrorHandlingConfig = conf_field(ErrorHandlingConfig(), help="Error handling config")
+    dataloader: dict[str, DataLoaderConfig] = conf_field(DEFAULT_DATALOADER_CONFIGS, help="Dataloader config")
     loss: LossConfig = conf_field(LossConfig(), help="Loss config")
 
 
-TaskConfigT = TypeVar("TaskConfigT", bound=BaseTaskConfig)
+BaseTaskConfigT = TypeVar("BaseTaskConfigT", bound=BaseTaskConfig)
 ModelT = TypeVar("ModelT", bound=BaseModel)
 
 
 class BaseTask(
     nn.Module,
-    BaseObjectWithPointers[TaskConfigT],
-    Generic[TaskConfigT, ModelT, Batch, Output, Loss],
+    BaseObjectWithPointers[BaseTaskConfigT],
+    Generic[BaseTaskConfigT, ModelT, Batch, Output, Loss],
     ABC,
 ):
     """Defines the base task type."""
 
-    def __init__(self, config: TaskConfigT) -> None:
+    def __init__(self, config: BaseTaskConfigT) -> None:
         nn.Module.__init__(self)
         BaseObjectWithPointers.__init__(self, config)
 
@@ -222,6 +223,16 @@ class BaseTask(
 
         # Final loss reduce type.
         self.__final_loss_reduce_type = cast_reduce_type(self.config.loss.reduce_type)
+
+    @functools.cached_property
+    @torch.jit.ignore
+    def _device(self) -> type[BaseDevice]:
+        return AutoDevice.detect_device()
+
+    @functools.cached_property
+    @torch.jit.ignore
+    def _device_type(self) -> str:
+        return self._device.get_device().type
 
     @abstractmethod
     def run_model(self, model: ModelT, batch: Batch, state: State) -> Output:
@@ -335,18 +346,6 @@ class BaseTask(
             return False
         self.logger.log_scalar("remaining", remaining_percent, namespace="timers")
         return remaining_percent <= 0.0
-
-    def get_dataset(self, phase: Phase) -> Dataset:
-        """Returns the dataset for a given phase.
-
-        Args:
-            phase: The dataset phase to get
-
-        Raises:
-            NotImplementedError: If this method is not overridden
-        """
-
-        raise NotImplementedError("`get_dataset` should be implemented by the task")
 
     def get_sampler(self, dataset: Dataset, cfg: DataLoaderConfig, phase: Phase) -> Sampler[int]:
         """Returns a dataset sampler to use instead of random sampling.

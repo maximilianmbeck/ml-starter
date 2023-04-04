@@ -13,9 +13,7 @@ from ml.core.common_types import Batch
 from ml.core.config import conf_field
 from ml.core.state import State
 from ml.lr_schedulers.base import SchedulerAdapter
-from ml.models.base import BaseModel
-from ml.tasks.base import BaseTask
-from ml.trainers.base import BaseTrainer, BaseTrainerConfig
+from ml.trainers.base import BaseTrainer, BaseTrainerConfig, ModelT, TaskT
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -77,7 +75,7 @@ def worker(config: CPUStatsConfigT, queue: "mp.Queue[CPUStats]", pid: int) -> No
         time.sleep(config.ping_interval)
 
 
-class CPUStatsMixin(BaseTrainer[CPUStatsConfigT]):
+class CPUStatsMixin(BaseTrainer[CPUStatsConfigT, ModelT, TaskT]):
     """Defines a trainer mixin for getting CPU statistics."""
 
     def __init__(self, config: CPUStatsConfigT) -> None:
@@ -94,8 +92,8 @@ class CPUStatsMixin(BaseTrainer[CPUStatsConfigT]):
         self,
         state: State,
         train_batch: Batch,
-        task: BaseTask,
-        model: BaseModel,
+        task: TaskT,
+        model: ModelT,
         optim: Optimizer,
         lr_sched: SchedulerAdapter,
     ) -> None:

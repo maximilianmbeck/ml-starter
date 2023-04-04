@@ -51,7 +51,7 @@ class _BoolEnvVar:
         self.default = default
 
     def get(self) -> bool:
-        return int(os.environ.get(self.key, "1" if self.default else "0")) > 0
+        return bool(int(os.environ.get(self.key, "1" if self.default else "0")))
 
     def set(self, val: bool) -> None:
         os.environ[self.key] = "1" if val else "0"

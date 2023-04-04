@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass
 from typing import Callable
 
@@ -6,6 +7,8 @@ from torch import Tensor
 from torchvision.models.video.resnet import VideoResNet, mc3_18, r2plus1d_18, r3d_18
 
 from ml import api
+
+logger = logging.getLogger(__name__)
 
 MODELS: dict[str, Callable[[bool], VideoResNet]] = {
     "r3d_18": r3d_18,
@@ -45,9 +48,10 @@ def run_video_resnet_adhoc_test() -> None:
         python -m ml.models.video_resnet
     """
 
+    api.configure_logging()
     config = VideoResNetModelConfig(size="r3d_18")
     model = VideoResNetModel(config)
-    print(model)
+    logger.info("Model: %s", model)
 
 
 if __name__ == "__main__":

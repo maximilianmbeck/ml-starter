@@ -6,7 +6,7 @@ from torch import Tensor, nn
 from torch.optim import Optimizer
 
 from ml.core.config import conf_field
-from ml.trainers.base import BaseTrainer, BaseTrainerConfig
+from ml.trainers.base import BaseTrainer, BaseTrainerConfig, ModelT, TaskT
 from ml.trainers.mixins.mixed_precision import (
     MixedPrecisionTrainerConfig,
     MixedPrecisionTrainerMixin,
@@ -46,8 +46,8 @@ def get_clip_norm_func(clip_value: float, norm_type: Any) -> Callable[[Tensor], 
 
 
 class GradientClippingTrainerMixin(
-    MixedPrecisionTrainerMixin[GradientClippingConfigT],
-    BaseTrainer[GradientClippingConfigT],
+    MixedPrecisionTrainerMixin[GradientClippingConfigT, ModelT, TaskT],
+    BaseTrainer[GradientClippingConfigT, ModelT, TaskT],
 ):
     """Defines a trainer mixin for doing gradient clipping."""
 

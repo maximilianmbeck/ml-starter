@@ -3,7 +3,6 @@
     "xaver.clang-format",
     "cheshirekow.cmake-format",
     "ms-python.python",
-    "ms-python.black-formatter",
     "esbenp.prettier-vscode",
     "charliermarsh.ruff"
   ]

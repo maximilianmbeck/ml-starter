@@ -17,7 +17,7 @@ lr_scheduler:
   name: linear
 
 trainer:
-  name: ddp
+  name: ddp_sl
 
 logger:
   - name: stdout

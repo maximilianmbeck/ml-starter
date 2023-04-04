@@ -26,19 +26,18 @@ import logging
 import os
 import sys
 import traceback
-from typing import Callable
+from abc import ABC
+from typing import Callable, Generic
 
 import torch.multiprocessing as mp
 from omegaconf import DictConfig
 from torch import nn
 
 from ml.core.env import get_distributed_backend
-from ml.core.registry import Objects, register_trainer
-from ml.models.base import BaseModel
+from ml.core.registry import Objects
 from ml.scripts.train import train_main
-from ml.tasks.base import BaseTask
-from ml.trainers.base import MultiprocessConfig
-from ml.trainers.vanilla import VanillaTrainer, VanillaTrainerConfig
+from ml.trainers.base import ModelT, MultiprocessConfig, TaskT
+from ml.trainers.vanilla import VanillaTrainer, VanillaTrainerConfigT
 from ml.utils.distributed import (
     get_world_size,
     init_process_group,
@@ -82,9 +81,12 @@ def func_wrapped(
         sys.exit(1)
 
 
-@register_trainer("ddp", VanillaTrainerConfig)
-class DDPTrainer(VanillaTrainer):
-    def get_task_model(self, task: BaseTask, model: BaseModel) -> nn.Module:
+class DDPTrainer(
+    VanillaTrainer[VanillaTrainerConfigT, ModelT, TaskT],
+    Generic[VanillaTrainerConfigT, ModelT, TaskT],
+    ABC,
+):
+    def get_task_model(self, task: TaskT, model: ModelT) -> nn.Module:
         task_model = super().get_task_model(task, model)
         if get_world_size() > 1:
             task_model = nn.parallel.DistributedDataParallel(task_model)

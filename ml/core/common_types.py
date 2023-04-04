@@ -1,7 +1,10 @@
-from typing import Any, TypeVar
+from typing import TypeVar
 
 from torch import Tensor
 
-Batch = TypeVar("Batch", bound=Tensor | tuple[Any, ...] | list[Any] | dict[Any, Any] | None)
-Output = TypeVar("Output", bound=Tensor | tuple[Any, ...] | list[Any] | dict[Any, Any] | None)
+Batch = TypeVar("Batch")
+Output = TypeVar("Output")
 Loss = TypeVar("Loss", bound=Tensor | dict[str, Tensor])
+
+RLAction = TypeVar("RLAction")
+RLState = TypeVar("RLState")

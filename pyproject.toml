@@ -46,6 +46,7 @@ module = [
     "PIL.*",
     "pytest.*",
     "quaternion.*",
+    "seaborn.*",
     "torchvision.*",
     "tqdm.*",
 ]

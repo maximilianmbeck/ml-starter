@@ -2,12 +2,15 @@
 
 av
 ffmpeg-python
+gymnasium[box2d]
 matplotlib
 omegaconf
 opencv-python
 pandas
 psutil
+seaborn
 tensorboard
-torch>=2.0.0.dev
+torch>=2.0.0
+torchaudio
 torchvision
 tqdm

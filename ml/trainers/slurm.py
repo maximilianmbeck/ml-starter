@@ -14,7 +14,6 @@ Steps
 This allows for repeatability by just scheduling the same `sbatch.sh` file.
 """
 
-
 import logging
 import os
 import random
@@ -24,9 +23,10 @@ import subprocess
 import sys
 import time
 import warnings
+from abc import ABC
 from dataclasses import dataclass
 from types import FrameType
-from typing import Callable
+from typing import Callable, Generic, TypeVar
 
 from omegaconf import II, MISSING, OmegaConf
 from torch import nn
@@ -37,9 +37,8 @@ from ml.core.env import get_distributed_backend, is_torch_compiled
 from ml.core.registry import Objects, register_trainer, stage_environment
 from ml.core.state import State
 from ml.lr_schedulers.base import SchedulerAdapter
-from ml.models.base import BaseModel
 from ml.scripts.train import train_main
-from ml.tasks.base import BaseTask
+from ml.trainers.base import ModelT, TaskT
 from ml.trainers.vanilla import VanillaTrainer, VanillaTrainerConfig
 from ml.utils.distributed import (
     get_master_addr,
@@ -117,14 +116,21 @@ class SlurmTrainerConfig(VanillaTrainerConfig):
     master_port: int = conf_field(get_random_port, help="The master port to use")
 
 
+SlurmTrainerConfigT = TypeVar("SlurmTrainerConfigT", bound=SlurmTrainerConfig)
+
+
 def ignore_signal(signum: int, _: FrameType | None) -> None:
     sig = signal.Signals(signum)
     logger.info("Ignoring signal %s", sig.name)
 
 
 @register_trainer("slurm", SlurmTrainerConfig)
-class SlurmTrainer(VanillaTrainer[SlurmTrainerConfig]):
-    def get_task_model(self, task: BaseTask, model: BaseModel) -> nn.Module:
+class SlurmTrainer(
+    VanillaTrainer[SlurmTrainerConfigT, ModelT, TaskT],
+    Generic[SlurmTrainerConfigT, ModelT, TaskT],
+    ABC,
+):
+    def get_task_model(self, task: TaskT, model: ModelT) -> nn.Module:
         task_model = super().get_task_model(task, model)
         if get_world_size() > 1:
             task_model = nn.parallel.DistributedDataParallel(task_model)
@@ -134,8 +140,8 @@ class SlurmTrainer(VanillaTrainer[SlurmTrainerConfig]):
         self,
         sig: signal.Signals,
         state: State,
-        task: BaseTask,
-        model: BaseModel,
+        task: TaskT,
+        model: ModelT,
         optim: Optimizer,
         lr_scheduler: SchedulerAdapter,
     ) -> None:

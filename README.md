@@ -15,10 +15,10 @@ conda create --name ml python=3.10
 Next, install the project (with developer dependencies):
 
 ```bash
-# Installs with the nightly version of PyTorch, on CPU.
-pip install --pre --extra-index-url https://download.pytorch.org/whl/nightly/cpu -e '.[dev]'
-# Installs with the nightly version of PyTorch, on GPU.
-pip install --pre --extra-index-url https://download.pytorch.org/whl/nightly/cu117 -e '.[dev]'
+# Installs PyTorch, on CPU.
+pip install -e '.[dev]'
+# Installs PyTorch, on GPU.
+pip install -e '.[dev]'
 ```
 
 Additionally, there are some Conda-only development dependencies which should be installed:

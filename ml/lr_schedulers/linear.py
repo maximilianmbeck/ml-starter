@@ -14,6 +14,7 @@ class LinearLRSchedulerConfig(BaseLRSchedulerConfig):
     total_steps: int = conf_field(II("task.finished.max_steps"), help="Total number of steps to run")
     warmup_percent: float = conf_field(0.01, help="Percentage of total steps to use as warmup steps, if not specified")
     min_scale: float = conf_field(1e-4, help="Minimum learning rate scale")
+    decay: bool = conf_field(True, help="Whether to decay the learning rate after warmup")
 
     @classmethod
     def resolve(cls, config: "LinearLRSchedulerConfig") -> None:
@@ -28,6 +29,8 @@ class LinearLRScheduler(BaseLRScheduler[LinearLRSchedulerConfig]):
         warmup, total, min_scale = self.config.warmup_steps, self.config.total_steps, self.config.min_scale
         if state.num_steps < warmup:
             return state.num_steps / warmup
+        if not self.config.decay:
+            return 1.0
         if state.num_steps < total:
             return (1 - min_scale) * (total - state.num_steps) / (total - warmup) + min_scale
         return min_scale

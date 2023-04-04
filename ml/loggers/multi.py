@@ -106,7 +106,7 @@ def make_human_viewable_resolution(
         The resized image
     """
 
-    height, width = V.get_image_size(image)
+    width, height = V.get_image_size(image)
     trg_height, trg_width = trg_res
     factor = math.sqrt((trg_height * trg_width) / (height * width))
     new_height, new_width = int(height * factor), int(width * factor)

@@ -11,6 +11,7 @@ hand quickly.
 # flake8: noqa
 # pylint: disable=unused-import
 
+from ml.core.common_types import Batch, Loss, Output
 from ml.core.config import conf_field
 from ml.core.env import (
     get_cache_dir,
@@ -31,10 +32,11 @@ from ml.core.registry import (
 from ml.core.state import Phase, State
 from ml.core.common_types import Batch, Loss, Output
 from ml.lr_schedulers.base import BaseLRScheduler, BaseLRSchedulerConfig
-from ml.models.activations import cast_activation_type, get_activation
+from ml.models.activations import ActivationType, cast_activation_type, get_activation
 from ml.models.base import BaseModel, BaseModelConfig
-from ml.models.init import cast_init_type, init_
+from ml.models.init import InitializationType, cast_init_type, init_
 from ml.models.norms import (
+    NormType,
     cast_norm_type,
     get_norm_1d,
     get_norm_2d,
@@ -43,6 +45,8 @@ from ml.models.norms import (
 )
 from ml.optimizers.base import BaseOptimizer, BaseOptimizerConfig
 from ml.tasks.base import BaseTask, BaseTaskConfig
+from ml.tasks.sl.base import SupervisedLearningTask, SupervisedLearningTaskConfig
+from ml.tasks.rl.base import ReinforcementLearningTask, ReinforcementLearningTaskConfig
 from ml.trainers.base import BaseTrainer, BaseTrainerConfig
 from ml.trainers.mixins.device.auto import AutoDevice
 from ml.utils.argparse import from_args, get_args, get_type_from_string
@@ -65,4 +69,5 @@ from ml.utils.distributed import (
 from ml.utils.large_models import init_empty_weights, meta_to_empty_func
 from ml.utils.logging import configure_logging
 from ml.utils.timer import Timer, timeout
-from ml.utils.video import READERS as VIDEO_READERS, WRITERS as VIDEO_WRITERS
+from ml.utils.video import READERS as VIDEO_READERS
+from ml.utils.video import WRITERS as VIDEO_WRITERS

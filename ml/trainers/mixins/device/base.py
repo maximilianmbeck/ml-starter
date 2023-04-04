@@ -26,6 +26,32 @@ def get_tasks_outstanding(dataloader_iter: _BaseDataLoaderIter) -> int:
     return -1
 
 
+def recursive_apply(item: Any, func: Callable[[Tensor], Tensor]) -> Any:
+    """Applies a function recursively to tensors in an item.
+
+    Args:
+        item: The item to apply the function to
+        func: The function to apply (for the tensor)
+
+    Returns:
+        The same item, with the function applied
+    """
+
+    if isinstance(item, (str, int, float)):
+        return item
+    if isinstance(item, np.ndarray):
+        item = torch.from_numpy(item)
+    if isinstance(item, Tensor):
+        return func(item)
+    if is_dataclass(item):
+        return item.__class__(**{k: recursive_apply(v, func) for k, v in item.__dict__.items()})
+    if isinstance(item, Mapping):
+        return {k: recursive_apply(v, func) for k, v in item.items()}
+    if isinstance(item, Sequence):
+        return [recursive_apply(i, func) for i in item]
+    return item
+
+
 class Prefetcher(Iterable[Batch]):
     """Helper class for pre-loading samples into device memory."""
 
@@ -88,29 +114,7 @@ class Prefetcher(Iterable[Batch]):
 
     @classmethod
     def recursive_apply(cls, item: Any, func: Callable[[Tensor], Tensor]) -> Any:
-        """Applies a function recursively to tensors in an item.
-
-        Args:
-            item: The item to apply the function to
-            func: The function to apply (for the tensor)
-
-        Returns:
-            The same item, with the function applied
-        """
-
-        if isinstance(item, (str, int, float)):
-            return item
-        if isinstance(item, np.ndarray):
-            item = torch.from_numpy(item)
-        if isinstance(item, Tensor):
-            return func(item)
-        if is_dataclass(item):
-            return item.__class__(**{k: cls.recursive_apply(v, func) for k, v in item.__dict__.items()})
-        if isinstance(item, Mapping):
-            return {k: cls.recursive_apply(v, func) for k, v in item.items()}
-        if isinstance(item, Sequence):
-            return [cls.recursive_apply(i, func) for i in item]
-        return item
+        return recursive_apply(item, func)
 
     def __iter__(self) -> Iterator[Batch]:
         self.prefetch()
@@ -208,6 +212,18 @@ class BaseDevice(ABC):
         if tensor.is_floating_point():
             return tensor.to(device, cls.get_floating_point_type())
         return tensor.to(device)
+
+    @classmethod
+    def recursive_apply(cls, item: Any) -> Any:
+        def func(i: Any) -> Any:
+            if isinstance(i, Tensor):
+                return cls.tensor_to(i)
+            if isinstance(i, nn.Module):
+                cls.module_to(i)
+                return i
+            return i
+
+        return recursive_apply(item, func)
 
     @classmethod
     def autocast_context(cls, enabled: bool = True) -> ContextManager:

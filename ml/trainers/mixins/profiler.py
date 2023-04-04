@@ -9,9 +9,7 @@ import torch
 
 from ml.core.config import conf_field
 from ml.core.state import State
-from ml.models.base import BaseModel
-from ml.tasks.base import BaseTask
-from ml.trainers.base import BaseTrainer, BaseTrainerConfig
+from ml.trainers.base import BaseTrainer, BaseTrainerConfig, ModelT, TaskT
 from ml.trainers.mixins.step_wrapper import StepContextMixin, StepType
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -56,8 +54,8 @@ ProfilerTrainerConfigT = TypeVar("ProfilerTrainerConfigT", bound=ProfilerTrainer
 
 
 class ProfilerTrainerMixin(
-    StepContextMixin[ProfilerTrainerConfigT],
-    BaseTrainer[ProfilerTrainerConfigT],
+    StepContextMixin[ProfilerTrainerConfigT, ModelT, TaskT],
+    BaseTrainer[ProfilerTrainerConfigT, ModelT, TaskT],
 ):
     """Defines a trainer mixin for enabling the PyTorch profiler."""
 
@@ -87,7 +85,7 @@ class ProfilerTrainerMixin(
 
         return wrapped_ctx()
 
-    def write_logs(self, task: BaseTask, model: BaseModel, state: State) -> None:
+    def write_logs(self, task: TaskT, model: ModelT, state: State) -> None:
         for step, step_time in self.step_times.items():
             self.logger.log_scalar(f"dt/{step}", step_time, namespace="timers")
 

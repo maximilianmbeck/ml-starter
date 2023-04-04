@@ -12,7 +12,7 @@ def test_scaled_dot_product_attention(is_causal: bool, dtype: torch.dtype, devic
     if device.type in ("cpu", "mps") and dtype in (torch.bfloat16, torch.float16):
         pytest.skip("CPU does not support bfloat16 and float16")
 
-    query, key, value = torch.randn(2, 3, 16 * 3, dtype=dtype, device=device).tensor_split(3, dim=-1)
+    query, key, value = torch.randn(2, 4, 3, 16 * 3, dtype=dtype, device=device).tensor_split(3, dim=-1)
 
     def ref_attention(query: Tensor, key: Tensor, value: Tensor, is_causal: bool) -> Tensor:
         qlen, klen = query.shape[-2], key.shape[-2]
@@ -24,4 +24,7 @@ def test_scaled_dot_product_attention(is_causal: bool, dtype: torch.dtype, devic
 
     func_out = F.scaled_dot_product_attention(query, key, value, is_causal=is_causal)
     ref_out = ref_attention(query, key, value, is_causal=is_causal)
-    assert torch.allclose(func_out, ref_out)
+
+    # These algorithms are not very exact in lower-precision modes so we set
+    # atol to be pretty high.
+    assert torch.allclose(func_out, ref_out, atol=0.05)

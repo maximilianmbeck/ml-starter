@@ -6,7 +6,7 @@ from torch import Tensor
 from torch.optim import Optimizer
 
 from ml.core.config import conf_field
-from ml.trainers.base import BaseTrainer, BaseTrainerConfig
+from ml.trainers.base import BaseTrainer, BaseTrainerConfig, ModelT, TaskT
 
 
 @dataclass
@@ -26,7 +26,7 @@ class MixedPrecisionTrainerConfig(BaseTrainerConfig):
 MixedPrecisionConfigT = TypeVar("MixedPrecisionConfigT", bound=MixedPrecisionTrainerConfig)
 
 
-class MixedPrecisionTrainerMixin(BaseTrainer[MixedPrecisionConfigT]):
+class MixedPrecisionTrainerMixin(BaseTrainer[MixedPrecisionConfigT, ModelT, TaskT]):
     """Defines a trainer mixin for doing FP16 scaling."""
 
     def __init__(self, config: MixedPrecisionConfigT) -> None:

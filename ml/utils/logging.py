@@ -70,7 +70,7 @@ class ColoredFormatter(logging.Formatter):
         if rank is not None or world_size is not None:
             assert rank is not None and world_size is not None
             digits = int(math.log10(world_size) + 1)
-            message = "[" + colorize(f"{rank:>{digits}}", "blue") + "] " + message
+            message = "[" + colorize(f"{rank:>{digits}}", "blue", bold=True) + "] " + message
         super().__init__(message, style="{", datefmt="%Y-%m-%d %H:%M:%S")
 
         self.rank = rank
@@ -83,7 +83,7 @@ class ColoredFormatter(logging.Formatter):
             record.levelname = ""
         else:
             if self.use_color and levelname in self.COLORS:
-                record.levelname = colorize(levelname, self.COLORS[levelname])
+                record.levelname = colorize(levelname, self.COLORS[levelname], bold=True)
         return logging.Formatter.format(self, record)
 
 
