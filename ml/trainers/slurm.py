@@ -34,7 +34,7 @@ from torch.optim import Optimizer
 
 from ml.core.config import conf_field
 from ml.core.env import get_distributed_backend, is_torch_compiled
-from ml.core.registry import Objects, register_trainer, stage_environment
+from ml.core.registry import Objects, stage_environment
 from ml.core.state import State
 from ml.lr_schedulers.base import SchedulerAdapter
 from ml.scripts.train import train_main
@@ -124,7 +124,6 @@ def ignore_signal(signum: int, _: FrameType | None) -> None:
     logger.info("Ignoring signal %s", sig.name)
 
 
-@register_trainer("slurm", SlurmTrainerConfig)
 class SlurmTrainer(
     VanillaTrainer[SlurmTrainerConfigT, ModelT, TaskT],
     Generic[SlurmTrainerConfigT, ModelT, TaskT],
