@@ -27,7 +27,7 @@ class FeedForwardNet(nn.Module):
         output_dim: int,
         num_layers: int,
         act: api.ActivationType = "leaky_relu",
-        final_act: api.ActivationType = "tanh",
+        norm: api.NormType = "layer_affine",
     ) -> None:
         super().__init__()
 
@@ -37,7 +37,6 @@ class FeedForwardNet(nn.Module):
         self.output_dim = output_dim
         self.num_layers = num_layers
         self.act = act
-        self.final_act = final_act
 
         # Instantiates the model layers.
         self.layers = nn.ModuleList()
@@ -45,7 +44,9 @@ class FeedForwardNet(nn.Module):
             in_dim = input_dim if i == 0 else hidden_dim
             out_dim = hidden_dim if i < num_layers - 1 else output_dim
             self.layers.append(nn.Linear(in_dim, out_dim))
-            self.layers.append(api.get_activation(act if i < num_layers - 1 else final_act))
+            if i < num_layers - 1:
+                self.layers.append(api.get_norm_linear(norm, dim=out_dim))
+                self.layers.append(api.get_activation(act))
 
     def forward(self, x: Tensor) -> Tensor:
         for layer in self.layers:
@@ -66,7 +67,6 @@ class SimpleA2CModel(api.BaseModel[SimpleA2CModelConfig]):
             config.action_dims if config.fixed_std else config.action_dims * 2,
             config.num_layers,
             act=api.cast_activation_type(config.activation),
-            final_act="no_act",
         )
 
         if config.fixed_std:
@@ -80,7 +80,6 @@ class SimpleA2CModel(api.BaseModel[SimpleA2CModelConfig]):
             1,
             config.num_layers,
             act=api.cast_activation_type(config.activation),
-            final_act="no_act",
         )
 
     def forward_policy_net(self, state: Tensor) -> Normal:

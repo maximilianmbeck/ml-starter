@@ -1,8 +1,8 @@
 model:
   name: simple_a2c
   state_dims: 24
-  hidden_dims: 256
-  num_layers: 2
+  hidden_dims: 512
+  num_layers: 4
   action_dims: 4
   fixed_std: true
 
@@ -14,12 +14,12 @@ task:
     train:
       batch_size: 256
   dataset:
-    num_update_steps: 2500
+    num_update_steps: 500
   environment:
     num_env_workers: 8
 
 optimizer:
-  name: adam
+  name: adamw
   lr: 3e-4
 
 lr_scheduler:
@@ -29,8 +29,8 @@ lr_scheduler:
 trainer:
   name: vanilla_rl
   sampling:
-    num_epoch_samples: 1_000
-    max_trajectory_length: 500
+    num_epoch_samples: 7_500
+    max_trajectory_length: 200
     force_sync: True
   grad_clipping:
     clip_grad_norm: 2.0

@@ -107,10 +107,11 @@ class BipedalWalkerEnvironment(Environment[BWState, BWAction]):
 class RLDemoTaskConfig(ReinforcementLearningTaskConfig):
     hardcore: bool = conf_field(False, help="If set, use the hardcore environment")
     gamma: float = conf_field(0.99, help="The discount factor")
-    gae_lmda: float = conf_field(0.95, help="The GAE factor (higher means more variance, lower means more bias)")
-    clip: float = conf_field(0.2, help="The PPO clip factor")
+    gae_lmda: float = conf_field(0.9, help="The GAE factor (higher means more variance, lower means more bias)")
+    clip: float = conf_field(0.16, help="The PPO clip factor")
     val_coef: float = conf_field(0.5, help="The value loss coefficient")
-    ent_coef: float = conf_field(1e-3, help="The entropy coefficient")
+    ent_coef: float = conf_field(1e-2, help="The entropy coefficient")
+    sample_clip_interval: int = conf_field(25, help="Sample a clip with this frequency")
 
 
 Output = tuple[Tensor, Normal]
@@ -202,7 +203,7 @@ class RLDemoTask(
 
         # Logs additional metrics.
         self.logger.log_scalar("stddev", lambda: p_dist.stddev.mean().item())
-        if state.num_epoch_steps == 0:
+        if state.num_epoch_steps == 0 and state.num_epochs % self.config.sample_clip_interval == 0:
             self.logger.log_video("sample", self.sample_clip(model=model, use_tqdm=False))
 
         return {
