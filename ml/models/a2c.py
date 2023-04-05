@@ -13,8 +13,8 @@ from ml import api
 class SimpleA2CModelConfig(api.BaseModelConfig):
     state_dims: int = api.conf_field(MISSING, help="The number of state dimensions")
     action_dims: int = api.conf_field(MISSING, help="The number of action dimensions")
-    hidden_dims: int = api.conf_field(256, help="The number of hidden dimensions")
-    num_layers: int = api.conf_field(2, help="The number of hidden layers")
+    hidden_dims: int = api.conf_field(MISSING, help="The number of hidden dimensions")
+    num_layers: int = api.conf_field(MISSING, help="The number of hidden layers")
     activation: str = api.conf_field("leaky_relu", help="The activation function to use")
     fixed_std: bool = api.conf_field(False, help="Whether to use a fixed standard deviation")
 
