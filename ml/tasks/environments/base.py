@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 class Environment(ABC, Generic[RLState, RLAction]):
     @abstractmethod
-    def reset(self, seed: int = 1337) -> RLState:
+    def reset(self, seed: int | None = None) -> RLState:
         """Gets the initial environment state.
 
         Args:

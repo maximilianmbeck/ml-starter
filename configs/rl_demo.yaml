@@ -4,23 +4,23 @@ model:
   hidden_dims: 256
   num_layers: 2
   action_dims: 4
+  fixed_std: true
 
 task:
   name: rl_demo
   finished:
-    max_steps: 100_000
+    max_steps: 1_000_000
   dataloader:
     train:
-      batch_size: 64
+      batch_size: 256
   dataset:
-    num_samples: 100
-    num_update_steps: 1000
+    num_update_steps: 2500
   environment:
-    # num_env_workers: 16
-    num_env_workers: 0
+    num_env_workers: 8
 
 optimizer:
-  name: adamw
+  name: adam
+  lr: 3e-4
 
 lr_scheduler:
   name: linear
@@ -29,9 +29,11 @@ lr_scheduler:
 trainer:
   name: vanilla_rl
   sampling:
-    num_epoch_samples: 2500
+    num_epoch_samples: 1_000
+    max_trajectory_length: 500
+    force_sync: True
   grad_clipping:
-    clip_grad_norm: 0.5
+    clip_grad_norm: 2.0
 
 logger:
   - name: stdout

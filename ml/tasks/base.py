@@ -177,7 +177,7 @@ class FinishTrainingConfig:
 
 @dataclass
 class LossConfig:
-    reduce_type: str = conf_field("mean", help="Loss reduction type to use")
+    reduce_type: str = conf_field("sum", help="Loss reduction type to use")
 
 
 @dataclass
@@ -278,14 +278,13 @@ class BaseTask(
         """
 
         if isinstance(loss, Tensor):
-            assert loss.ndim >= 1, "Loss must not be a scalar"
-            return reduce(loss.unsqueeze(0).flatten(1), self.__final_loss_reduce_type, 1), ["loss"]
+            if loss.ndim <= 1:
+                return loss, ["loss"]
+            return reduce(loss, self.__final_loss_reduce_type).unsqueeze(0), ["loss"]
         assert isinstance(loss, dict), f"Loss should be a scalar or dictionary, not {type(loss)}"
-        for key, loss_tensor in loss.items():
-            assert loss_tensor.ndim >= 1, f"Loss {key} must not be a scalar"
-        keys = list(sorted(loss.keys()))
-        single_loss = torch.stack([loss[k] for k in keys], dim=0)
-        single_loss = reduce(single_loss.flatten(1), self.__final_loss_reduce_type, 1)
+        keys, values = (list(i) for i in zip(*sorted(loss.items())))
+        losses = [reduce(v, self.__final_loss_reduce_type) for v in values]
+        single_loss = torch.stack(losses, dim=0)
         return single_loss, keys
 
     def log_loss_dict(self, loss: Mapping[str, int | float | Tensor], state: State) -> None:

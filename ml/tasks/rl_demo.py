@@ -26,12 +26,14 @@ class BWAction:
     hip_2: float | Tensor
     knee_2: float | Tensor
     log_prob: list[float] | list[Tensor]
+    value: float | Tensor | None = None
+    advantage: float | Tensor | None = None
 
     @classmethod
-    def from_policy(cls, policy: Tensor, log_prob: Tensor) -> "BWAction":
-        assert policy.shape == (4,) and log_prob.shape == (4,)
+    def from_policy(cls, policy: Tensor, log_prob: Tensor, value: Tensor) -> "BWAction":
+        assert policy.shape == (4,) and log_prob.shape == (4,) and value.shape == (1,)
         log_prob_list = log_prob.detach().cpu().tolist()
-        return cls(policy[0].item(), policy[1].item(), policy[2].item(), policy[3].item(), log_prob_list)
+        return cls(policy[0].item(), policy[1].item(), policy[2].item(), policy[3].item(), log_prob_list, value.item())
 
     def to_tensor(self) -> Tensor:
         assert isinstance(self.hip_1, Tensor) and isinstance(self.knee_1, Tensor)
@@ -52,7 +54,7 @@ class BWState:
 
 
 class BipedalWalkerEnvironment(Environment[BWState, BWAction]):
-    def __init__(self, hardcore: bool = False, seed: int = 1337) -> None:
+    def __init__(self, hardcore: bool = False) -> None:
         super().__init__()
 
         self.env = gym.make("BipedalWalker-v3", hardcore=hardcore, render_mode="rgb_array")
@@ -104,11 +106,11 @@ class BipedalWalkerEnvironment(Environment[BWState, BWAction]):
 @dataclass
 class RLDemoTaskConfig(ReinforcementLearningTaskConfig):
     hardcore: bool = conf_field(False, help="If set, use the hardcore environment")
-    env_seed: int = conf_field(1337, help="The default environment initial seed")
     gamma: float = conf_field(0.99, help="The discount factor")
-    lmda: float = conf_field(0.95, help="The GAE factor")
+    gae_lmda: float = conf_field(0.95, help="The GAE factor (higher means more variance, lower means more bias)")
     clip: float = conf_field(0.2, help="The PPO clip factor")
-    video_every_n_steps: int = conf_field(1000, help="The number of steps between video recordings")
+    val_coef: float = conf_field(0.5, help="The value loss coefficient")
+    ent_coef: float = conf_field(1e-3, help="The entropy coefficient")
 
 
 Output = tuple[Tensor, Normal]
@@ -129,23 +131,37 @@ class RLDemoTask(
     def __init__(self, config: RLDemoTaskConfig):
         super().__init__(config)
 
-    def get_actions(self, model: SimpleA2CModel, states: list[BWState]) -> list[BWAction]:
+    def get_actions(self, model: SimpleA2CModel, states: list[BWState], optimal: bool) -> list[BWAction]:
         collated_states = self._device.recursive_apply(self.collate_fn(states))
+        value = model.forward_value_net(collated_states.observation)
         p_dist = model.forward_policy_net(collated_states.observation)
-        action = p_dist.sample()
+        action = p_dist.mode if optimal else p_dist.sample()
         log_prob = p_dist.log_prob(action)
-        return [BWAction.from_policy(c, p) for c, p in zip(action.unbind(0), log_prob.unbind(0))]
+        return [BWAction.from_policy(c, p, v) for c, p, v in zip(action.unbind(0), log_prob.unbind(0), value.unbind(0))]
 
     def get_environment(self) -> BipedalWalkerEnvironment:
-        return BipedalWalkerEnvironment(
-            hardcore=self.config.hardcore,
-            seed=self.config.env_seed,
-        )
+        return BipedalWalkerEnvironment(hardcore=self.config.hardcore)
+
+    def postprocess_trajectory(self, samples: list[tuple[BWState, BWAction]]) -> list[tuple[BWState, BWAction]]:
+        last_gae_lam = 0.0
+        for step in reversed(range(len(samples))):
+            _, action = samples[step]
+            if step == len(samples) - 1:
+                last_gae_lam = 0.0
+            else:
+                _, next_action = samples[step + 1]
+                last_gae_lam = (
+                    self.config.gamma * self.config.gae_lmda * last_gae_lam
+                    + cast(float, next_action.value)
+                    - cast(float, action.value)
+                )
+            action.advantage = last_gae_lam
+        return samples
 
     def run_model(self, model: SimpleA2CModel, batch: tuple[BWState, BWAction], state: State) -> Output:
         states, _ = batch
         obs = states.observation
-        value = model.forward_value_net(obs).squeeze(-1)
+        value = model.forward_value_net(obs)
         p_dist = model.forward_policy_net(obs)
         return value, p_dist
 
@@ -156,33 +172,35 @@ class RLDemoTask(
         state: State,
         output: Output,
     ) -> Loss:
-        states, actions = batch
+        _, actions = batch
         value, p_dist = output
-        old_log_prob = torch.cat(cast(list[Tensor], actions.log_prob), dim=-1)
-        reward = cast(Tensor, states.reward).squeeze(-1)
 
-        # Computes the advantage.
-        target_v = reward[:, :-1] + self.config.gamma * value[:, 1:]
-        adv = (target_v - value[:, :-1]).detach()
-
-        # Supervises the value network.
-        value_loss = F.mse_loss(value[:, :-1], target_v, reduction="none").sum(-1)  # (B)
+        adv = cast(Tensor, actions.advantage)
+        old_log_probs = torch.cat(cast(list[Tensor], actions.log_prob), dim=-1)
+        returns = adv + cast(Tensor, actions.value)
 
         # Supervises the policy network.
         actions_tensor = actions.to_tensor().squeeze(2)  # (B, T, A)
-        rt_theta = (p_dist.log_prob(actions_tensor) - old_log_prob).exp()
-        adv, rt_theta = adv.unsqueeze(-1), rt_theta[:, :-1]
+        log_prob = p_dist.log_prob(actions_tensor)
+        rt_theta = (log_prob - old_log_probs).exp()
         policy_loss = -torch.min(rt_theta * adv, rt_theta.clamp(1 - self.config.clip, 1 + self.config.clip) * adv)
-        policy_loss = policy_loss.flatten(1).sum(1)
+        policy_loss = policy_loss.sum(1).mean()
+
+        # Supervises the value network.
+        value_loss = F.mse_loss(value, returns, reduction="mean")
+
+        # Entropy loss to encourage exploration.
+        entropy_loss = -p_dist.entropy().mean()
 
         # Logs additional metrics.
-        self.logger.log_scalar("reward", lambda: reward.mean().item())
-        if state.num_steps % self.config.video_every_n_steps == 0:
+        self.logger.log_scalar("stddev", lambda: p_dist.stddev.mean().item())
+        if state.num_epoch_steps == 0:
             self.logger.log_video("sample", self.sample_clip(model=model, use_tqdm=False))
 
         return {
-            "value": value_loss,
             "policy": policy_loss,
+            "value": value_loss * self.config.val_coef,
+            "entropy": entropy_loss * self.config.ent_coef,
         }
 
 

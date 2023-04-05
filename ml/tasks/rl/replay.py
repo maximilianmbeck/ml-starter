@@ -1,8 +1,7 @@
 """Defines the replay buffer classes for storing sessions from an environment."""
 
 import random
-from collections import deque
-from typing import Callable, Deque, Generic, Iterator, TypeVar
+from typing import Callable, Generic, Iterator, TypeVar
 
 from torch.utils.data.dataset import IterableDataset
 
@@ -66,26 +65,10 @@ class MultiReplaySamples(Generic[T]):
             yield self[i]
 
 
-class ReplayBuffer(Generic[T]):
-    def __init__(self, max_size: int = 1) -> None:
-        super().__init__()
-
-        self.buffer: Deque[MultiReplaySamples[T]] = deque()
-        self.num_elements = 0
-        self.max_size = max_size
-
-    def add(self, samples: MultiReplaySamples[T]) -> None:
-        num_samples = len(samples)
-        while self.num_elements + num_samples > self.max_size:
-            self.num_elements -= len(self.buffer.popleft())
-        self.buffer.append(samples)
-        self.num_elements += num_samples
-
-
 class ReplayDataset(IterableDataset[T], Generic[T]):
     def __init__(
         self,
-        buffer: ReplayBuffer[T],
+        buffer: MultiReplaySamples[T],
         clip_size: int,
         stride: int = 1,
         collate_fn: Callable[[list[T]], T] = collate,  # type: ignore
@@ -101,6 +84,6 @@ class ReplayDataset(IterableDataset[T], Generic[T]):
         return self
 
     def __next__(self) -> T:
-        samples = random.choice(self.buffer.buffer)
-        sample = random.choice(samples)
-        return self.collate_fn(sample.sample(clip_size=self.clip_size, stride=self.stride, only_last=False))
+        samples = random.choice(self.buffer.samples)
+        sample = samples.sample(self.clip_size, stride=self.stride, only_last=False)
+        return self.collate_fn(sample)

@@ -28,8 +28,6 @@ def clear_queue(q: mp.Queue) -> None:
             q.get_nowait()
         except queue.Empty:
             break
-    if not q.empty():
-        raise ValueError("Queue is still not empty")
 
 
 def cast_worker_mode(m: str) -> Mode:
@@ -63,6 +61,18 @@ class BaseEnvironmentWorker(ABC, Generic[RLState, RLAction]):
             action: The action to send to the environment
         """
 
+    @classmethod
+    @abstractmethod
+    def from_environment(cls, env: "Environment[RLState, RLAction]") -> "BaseEnvironmentWorker[RLState, RLAction]":
+        """Creates a worker from an environment.
+
+        Args:
+            env: The environment to create the worker from.
+
+        Returns:
+            The worker.
+        """
+
 
 class AsyncEnvironmentWorker(BaseEnvironmentWorker[RLState, RLAction], Generic[RLState, RLAction]):
     def __init__(
@@ -72,7 +82,7 @@ class AsyncEnvironmentWorker(BaseEnvironmentWorker[RLState, RLAction], Generic[R
         world_size: int | None = None,
         seed: int = 1337,
         cleanup_time: float = 5.0,
-        mode: Mode = "thread",
+        mode: Mode = "process",
     ) -> None:
         """Defines an asynchronous environment worker.
 
@@ -111,6 +121,10 @@ class AsyncEnvironmentWorker(BaseEnvironmentWorker[RLState, RLAction], Generic[R
             self._proc.start()
         else:
             raise ValueError(f"Invalid mode: {mode}")
+
+    @classmethod
+    def from_environment(cls, env: "Environment[RLState, RLAction]") -> "AsyncEnvironmentWorker[RLState, RLAction]":
+        return cls(env)
 
     def cleanup(self) -> None:
         logger.debug("Cleaning up task...")
@@ -176,6 +190,10 @@ class SyncEnvironmentWorker(BaseEnvironmentWorker[RLState, RLAction], Generic[RL
 
         self.state: RLState | SpecialState | None = None
 
+    @classmethod
+    def from_environment(cls, env: "Environment[RLState, RLAction]") -> "SyncEnvironmentWorker[RLState, RLAction]":
+        return cls(env)
+
     def cleanup(self) -> None:
         pass
 
@@ -235,6 +253,21 @@ class WorkerPool(Generic[RLState, RLAction]):
             worker_id: The ID of the worker to send the action to.
         """
 
+    @classmethod
+    @abstractmethod
+    def from_workers(
+        cls,
+        workers: Sequence[BaseEnvironmentWorker[RLState, RLAction]],
+    ) -> "WorkerPool[RLState, RLAction]":
+        """Creates a worker pool from a list of workers.
+
+        Args:
+            workers: The list of workers.
+
+        Returns:
+            The worker pool.
+        """
+
 
 class SyncWorkerPool(WorkerPool[RLState, RLAction], Generic[RLState, RLAction]):
     def __init__(self, workers: Sequence[BaseEnvironmentWorker[RLState, RLAction]]) -> None:
@@ -257,6 +290,13 @@ class SyncWorkerPool(WorkerPool[RLState, RLAction], Generic[RLState, RLAction]):
 
     def send_action(self, action: RLAction | SpecialAction, worker_id: int) -> None:
         self.workers[worker_id].send_action(action)
+
+    @classmethod
+    def from_workers(
+        cls,
+        workers: Sequence[BaseEnvironmentWorker[RLState, RLAction]],
+    ) -> "SyncWorkerPool[RLState, RLAction]":
+        return cls(workers)
 
 
 class AsyncWorkerPool(WorkerPool[RLState, RLAction], Generic[RLState, RLAction]):
@@ -333,8 +373,18 @@ class AsyncWorkerPool(WorkerPool[RLState, RLAction], Generic[RLState, RLAction])
     def send_action(self, action: RLAction | SpecialAction, worker_id: int) -> None:
         self.action_queues[worker_id].put(action)
 
+    @classmethod
+    def from_workers(
+        cls,
+        workers: Sequence[BaseEnvironmentWorker[RLState, RLAction]],
+    ) -> "AsyncWorkerPool[RLState, RLAction]":
+        return cls(workers)
 
-def get_worker_pool(workers: Sequence[BaseEnvironmentWorker[RLState, RLAction]]) -> WorkerPool[RLState, RLAction]:
-    if len(workers) == 1 and isinstance(workers[0], SyncEnvironmentWorker):
+
+def get_worker_pool(
+    workers: Sequence[BaseEnvironmentWorker[RLState, RLAction]],
+    force_sync: bool = False,
+) -> WorkerPool[RLState, RLAction]:
+    if (len(workers) == 1 and isinstance(workers[0], SyncEnvironmentWorker)) or force_sync:
         return SyncWorkerPool(workers)
     return AsyncWorkerPool(workers)

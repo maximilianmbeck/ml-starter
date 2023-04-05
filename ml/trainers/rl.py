@@ -36,7 +36,9 @@ class SamplingConfig:
     min_batch_size: int = conf_field(1, help="Minimum batch size for doing inference on the model")
     max_batch_size: int | None = conf_field(None, help="Maximum batch size to infer through model")
     max_wait_time: float | None = conf_field(None, help="Maximum time to wait for inferring batches")
-    min_trajectory_length: int = conf_field(0, help="Minimum length of trajectories to collect")
+    min_trajectory_length: int = conf_field(1, help="Minimum length of trajectories to collect")
+    max_trajectory_length: int | None = conf_field(None, help="Maximum length of trajectories to collect")
+    force_sync: bool = conf_field(False, help="Force workers to run in sync mode rather than async mode")
 
 
 @dataclass
@@ -98,15 +100,16 @@ class ReinforcementLearningVanillaTrainer(
         signal.signal(signal.SIGUSR1, on_exit)
 
         # Gets the environment workers.
-        worker_pool = get_worker_pool(task.get_environment_workers())
+        worker_pool = get_worker_pool(
+            task.get_environment_workers(force_sync=self.config.sampling.force_sync),
+            force_sync=self.config.sampling.force_sync,
+        )
 
         try:
             with contextlib.ExitStack() as ctx:
                 profile = self.get_profile()
                 if profile is not None:
                     ctx.enter_context(profile)
-
-                buffer = task.get_replay_buffer()
 
                 while True:
                     with self.step_context("on_epoch_start"):
@@ -121,14 +124,14 @@ class ReinforcementLearningVanillaTrainer(
                             worker_pool=worker_pool,
                             total_samples=self.config.sampling.num_epoch_samples,
                             min_trajectory_length=self.config.sampling.min_trajectory_length,
+                            max_trajectory_length=self.config.sampling.max_trajectory_length,
                             min_batch_size=self.config.sampling.min_batch_size,
                             max_batch_size=self.config.sampling.max_batch_size,
                             max_wait_time=self.config.sampling.max_wait_time,
                         )
-                        buffer.add(samples)
 
                     with self.step_context("build_rl_dataset"):
-                        train_ds = task.build_rl_dataset(buffer)
+                        train_ds = task.build_rl_dataset(samples)
                         train_dl = task.get_dataloader(train_ds, "train")
                         train_pf = self._device.get_prefetcher(train_dl)
 

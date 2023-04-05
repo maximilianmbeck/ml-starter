@@ -11,7 +11,7 @@ def cast_reduce_type(s: str | None) -> ReduceType:
     return cast(ReduceType, s)
 
 
-def reduce(t: Tensor, reduce_type: ReduceType, dim: int) -> Tensor:
+def reduce(t: Tensor, reduce_type: ReduceType, dim: int | None = None) -> Tensor:
     if reduce_type is None:
         return t
     if reduce_type == "mean":

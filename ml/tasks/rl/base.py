@@ -26,7 +26,7 @@ from ml.tasks.environments.worker import (
     WorkerPool,
     cast_worker_mode,
 )
-from ml.tasks.rl.replay import MultiReplaySamples, ReplayBuffer, ReplayDataset, ReplaySamples
+from ml.tasks.rl.replay import MultiReplaySamples, ReplayDataset, ReplaySamples
 from ml.utils.video import WRITERS as VIDEO_WRITERS, Writer, standardize_image
 
 logger = logging.getLogger(__name__)
@@ -43,7 +43,7 @@ class EnvironmentConfig:
 
 @dataclass
 class DatasetConfig:
-    num_samples: int = conf_field(MISSING, help="Number of training samples in replay")
+    num_samples: int = conf_field(1, help="Number of training samples in replay")
     num_update_steps: int = conf_field(MISSING, help="How often to interact with the environment")
     stride: int = conf_field(1, help="Replay stride to use")
     replay_buffer_sample_size: int = conf_field(10000, help="Number of epochs of experience to keep in replay buffer")
@@ -64,12 +64,13 @@ class ReinforcementLearningTask(
     ABC,
 ):
     @abstractmethod
-    def get_actions(self, model: ModelT, states: list[RLState]) -> list[RLAction]:
+    def get_actions(self, model: ModelT, states: list[RLState], optimal: bool) -> list[RLAction]:
         """Samples an action from the policy, given the previous state.
 
         Args:
             model: The model to sample from.
             states: The previous states.
+            optimal: Whether to get the optimal action or to sample from the policy.
 
         Returns:
             The next actions to take for each state.
@@ -83,9 +84,11 @@ class ReinforcementLearningTask(
             The environment for the task
         """
 
-    def build_rl_dataset(self, buffer: ReplayBuffer[tuple[RLState, RLAction]]) -> Dataset[tuple[RLState, RLAction]]:
+    def build_rl_dataset(
+        self, samples: MultiReplaySamples[tuple[RLState, RLAction]]
+    ) -> Dataset[tuple[RLState, RLAction]]:
         return ReplayDataset(
-            buffer,
+            samples,
             clip_size=self.config.dataset.num_samples,
             stride=self.config.dataset.stride,
         )
@@ -94,11 +97,14 @@ class ReinforcementLearningTask(
     def get_environment_cached(self) -> Environment[RLState, RLAction]:
         return self.get_environment()
 
-    def get_environment_workers(self) -> list[BaseEnvironmentWorker[RLState, RLAction]]:
+    def get_environment_workers(self, force_sync: bool = False) -> list[BaseEnvironmentWorker[RLState, RLAction]]:
         env_cfg = self.config.environment
 
-        if env_cfg.num_env_workers <= 0:
-            return [SyncEnvironmentWorker(self.get_environment(), seed=env_cfg.env_seed)]
+        if env_cfg.num_env_workers <= 0 or force_sync:
+            return [
+                SyncEnvironmentWorker(self.get_environment(), seed=env_cfg.env_seed)
+                for _ in range(max(1, env_cfg.num_env_workers))
+            ]
 
         return [
             AsyncEnvironmentWorker(
@@ -112,12 +118,25 @@ class ReinforcementLearningTask(
             for rank in range(env_cfg.num_env_workers)
         ]
 
+    def postprocess_trajectory(self, samples: list[tuple[RLState, RLAction]]) -> list[tuple[RLState, RLAction]]:
+        """Performs any global postprocessing on the trajectory.
+
+        Args:
+            samples: The trajectory to postprocess.
+
+        Returns:
+            The postprocessed trajectory.
+        """
+
+        return samples
+
     def collect_samples(
         self,
         model: ModelT,
         worker_pool: WorkerPool[RLState, RLAction],
         total_samples: int,
-        min_trajectory_length: int = 0,
+        min_trajectory_length: int = 1,
+        max_trajectory_length: int | None = None,
         min_batch_size: int = 1,
         max_batch_size: int | None = None,
         max_wait_time: float | None = None,
@@ -131,6 +150,8 @@ class ReinforcementLearningTask(
             total_samples: The total number of samples to collect.
             min_trajectory_length: Minimum sequence length to consider a
                 sequence as having contributed to `total_samples`
+            max_trajectory_length: Maximum sequence length to consider a
+                sequence as having contributed to `total_samples`
             min_batch_size: Minimum batch size for doing inference on model
             max_batch_size: Maximum batch size for doing inference on model
             max_wait_time: Maximum amount of time to wait to build batch
@@ -143,7 +164,7 @@ class ReinforcementLearningTask(
             ValueError: If `min_batch_size` is greater than `max_batch_size`.
         """
 
-        min_trajectory_length = max(min_trajectory_length, self.config.dataset.num_samples)
+        min_trajectory_length = max(min_trajectory_length, self.config.dataset.num_samples, 1)
         num_samples = 0
 
         worker_pool.reset()
@@ -157,7 +178,7 @@ class ReinforcementLearningTask(
         if min_batch_size > max_batch_size:
             raise ValueError(f"{min_batch_size=} > {max_batch_size=}")
 
-        with tqdm.tqdm(total=total_samples, disable=not use_tqdm) as pbar, torch.no_grad():
+        with tqdm.tqdm(total=total_samples, disable=not use_tqdm, desc="Sampling") as pbar, torch.no_grad():
             while num_samples < total_samples:
                 start_time = time.time()
 
@@ -169,13 +190,13 @@ class ReinforcementLearningTask(
                     if max_wait_time is not None and elapsed_time > max_wait_time and len(batch) >= min_batch_size:
                         break
                     state, worker_id = worker_pool.get_state()
+                    pbar.update()  # Update every time we get a new state.
                     if state == "terminated":
                         if len(trajectories[worker_id]) >= min_trajectory_length:
-                            all_trajectories.append(trajectories[worker_id])
+                            all_trajectories.append(self.postprocess_trajectory(trajectories[worker_id]))
                             num_samples += len(trajectories[worker_id])
-                            pbar.update(len(trajectories[worker_id]))
                         else:
-                            logger.debug(
+                            logger.warning(
                                 "Discarding trajectory of length %d because it is less than %d",
                                 len(trajectories[worker_id]),
                                 min_trajectory_length,
@@ -187,40 +208,41 @@ class ReinforcementLearningTask(
 
                 # Sample actions for the new samples
                 states, worker_ids = [state for state, _ in batch], [worker_id for _, worker_id in batch]
-                actions = self.get_actions(model, states) if states else []
+                actions = self.get_actions(model, states, False) if states else []
 
                 # Send the actions to the workers
-                for action, worker_id in zip(actions, worker_ids):
-                    worker_pool.send_action(action, worker_id)
+                trajectory_lengths = 0
+                for state, action, worker_id in zip(states, actions, worker_ids):
+                    if max_trajectory_length is not None and len(trajectories[worker_id]) >= max_trajectory_length:
+                        all_trajectories.append(self.postprocess_trajectory(trajectories[worker_id]))
+                        num_samples += len(trajectories[worker_id])
+                        trajectories[worker_id] = []
+                        worker_pool.send_action("reset", worker_id)
+                    else:
+                        trajectories[worker_id].append((state, action))
+                        trajectory_len = len(trajectories[worker_id])
+                        if trajectory_len >= min_trajectory_length:
+                            trajectory_lengths += trajectory_len
+                        worker_pool.send_action(action, worker_id)
                 for state, worker_id in batch_special:
                     if state == "terminated":
                         worker_pool.send_action("reset", worker_id)
                     else:
                         raise ValueError(f"Unknown special state {state}")
 
-                # Adds the state-action pairs to the trajectories.
-                trajectory_lengths = 0
-                for state, action, worker_id in zip(states, actions, worker_ids):
-                    trajectories[worker_id].append((state, action))
-                    if (trajectory_len := len(trajectories[worker_id])) >= min_trajectory_length:
-                        trajectory_lengths += trajectory_len
-
                 # If the current trajectories would finish the episode, then
                 # add them to the list of all trajectories.
                 if num_samples + trajectory_lengths >= total_samples:
-                    all_trajectories.extend(t for t in trajectories if len(t) >= min_trajectory_length)
+                    all_trajectories.extend(
+                        self.postprocess_trajectory(t) for t in trajectories if len(t) >= min_trajectory_length
+                    )
                     num_samples += trajectory_lengths
                     pbar.update(trajectory_lengths)
                     break
 
-        logger.info("Collected %d total samples", num_samples)
+        logger.info("Collected %d total samples and %d trajectories", num_samples, len(all_trajectories))
 
         return MultiReplaySamples([ReplaySamples(t) for t in all_trajectories])
-
-    def get_replay_buffer(self) -> ReplayBuffer[tuple[RLState, RLAction]]:
-        return ReplayBuffer(
-            max_size=self.config.dataset.replay_buffer_sample_size,
-        )
 
     def epoch_is_over(self, state: State) -> bool:
         return state.num_epoch_steps >= self.config.dataset.num_update_steps
@@ -282,7 +304,7 @@ class ReinforcementLearningTask(
                 if model is None:
                     action = environment.sample_action()
                 else:
-                    (action,) = self.get_actions(model, [state])
+                    (action,) = self.get_actions(model, [state], True)
                 state = environment.step(action)
                 yield environment.render(state)
 
