@@ -158,6 +158,14 @@ class RLDemoTask(
             action.advantage = last_gae_lam
         return samples
 
+    def postprocess_trajectories(
+        self,
+        trajectories: list[list[tuple[BWState, BWAction]]],
+    ) -> list[list[tuple[BWState, BWAction]]]:
+        mean_reward = sum(sum(cast(float, s.reward) for s, _ in t) for t in trajectories) / len(trajectories)
+        self.logger.log_scalar("mean_reward", mean_reward)
+        return trajectories
+
     def run_model(self, model: SimpleA2CModel, batch: tuple[BWState, BWAction], state: State) -> Output:
         states, _ = batch
         obs = states.observation

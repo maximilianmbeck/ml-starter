@@ -130,6 +130,21 @@ class ReinforcementLearningTask(
 
         return samples
 
+    def postprocess_trajectories(
+        self,
+        trajectories: list[list[tuple[RLState, RLAction]]],
+    ) -> list[list[tuple[RLState, RLAction]]]:
+        """Performs any global postprocessing on all of the trajectories.
+
+        Args:
+            trajectories: The trajectories to postprocess.
+
+        Returns:
+            The postprocessed trajectories.
+        """
+
+        return trajectories
+
     def collect_samples(
         self,
         model: ModelT,
@@ -240,6 +255,7 @@ class ReinforcementLearningTask(
                     pbar.update(trajectory_lengths)
                     break
 
+        all_trajectories = self.postprocess_trajectories(all_trajectories)
         logger.info("Collected %d total samples and %d trajectories", num_samples, len(all_trajectories))
 
         return MultiReplaySamples([ReplaySamples(t) for t in all_trajectories])
