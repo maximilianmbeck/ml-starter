@@ -1,11 +1,7 @@
 # requirements-dev.txt
 
 black
-cmake
 darglint
 mypy
-pybind11
 pytest
 ruff
-cmake-format
-clang-format

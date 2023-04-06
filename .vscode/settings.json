@@ -24,7 +24,7 @@
     "editor.defaultFormatter": "ms-python.python",
     "editor.formatOnSave": true,
     "editor.codeActionsOnSave": {
-      "source.organizeImports": false,
+      "source.organizeImports": true,
       "source.fixAll": true
     }
   },
@@ -57,7 +57,7 @@
   "python.linting.pylintEnabled": false,
   "python.linting.flake8Enabled": false,
   "python.analysis.exclude": ["setup.py"],
-  "ruff.fixAll": true,
+  "ruff.fixAll": false,
   "ruff.organizeImports": true,
 
   /* CMake variables */

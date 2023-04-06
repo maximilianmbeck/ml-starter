@@ -40,7 +40,7 @@ def get_stem(path_str: str) -> str:
 
     # Special handling for paths that are relative to the configs directory.
     for parent in path.parents:
-        if parent.stem == "configs":
+        if parent.stem in ("conf", "config", "configs"):
             return ".".join(path.relative_to(parent).parts)
 
     return path.stem

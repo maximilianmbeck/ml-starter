@@ -1,36 +1,30 @@
 # ML Project Template
 
-This is a general-purpose template for machine learning projects in PyTorch. It includes a simple CIFAR example which can be deleted.
+This is a general-purpose template for machine learning projects in PyTorch.
 
 ## Getting Started
 
-### Installation
-
-First, create a Conda environment:
+Install the package:
 
 ```bash
-conda create --name ml python=3.10
+pip install ml-template
 ```
 
-Next, install the project (with developer dependencies):
+Create a new project from a template:
 
 ```bash
-# Installs PyTorch, on CPU.
-pip install -e '.[dev]'
-# Installs PyTorch, on GPU.
-pip install -e '.[dev]'
+create-ml-project
 ```
 
-Additionally, there are some Conda-only development dependencies which should be installed:
+This will create a new project from one of the template repositories. For example, you can create a new project for training an RL agent using PPO using:
 
 ```bash
-conda install mamba
-mamba install cmake-format clang-format
+create-ml-project --template rl --name bipedal-walker-ppo
 ```
 
-### Your First Command
+## Run a command
 
-Run the CIFAR training example:
+Train a model (using the `image` template repository):
 
 ```bash
 runml train configs/image_demo.yaml
@@ -42,7 +36,7 @@ Launch a Slurm job (requires setting the `SLURM_PARTITION` environment variable)
 runml mp_train configs/image_demo.yaml trainer.name=slurm
 ```
 
-### Architecture
+## Architecture
 
 A new project is broken down into five parts:
 

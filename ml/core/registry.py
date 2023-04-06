@@ -18,9 +18,9 @@ from omegaconf import DictConfig, ListConfig, OmegaConf
 from omegaconf.basecontainer import BaseContainer
 
 from ml.core.config import BaseConfig, BaseObject, BaseObjectWithPointers
-from ml.core.env import get_stage_dir
+from ml.core.env import get_project_root, get_stage_dir
 from ml.utils.colors import colorize
-from ml.utils.paths import is_relative_to
+from ml.utils.paths import get_relative_path, is_relative_to
 from ml.utils.timer import Timer
 
 if TYPE_CHECKING:
@@ -42,7 +42,7 @@ Config = TypeVar("Config", bound=BaseConfig)
 NAME_KEY = "name"
 
 # This points to the root directory location for the package.
-ROOT_DIR: Path = Path(__file__).parent.parent.parent.resolve()
+ROOT_DIR: Path = Path(__file__).parent.parent.resolve()
 
 # Date format for staging environments.
 DATE_FORMAT = "%Y-%m-%d"
@@ -50,6 +50,20 @@ DATE_FORMAT = "%Y-%m-%d"
 # Maximum number of days to keep a staging directory around. This should
 # correspond to the maximum number of days that an experiment could run.
 MAX_STAGING_DAYS = 31
+
+
+@functools.lru_cache
+def project_root() -> Path | None:
+    return get_project_root()
+
+
+@functools.lru_cache
+def base_dirs() -> list[Path]:
+    base_dirs = [ROOT_DIR]
+    project_root_dir = project_root()
+    if project_root_dir is not None:
+        base_dirs.append(project_root_dir)
+    return base_dirs
 
 
 def get_name(key: str, config: BaseContainer) -> str:
@@ -77,9 +91,11 @@ def stage_environment() -> Path:
         for module in sys.modules.values():
             if (fpath_str := getattr(module, "__file__", None)) is None:
                 continue
-            if not is_relative_to(fpath := Path(fpath_str).resolve(), ROOT_DIR):
-                continue
-            fpaths.append(fpath)
+            for base_dir in base_dirs():
+                fpath = Path(fpath_str).resolve()
+                if is_relative_to(fpath, base_dir):
+                    fpaths.append(fpath)
+                    break
 
     assert fpaths, "Couldn't find any file paths to stage!"
 
@@ -100,7 +116,7 @@ def stage_environment() -> Path:
                 shutil.rmtree(tmp_dir.parent)
             tmp_dir.mkdir(exist_ok=False, parents=True)
             for fpath in fpaths:
-                new_fpath = tmp_dir / fpath.relative_to(ROOT_DIR)
+                new_fpath = tmp_dir / get_relative_path(fpath, base_dirs())
                 new_fpath.parent.mkdir(exist_ok=True, parents=True)
                 shutil.copyfile(fpath, new_fpath)
             tmp_dir.rename(out_dir)
@@ -178,7 +194,7 @@ class register_base(ABC, Generic[Entry, Config]):  # pylint: disable=invalid-nam
     def manual_import(cls, path: Path) -> None:
         with Timer(f"importing '{path}'"):
             try:
-                rel_path = path.relative_to(ROOT_DIR)
+                rel_path = get_relative_path(path, base_dirs(), True)
                 module_name = ".".join(list(rel_path.parts[:-1]) + [rel_path.stem])
                 if module_name not in sys.modules:
                     spec = importlib.util.spec_from_file_location(module_name, str(path))
@@ -221,19 +237,22 @@ class register_base(ABC, Generic[Entry, Config]):  # pylint: disable=invalid-nam
         # the second time we can just iterate through it again.
         subfiles: list[Path] = []
 
-        def iter_directory(curdir: Path) -> Iterator[Path]:
-            for subpath in curdir.iterdir():
-                if subpath.stem.startswith("__"):
-                    continue
-                if subpath.is_file() and subpath.suffix == ".py":
-                    subfile = subpath.resolve()
-                    subfiles.append(subfile)
-                    yield subfile
-                elif subpath.is_dir():
-                    yield from iter_directory(subpath)
+        def iter_directory(*curdirs: Path) -> Iterator[Path]:
+            for curdir in curdirs:
+                for subpath in curdir.iterdir():
+                    if subpath.stem.startswith("__"):
+                        continue
+                    if subpath.is_file() and subpath.suffix == ".py":
+                        subfile = subpath.resolve()
+                        subfiles.append(subfile)
+                        yield subfile
+                    elif subpath.is_dir():
+                        yield from iter_directory(subpath)
 
         # Next sweep over the search directory and check for prefix matches.
-        for path in iter_directory(ROOT_DIR / cls.search_directory()):
+        search_dir = cls.search_directory()
+        search_dirs = [base_dir / search_dir for base_dir in base_dirs()]
+        for path in iter_directory(*search_dirs):
             if path.stem.lower().startswith(lower_name) or lower_name.startswith(path.stem.lower()):
                 cls.manual_import(path)
                 if name in cls.REGISTRY:
@@ -327,7 +346,9 @@ class register_base(ABC, Generic[Entry, Config]):  # pylint: disable=invalid-nam
 
     def __call__(self, entry: SpecificEntry) -> SpecificEntry:
         if self.name in self.REGISTRY:
-            raise RuntimeError(f"Found duplicate names: {self.name}")
+            # raise RuntimeError(f"Found duplicate names: {self.name}")
+            logger.warning("Found duplicate names: %s", self.name)
+            return entry
 
         registry_location = Path(inspect.getfile(cast(type[Entry], entry)))
 
@@ -400,7 +421,7 @@ class register_model(register_base["BaseModel", "BaseModelConfig"]):  # pylint: 
 
     @classmethod
     def search_directory(cls) -> Path:
-        return Path("ml/models")
+        return Path("models")
 
     @classmethod
     def config_key(cls) -> str:
@@ -415,7 +436,7 @@ class register_task(register_base["BaseTask", "BaseTaskConfig"]):  # pylint: dis
 
     @classmethod
     def search_directory(cls) -> Path:
-        return Path("ml/tasks")
+        return Path("tasks")
 
     @classmethod
     def config_key(cls) -> str:
@@ -430,7 +451,7 @@ class register_trainer(register_base["BaseTrainer", "BaseTrainerConfig"]):  # py
 
     @classmethod
     def search_directory(cls) -> Path:
-        return Path("ml/trainers")
+        return Path("trainers")
 
     @classmethod
     def config_key(cls) -> str:
@@ -445,7 +466,7 @@ class register_optimizer(register_base["BaseOptimizer", "BaseOptimizerConfig"]):
 
     @classmethod
     def search_directory(cls) -> Path:
-        return Path("ml/optimizers")
+        return Path("optimizers")
 
     @classmethod
     def config_key(cls) -> str:
@@ -460,7 +481,7 @@ class register_lr_scheduler(register_base["BaseLRScheduler", "BaseLRSchedulerCon
 
     @classmethod
     def search_directory(cls) -> Path:
-        return Path("ml/lr_schedulers")
+        return Path("lr_schedulers")
 
     @classmethod
     def config_key(cls) -> str:
@@ -475,7 +496,7 @@ class register_logger(multi_register_base["BaseLogger", "BaseLoggerConfig"]):  #
 
     @classmethod
     def search_directory(cls) -> Path:
-        return Path("ml/loggers")
+        return Path("loggers")
 
     @classmethod
     def config_key(cls) -> str:
@@ -510,18 +531,36 @@ class Objects:
                 sublogger.set_objects(self)
 
     def summarize(self) -> str:
-        parts: dict[str, str] = {}
+        parts: dict[str, tuple[str, str]] = {}
         if self.model is not None:
-            parts["Model"] = inspect.getfile(self.model.__class__)
+            parts["Model"] = (
+                inspect.getfile(self.model.__class__),
+                f"{self.model.__class__.__module__}.{self.model.__class__.__name__}",
+            )
         if self.task is not None:
-            parts["Task"] = inspect.getfile(self.task.__class__)
+            parts["Task"] = (
+                inspect.getfile(self.task.__class__),
+                f"{self.task.__class__.__module__}.{self.task.__class__.__name__}",
+            )
         if self.trainer is not None:
-            parts["Trainer"] = inspect.getfile(self.trainer.__class__)
+            parts["Trainer"] = (
+                inspect.getfile(self.trainer.__class__),
+                f"{self.trainer.__class__.__module__}.{self.trainer.__class__.__name__}",
+            )
         if self.optimizer is not None:
-            parts["Optimizer"] = inspect.getfile(self.optimizer.__class__)
+            parts["Optimizer"] = (
+                inspect.getfile(self.optimizer.__class__),
+                f"{self.optimizer.__class__.__module__}.{self.optimizer.__class__.__name__}",
+            )
         if self.lr_scheduler is not None:
-            parts["LR Scheduler"] = inspect.getfile(self.lr_scheduler.__class__)
-        return "Components:" + "".join(f"\n ↪ {colorize(k, 'green')}: {v}" for k, v in parts.items())
+            parts["LR Scheduler"] = (
+                inspect.getfile(self.lr_scheduler.__class__),
+                f"{self.lr_scheduler.__class__.__module__}.{self.lr_scheduler.__class__.__name__}",
+            )
+        return "Components:" + "".join(
+            f"\n ↪ {colorize(k, 'green')}: {colorize(v[1], 'cyan')} ({colorize(v[0], 'blue')})"
+            for k, v in parts.items()
+        )
 
     @classmethod
     def resolve_config(cls, config: DictConfig) -> None:

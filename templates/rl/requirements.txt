@@ -1,0 +1,9 @@
+# requirements.txt
+
+gymnasium[box2d]
+ml-template
+moviepy
+numpy
+scipy
+torch>=2.0.0
+torchvision

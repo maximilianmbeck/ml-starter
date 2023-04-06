@@ -156,6 +156,11 @@ is_metal_disabled = DisableMetal.get
 DisableGPU = _BoolEnvVar("DISABLE_GPU", default=False)
 is_gpu_disabled = DisableGPU.get
 
+# Sets the root project directory.
+ProjectRoot = _PathEnvVar("PROJECT_ROOT")
+get_project_root = ProjectRoot.maybe_get
+set_project_root = ProjectRoot.set
+
 
 def get_distributed_backend() -> dist.Backend:
     # Used to change the distributed backend to something other than NCCL.

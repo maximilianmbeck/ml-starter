@@ -45,31 +45,31 @@ build-ext:
 .PHONY: build-ext
 
 clean:
-	rm -rf build dist *.so **/*.so **/*.pyi **/*.pyc **/*.pyd **/*.pyo **/__pycache__ *.egg-info .eggs/
+	rm -rf build dist *.so **/*.so **/*.pyi **/*.pyc **/*.pyd **/*.pyo **/__pycache__ *.egg-info .eggs/ .ruff_cache/
 .PHONY: clean
 
 # ------------------------ #
 #       Static Checks      #
 # ------------------------ #
 
-py-files := $$(git ls-files '*.py')
-cpp-files := $$(git ls-files '*.c' '*.cpp' '*.h' '*.hpp' '*.cu' '*.cuh')
-cmake-files := $$(git ls-files '*/CMakeLists.txt')
+py-files := $$(git ls-files 'ml/*.py' 'tests/*.py' 'setup.py')
 
 format:
 	black $(py-files)
 	ruff --fix $(py-files)
-	cmake-format -i $(cmake-files)
-	clang-format -i $(cpp-files)
 .PHONY: format
+
+format-recursive: format
+	@for dir in $$(find templates/ -maxdepth 1 -type d); do \
+		$(MAKE) -C $$dir format; \
+	done
+.PHONY: format-recursive
 
 static-checks:
 	black --diff --check $(py-files)
 	ruff $(py-files)
-	mypy --install-types --non-interactive $(py-files)
+	mypy --install-types --non-interactive --incremental $(py-files)
 	darglint $(py-files)
-	cmake-format --check $(cmake-files) > /dev/null
-	clang-format --dry-run --Werror $(cpp-files) > /dev/null
 .PHONY: lint
 
 mypy-daemon:
@@ -81,5 +81,5 @@ mypy-daemon:
 # ------------------------ #
 
 test:
-	python -m pytest .
+	python -m pytest
 .PHONY: test
