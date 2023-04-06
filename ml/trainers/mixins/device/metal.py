@@ -1,8 +1,8 @@
-import os
 from typing import Callable
 
 import torch
 
+from ml.core.env import is_metal_disabled
 from ml.trainers.mixins.device.base import BaseDevice
 
 
@@ -13,7 +13,7 @@ class MetalDevice(BaseDevice):
     def has_device(cls) -> bool:
         # Use the DISABLE_METAL environment variable if MPS has issues, since
         # it is still in the very early days of support.
-        return torch.backends.mps.is_available() and not int(os.environ.get("DISABLE_METAL", "0"))
+        return torch.backends.mps.is_available() and not is_metal_disabled()
 
     @classmethod
     def get_device(cls) -> torch.device:

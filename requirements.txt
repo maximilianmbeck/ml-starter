@@ -4,10 +4,12 @@ av
 ffmpeg-python
 gymnasium[box2d]
 matplotlib
+numpy
 omegaconf
 opencv-python
 pandas
 psutil
+scipy
 seaborn
 tensorboard
 torch>=2.0.0

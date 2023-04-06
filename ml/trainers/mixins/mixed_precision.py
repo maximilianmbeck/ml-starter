@@ -33,7 +33,7 @@ class MixedPrecisionTrainerMixin(BaseTrainer[MixedPrecisionConfigT, ModelT, Task
         super().__init__(config)
 
         self.grad_scaler: torch.cuda.amp.GradScaler | None
-        if torch.cuda.is_available():
+        if self._device_type == "cuda" and self.config.fp16.enabled:
             self.grad_scaler = torch.cuda.amp.GradScaler(
                 init_scale=self.config.fp16.init_scale,
                 growth_factor=self.config.fp16.growth_factor,

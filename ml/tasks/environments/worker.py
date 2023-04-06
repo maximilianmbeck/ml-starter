@@ -5,6 +5,8 @@ import logging
 import queue
 import threading
 from abc import ABC, abstractmethod
+from multiprocessing.managers import SyncManager
+from queue import Queue
 from typing import TYPE_CHECKING, Deque, Generic, Literal, Sequence, cast, get_args, overload
 
 import torch.multiprocessing as mp
@@ -22,7 +24,7 @@ SpecialAction = Literal["reset", "close"]
 SpecialState = Literal["terminated"]
 
 
-def clear_queue(q: mp.Queue) -> None:
+def clear_queue(q: Queue) -> None:
     while True:
         try:
             q.get_nowait()
@@ -63,21 +65,70 @@ class BaseEnvironmentWorker(ABC, Generic[RLState, RLAction]):
 
     @classmethod
     @abstractmethod
-    def from_environment(cls, env: "Environment[RLState, RLAction]") -> "BaseEnvironmentWorker[RLState, RLAction]":
+    def from_environment(
+        cls,
+        env: "Environment[RLState, RLAction]",
+        num_workers: int,
+    ) -> Sequence["BaseEnvironmentWorker[RLState, RLAction]"]:
         """Creates a worker from an environment.
 
         Args:
             env: The environment to create the worker from.
+            num_workers: The number of workers to create.
 
         Returns:
-            The worker.
+            The workers.
         """
+
+
+class SyncEnvironmentWorker(BaseEnvironmentWorker[RLState, RLAction], Generic[RLState, RLAction]):
+    def __init__(self, env: "Environment[RLState, RLAction]", seed: int = 1337) -> None:
+        """Defines a synchronous environment worker.
+
+        Args:
+            env: The environment to wrap.
+            seed: The random seed to use.
+        """
+
+        super().__init__()
+
+        self.env = env
+        self.seed = seed
+
+        self.state: RLState | SpecialState | None = None
+
+    @classmethod
+    def from_environment(
+        cls,
+        env: "Environment[RLState, RLAction]",
+        num_workers: int,
+    ) -> Sequence["SyncEnvironmentWorker[RLState, RLAction]"]:
+        return [cls(env) for _ in range(num_workers)]
+
+    def cleanup(self) -> None:
+        pass
+
+    def get_state(self) -> RLState | SpecialState:
+        if self.state is None:
+            raise RuntimeError("Environment has not been reset")
+        return self.state
+
+    def send_action(self, action: RLAction | SpecialAction) -> None:
+        if action == "close":
+            raise ValueError("Cannot close a synchronous environment")
+        if action == "reset":
+            self.state = self.env.reset(self.seed)
+        else:
+            self.state = self.env.step(action)
+        if self.env.terminated(self.state):
+            self.state = "terminated"
 
 
 class AsyncEnvironmentWorker(BaseEnvironmentWorker[RLState, RLAction], Generic[RLState, RLAction]):
     def __init__(
         self,
         env: "Environment[RLState, RLAction]",
+        manager: SyncManager,
         rank: int | None = None,
         world_size: int | None = None,
         seed: int = 1337,
@@ -92,6 +143,7 @@ class AsyncEnvironmentWorker(BaseEnvironmentWorker[RLState, RLAction], Generic[R
 
         Args:
             env: The environment to wrap.
+            manager: The manager to use for shared memory.
             rank: The rank of the worker.
             world_size: The number of workers.
             seed: The random seed to use.
@@ -108,8 +160,8 @@ class AsyncEnvironmentWorker(BaseEnvironmentWorker[RLState, RLAction], Generic[R
         self.rank = 0 if rank is None else rank
         self.world_size = 1 if world_size is None else world_size
 
-        self.action_queue: "mp.Queue[RLAction | SpecialAction]" = mp.Queue(maxsize=1)
-        self.state_queue: "mp.Queue[RLState | SpecialState]" = mp.Queue(maxsize=1)
+        self.action_queue: "Queue[RLAction | SpecialAction]" = manager.Queue(maxsize=1)
+        self.state_queue: "Queue[RLState | SpecialState]" = manager.Queue(maxsize=1)
         args = env, seed, self.action_queue, self.state_queue, rank, world_size
 
         self._proc: threading.Thread | mp.Process
@@ -123,8 +175,13 @@ class AsyncEnvironmentWorker(BaseEnvironmentWorker[RLState, RLAction], Generic[R
             raise ValueError(f"Invalid mode: {mode}")
 
     @classmethod
-    def from_environment(cls, env: "Environment[RLState, RLAction]") -> "AsyncEnvironmentWorker[RLState, RLAction]":
-        return cls(env)
+    def from_environment(
+        cls,
+        env: "Environment[RLState, RLAction]",
+        num_workers: int,
+    ) -> Sequence["AsyncEnvironmentWorker[RLState, RLAction]"]:
+        manager = mp.Manager()
+        return [cls(env, manager, rank=rank, world_size=num_workers) for rank in range(num_workers)]
 
     def cleanup(self) -> None:
         logger.debug("Cleaning up task...")
@@ -142,8 +199,8 @@ class AsyncEnvironmentWorker(BaseEnvironmentWorker[RLState, RLAction], Generic[R
         cls,
         env: "Environment[RLState, RLAction]",
         seed: int,
-        action_queue: "mp.Queue[RLAction | SpecialAction]",
-        state_queue: "mp.Queue[RLState | SpecialState]",
+        action_queue: "Queue[RLAction | SpecialAction]",
+        state_queue: "Queue[RLState | SpecialState]",
         rank: int | None,
         world_size: int | None,
     ) -> None:
@@ -172,45 +229,6 @@ class AsyncEnvironmentWorker(BaseEnvironmentWorker[RLState, RLAction], Generic[R
             clear_queue(self.state_queue)
             clear_queue(self.action_queue)
         self.action_queue.put(action)
-
-
-class SyncEnvironmentWorker(BaseEnvironmentWorker[RLState, RLAction], Generic[RLState, RLAction]):
-    def __init__(self, env: "Environment[RLState, RLAction]", seed: int = 1337) -> None:
-        """Defines a synchronous environment worker.
-
-        Args:
-            env: The environment to wrap.
-            seed: The random seed to use.
-        """
-
-        super().__init__()
-
-        self.env = env
-        self.seed = seed
-
-        self.state: RLState | SpecialState | None = None
-
-    @classmethod
-    def from_environment(cls, env: "Environment[RLState, RLAction]") -> "SyncEnvironmentWorker[RLState, RLAction]":
-        return cls(env)
-
-    def cleanup(self) -> None:
-        pass
-
-    def get_state(self) -> RLState | SpecialState:
-        if self.state is None:
-            raise RuntimeError("Environment has not been reset")
-        return self.state
-
-    def send_action(self, action: RLAction | SpecialAction) -> None:
-        if action == "close":
-            raise ValueError("Cannot close a synchronous environment")
-        if action == "reset":
-            self.state = self.env.reset(self.seed)
-        else:
-            self.state = self.env.step(action)
-        if self.env.terminated(self.state):
-            self.state = "terminated"
 
 
 class WorkerPool(Generic[RLState, RLAction]):
@@ -304,9 +322,10 @@ class AsyncWorkerPool(WorkerPool[RLState, RLAction], Generic[RLState, RLAction])
         super().__init__()
 
         self.workers = workers
-        self.state_queue: "mp.Queue[tuple[RLState | SpecialState, int]]" = mp.Queue(maxsize=len(workers))
-        self.action_queues: list["mp.Queue[RLAction | SpecialAction]"] = [
-            mp.Queue(maxsize=1) for _ in range(len(workers))
+        self.manager = mp.Manager()
+        self.state_queue: "Queue[tuple[RLState | SpecialState, int]]" = self.manager.Queue(maxsize=len(workers))
+        self.action_queues: list["Queue[RLAction | SpecialAction]"] = [
+            self.manager.Queue(maxsize=1) for _ in range(len(workers))
         ]
 
         # Starts a thread for each worker.
@@ -346,8 +365,8 @@ class AsyncWorkerPool(WorkerPool[RLState, RLAction], Generic[RLState, RLAction])
         cls,
         env_id: int,
         worker: BaseEnvironmentWorker[RLState, RLAction],
-        state_queue: "mp.Queue[tuple[RLState | SpecialState, int]]",
-        action_queue: "mp.Queue[RLAction | SpecialAction]",
+        state_queue: "Queue[tuple[RLState | SpecialState, int]]",
+        action_queue: "Queue[RLAction | SpecialAction]",
     ) -> None:
         logger.debug("Starting worker pool thread")
 

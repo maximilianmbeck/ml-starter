@@ -4,6 +4,7 @@ from typing import Callable
 
 import torch
 
+from ml.core.env import is_gpu_disabled
 from ml.trainers.mixins.device.base import BaseDevice
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -20,7 +21,7 @@ class GPUDevice(BaseDevice):
 
     @classmethod
     def has_device(cls) -> bool:
-        return torch.cuda.is_available() and torch.cuda.device_count() > 0
+        return torch.cuda.is_available() and torch.cuda.device_count() > 0 and not is_gpu_disabled()
 
     @classmethod
     def get_device(cls) -> torch.device:

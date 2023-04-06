@@ -1,3 +1,4 @@
+import multiprocessing as mp
 import os
 from dataclasses import dataclass
 from typing import Type, cast
@@ -77,10 +78,7 @@ def test_worker_and_pool(
     """
 
     env = DummyEnvironment(num_actions=num_actions)
-    workers = cast(
-        list[BaseEnvironmentWorker[DummyState, DummyAction]],
-        [worker_cls.from_environment(env) for _ in range(num_workers)],
-    )
+    workers = cast(list[BaseEnvironmentWorker[DummyState, DummyAction]], worker_cls.from_environment(env, num_workers))
     pool = cast(WorkerPool[DummyState, DummyAction], pool_cls.from_workers(workers))
 
     # Tests sending and receiving actions.
@@ -120,7 +118,8 @@ def test_for_memory_leaks(num_workers: int) -> None:
 
     env = DummyEnvironment(num_actions=10)
     for i in tqdm.trange(10):
-        workers = [AsyncEnvironmentWorker(env, mode="process") for _ in range(num_workers)]
+        manager = mp.Manager()
+        workers = [AsyncEnvironmentWorker(env, manager, mode="process") for _ in range(num_workers)]
         pool = AsyncWorkerPool.from_workers(workers)
         pool.reset()
         for worker_id in range(num_workers):

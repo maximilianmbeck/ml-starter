@@ -48,6 +48,20 @@ class FeedForwardNet(nn.Module):
                 self.layers.append(api.get_norm_linear(norm, dim=out_dim))
                 self.layers.append(api.get_activation(act))
 
+        self.reset_parameters()
+
+    def reset_parameters(self) -> None:
+        for layer in self.layers[:-1]:
+            if isinstance(layer, nn.Linear):
+                nn.init.xavier_uniform_(layer.weight)
+                nn.init.zeros_(layer.bias)
+
+        # Makes the last layer very small.
+        last_layer = self.layers[-1]
+        assert isinstance(last_layer, nn.Linear)
+        nn.init.xavier_uniform_(last_layer.weight, gain=0.01)
+        nn.init.zeros_(last_layer.bias)
+
     def forward(self, x: Tensor) -> Tensor:
         for layer in self.layers:
             x = layer(x)

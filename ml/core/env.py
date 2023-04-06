@@ -148,6 +148,14 @@ add_global_tag = GlobalTags.add
 TorchCompile = _BoolEnvVar("TORCH_COMPILE", default=True)
 is_torch_compiled = TorchCompile.get
 
+# Disables using accelerator on Mac.
+DisableMetal = _BoolEnvVar("DISABLE_METAL", default=False)
+is_metal_disabled = DisableMetal.get
+
+# Disables using the GPU.
+DisableGPU = _BoolEnvVar("DISABLE_GPU", default=False)
+is_gpu_disabled = DisableGPU.get
+
 
 def get_distributed_backend() -> dist.Backend:
     # Used to change the distributed backend to something other than NCCL.

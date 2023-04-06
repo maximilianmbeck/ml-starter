@@ -1,5 +1,6 @@
 import functools
 import logging
+import multiprocessing as mp
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -106,9 +107,12 @@ class ReinforcementLearningTask(
                 for _ in range(max(1, env_cfg.num_env_workers))
             ]
 
+        manager = mp.Manager()
+
         return [
             AsyncEnvironmentWorker(
                 self.get_environment(),
+                manager,
                 rank=rank,
                 world_size=env_cfg.num_env_workers,
                 seed=env_cfg.env_seed,
