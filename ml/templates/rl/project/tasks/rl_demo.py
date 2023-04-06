@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import cast
 
-import ml
+import ml.api as ml
 import numpy as np
 import scipy
 import torch

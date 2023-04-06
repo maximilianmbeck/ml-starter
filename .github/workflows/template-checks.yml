@@ -37,7 +37,7 @@ jobs:
       - name: Run static checks
         run: |
           mkdir -p .mypy_cache
-          make static-checks
+          MYPYPATH="$(realpath ../../..)" make static-checks
         working-directory: ml/templates/${{ matrix.template }}
       - name: Run unit tests
         run: make test

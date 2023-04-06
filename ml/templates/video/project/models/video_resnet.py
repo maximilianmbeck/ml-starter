@@ -2,7 +2,7 @@ import logging
 from dataclasses import dataclass
 from typing import Callable
 
-import ml
+import ml.api as ml
 from omegaconf import MISSING
 from torch import Tensor
 from torchvision.models.video.resnet import VideoResNet, mc3_18, r2plus1d_18, r3d_18

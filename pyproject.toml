@@ -29,6 +29,9 @@ allow_redefinition = true
 warn_unused_ignores = true
 warn_redundant_casts = true
 
+incremental = true
+namespace_packages = false
+
 # For TorchScript stuff.
 disable_error_code = ["attr-defined"]
 
@@ -41,6 +44,7 @@ module = [
     "ffmpeg.*",
     "liblzfse.*",
     "matplotlib.*",
+    "ml.*",
     "open3d.*",
     "pandas.*",
     "PIL.*",

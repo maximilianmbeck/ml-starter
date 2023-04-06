@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass
 
-import ml
+import ml.api as ml
 import torch
 import torch.nn.functional as F
 import torchvision

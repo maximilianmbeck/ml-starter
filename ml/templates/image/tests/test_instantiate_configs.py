@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-import ml
+import ml.api as ml
 import pytest
 from ml.core.registry import Objects
 from ml.utils.cli import parse_cli

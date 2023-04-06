@@ -62,7 +62,7 @@ format:
 static-checks:
 	black --diff --check $(py-files)
 	ruff $(py-files)
-	mypy --install-types --non-interactive --incremental $(py-files)
+	mypy --install-types --non-interactive $(py-files)
 	darglint $(py-files)
 .PHONY: lint
 

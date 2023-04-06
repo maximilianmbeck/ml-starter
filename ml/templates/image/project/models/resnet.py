@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Callable
 
-import ml
+import ml.api as ml
 from omegaconf import MISSING
 from torch import Tensor, nn
 from torchvision.models.resnet import (

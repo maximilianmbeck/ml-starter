@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-import ml
+import ml.api as ml
 from torch import Tensor
 
 

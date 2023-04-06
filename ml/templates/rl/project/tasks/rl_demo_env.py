@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import cast
 
 import gymnasium as gym
-import ml
+import ml.api as ml
 import numpy as np
 import torch
 from torch import Tensor

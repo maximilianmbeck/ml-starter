@@ -66,7 +66,7 @@ format:
 static-checks:
 	black --diff --check $(py-files)
 	ruff $(py-files)
-	mypy --install-types --non-interactive --incremental $(py-files)
+	mypy --install-types --non-interactive $(py-files)
 	darglint $(py-files)
 	cmake-format --check $(cmake-files) > /dev/null
 	clang-format --dry-run --Werror $(cpp-files) > /dev/null

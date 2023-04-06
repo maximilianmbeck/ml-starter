@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-import ml
+import ml.api as ml
 import torch
 from omegaconf import MISSING
 from torch import Tensor, nn
