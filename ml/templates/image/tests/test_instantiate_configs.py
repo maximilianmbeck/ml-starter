@@ -1,11 +1,12 @@
 import os
 from pathlib import Path
 
-import ml.api as ml
 import pytest
 from ml.core.registry import Objects
 from ml.utils.cli import parse_cli
 from omegaconf import DictConfig
+
+import project
 
 # Be mindful that these configs are supposed to run regularly in CI
 # and therefore should not be too expensive.
@@ -18,7 +19,7 @@ CONFIGS_TO_CHECK: list[list[str]] = [
 @pytest.mark.slow()
 def test_instantiate_configs(config_paths: list[str], tmpdir: Path) -> None:
     # Resolves config paths.
-    config_parent_dir = Path(ml.__path__[0]).parent
+    config_parent_dir = Path(project.__path__[0]).parent
     config_paths_absolute = [
         str((config_parent_dir / config_path).resolve()) if (config_parent_dir / config_path).exists() else config_path
         for config_path in config_paths
