@@ -32,7 +32,8 @@ jobs:
       - name: Install base package
         run: pip install -e '.[dev]'
       - name: Install template
-        run: pip install -e '.[dev]'
+        # run: pip install -e '.[dev]'
+        run: pip install --index-url https://download.pytorch.org/whl/cpu -e '.[dev]'
         working-directory: ml/templates/${{ matrix.template }}
       - name: Run static checks
         run: |
