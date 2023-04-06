@@ -1,6 +1,5 @@
 # requirements.txt
 
-ml-template
+ml-starter
 numpy
 torch>=2.0.0
-torchvision

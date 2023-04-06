@@ -33,12 +33,12 @@ jobs:
         run: pip install -e '.[dev]'
       - name: Install template
         run: pip install -e '.[dev]'
-        working-directory: templates/${{ matrix.template }}
+        working-directory: ml/templates/${{ matrix.template }}
       - name: Run static checks
         run: |
           mkdir -p .mypy_cache
           make static-checks
-        working-directory: templates/${{ matrix.template }}
+        working-directory: ml/templates/${{ matrix.template }}
       - name: Run unit tests
         run: make test
-        working-directory: templates/${{ matrix.template }}
+        working-directory: ml/templates/${{ matrix.template }}

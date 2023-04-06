@@ -6,9 +6,9 @@ define HELP_MESSAGE
 
 # Installing
 
-1. Create a new Conda environment: `conda create --name ml-template python=3.10`
-2. Activate the environment: `conda activate ml-template`
-3. Install the package: `make install`
+1. Create a new Conda environment: `conda create --name ml-project python=3.10`
+2. Activate the environment: `conda activate ml-project`
+3. Install the package: `make install-dev`
 4. Rebuild C++ extensions: `make build-ext`
 
 # Running Tests
@@ -52,7 +52,8 @@ clean:
 #       Static Checks      #
 # ------------------------ #
 
-py-files := $$(git ls-files 'ml/*.py' 'tests/*.py' 'setup.py')
+# py-files := $$(git ls-files '*.py')
+py-files := $$(git ls-files '*.py' | grep -v 'ml/templates/')
 
 format:
 	black $(py-files)
@@ -60,7 +61,7 @@ format:
 .PHONY: format
 
 format-recursive: format
-	@for dir in $$(find templates/ -maxdepth 1 -type d); do \
+	@for dir in $$(find ml/templates/ -maxdepth 1 -type d); do \
 		$(MAKE) -C $$dir format; \
 	done
 .PHONY: format-recursive

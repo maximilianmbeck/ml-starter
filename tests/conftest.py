@@ -4,7 +4,6 @@ import random
 import numpy as np
 import pytest
 import torch
-from _pytest.mark import Mark
 from _pytest.python import Function, Metafunc
 
 
@@ -32,8 +31,7 @@ def pytest_runtest_setup(item: Function) -> None:
 
 
 def pytest_collection_modifyitems(items: list[Function]) -> None:
-    empty_mark = Mark(name="", args=(), kwargs={})
-    items.sort(key=lambda item: item.get_closest_marker("slow", default=empty_mark), reverse=False)
+    items.sort(key=lambda x: x.get_closest_marker("slow") is not None, reverse=True)
 
 
 def pytest_generate_tests(metafunc: Metafunc) -> None:

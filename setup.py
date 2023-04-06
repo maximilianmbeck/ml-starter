@@ -19,11 +19,11 @@ with open("ml/__version__.txt", "r", encoding="utf-8") as fh:
 
 
 setup(
-    name="ml-template",
+    name="ml-starter",
     version=version,
     description="ML project template repository",
     author="Benjamin Bolte",
-    url="https://github.com/codekansas/ml-template",
+    url="https://github.com/codekansas/ml-starter",
     long_description=long_description,
     long_description_content_type="text/markdown",
     classifiers=[

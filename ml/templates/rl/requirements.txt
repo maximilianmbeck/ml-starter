@@ -1,7 +1,9 @@
 # requirements.txt
 
-ml-template
+gymnasium[box2d]
+ml-starter
 moviepy
 numpy
+scipy
 torch>=2.0.0
 torchvision

@@ -7,7 +7,7 @@ This is a general-purpose template for machine learning projects in PyTorch.
 Install the package:
 
 ```bash
-pip install ml-template
+pip install ml-starter
 ```
 
 Create a new project from a template:

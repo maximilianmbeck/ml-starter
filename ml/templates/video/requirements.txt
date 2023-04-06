@@ -1,5 +1,7 @@
 # requirements.txt
 
-ml-template
+ml-starter
+moviepy
 numpy
 torch>=2.0.0
+torchvision

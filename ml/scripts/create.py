@@ -8,7 +8,7 @@ from ml.utils.colors import colorize
 
 
 def get_template_choices() -> dict[str, Path]:
-    root_dir = Path(__file__).parent.parent.parent / "templates"
+    root_dir = Path(__file__).parent.parent / "templates"
     template_choices = {}
     for template_dir in root_dir.iterdir():
         if template_dir.is_dir() and (template_dir / "setup.py").exists():

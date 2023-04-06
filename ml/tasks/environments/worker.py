@@ -185,14 +185,17 @@ class AsyncEnvironmentWorker(BaseEnvironmentWorker[RLState, RLAction], Generic[R
 
     def cleanup(self) -> None:
         logger.debug("Cleaning up task...")
-        self.send_action("close")
-        self._proc.join(timeout=self.cleanup_time)
-        if self._proc.is_alive():
-            logger.warning("Process failed to finish after %.2f seconds; killing", self.cleanup_time)
-            if isinstance(self._proc, threading.Thread):
-                self._proc._stop()
-            else:
-                self._proc.kill()
+        try:
+            self.send_action("close")
+            self._proc.join(timeout=self.cleanup_time)
+            if self._proc.is_alive():
+                logger.warning("Process failed to finish after %.2f seconds; killing", self.cleanup_time)
+                if isinstance(self._proc, threading.Thread):
+                    self._proc._stop()
+                else:
+                    self._proc.kill()
+        except Exception:
+            logger.exception("Exception while cleaning up task")
 
     @classmethod
     def _thread(
@@ -341,12 +344,15 @@ class AsyncWorkerPool(WorkerPool[RLState, RLAction], Generic[RLState, RLAction])
 
     def cleanup(self) -> None:
         logger.debug("Cleaning up worker pool...")
-        clear_queue(self.state_queue)
-        for action_queue in self.action_queues:
-            clear_queue(action_queue)
-            action_queue.put("close")
-        for proc in self._procs:
-            proc.join()
+        try:
+            clear_queue(self.state_queue)
+            for action_queue in self.action_queues:
+                clear_queue(action_queue)
+                action_queue.put("close")
+            for proc in self._procs:
+                proc.join()
+        except Exception:
+            logger.exception("Exception while cleaning up worker pool")
 
     def reset(self) -> None:
         clear_queue(self.state_queue)

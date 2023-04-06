@@ -6,9 +6,9 @@ define HELP_MESSAGE
 
 # Installing
 
-1. Create a new Conda environment: `conda create --name ml-template python=3.10`
-2. Activate the environment: `conda activate ml-template`
-3. Install the package: `make install`
+1. Create a new Conda environment: `conda create --name ml-project python=3.10`
+2. Activate the environment: `conda activate ml-project`
+3. Install the package: `make install-dev`
 4. Rebuild C++ extensions: `make build-ext`
 
 # Running Tests
@@ -53,14 +53,10 @@ clean:
 # ------------------------ #
 
 py-files := $$(git ls-files '*.py')
-cpp-files := $$(git ls-files '*.c' '*.cpp' '*.h' '*.hpp' '*.cu' '*.cuh')
-cmake-files := $$(git ls-files '*/CMakeLists.txt')
 
 format:
 	black $(py-files)
 	ruff --fix $(py-files)
-	cmake-format -i $(cmake-files)
-	clang-format -i $(cpp-files)
 .PHONY: format
 
 static-checks:
@@ -68,8 +64,6 @@ static-checks:
 	ruff $(py-files)
 	mypy --install-types --non-interactive --incremental $(py-files)
 	darglint $(py-files)
-	cmake-format --check $(cmake-files) > /dev/null
-	clang-format --dry-run --Werror $(cpp-files) > /dev/null
 .PHONY: lint
 
 mypy-daemon:
