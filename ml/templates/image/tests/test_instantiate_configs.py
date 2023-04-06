@@ -2,11 +2,13 @@ import os
 from pathlib import Path
 
 import pytest
+from ml.core.env import set_project_root
 from ml.core.registry import Objects
 from ml.utils.cli import parse_cli
 from omegaconf import DictConfig
 
 import project
+from project.scripts.cli import PROJECT_ROOT
 
 # Be mindful that these configs are supposed to run regularly in CI
 # and therefore should not be too expensive.
@@ -24,6 +26,9 @@ def test_instantiate_configs(config_paths: list[str], tmpdir: Path) -> None:
         str((config_parent_dir / config_path).resolve()) if (config_parent_dir / config_path).exists() else config_path
         for config_path in config_paths
     ]
+
+    # Adds the project's root directory.
+    set_project_root(Path(PROJECT_ROOT).resolve())
 
     def create_and_set(key: str) -> None:
         env_dir = Path(tmpdir / key)
