@@ -8,7 +8,7 @@ from omegaconf import DictConfig
 
 from ml.core.env import add_global_tag, set_project_root
 from ml.core.registry import Objects
-from ml.scripts import compiler, mp_train, stage, train
+from ml.scripts import compiler, mp_train, resolve, stage, train
 from ml.utils.cli import parse_cli
 from ml.utils.colors import colorize
 from ml.utils.distributed import get_rank_optional, get_world_size_optional
@@ -31,6 +31,7 @@ def cli_main(project_root: Path | str | None = None) -> None:
         "compile": compiler.compile_main,
         "mp_train": mp_train.mp_train_main,
         "stage": stage.stage_main,
+        "resolve": resolve.resolve_main,
     }
 
     with_objects_scripts: dict[str, Callable[[Objects], None]] = {
@@ -44,10 +45,10 @@ def cli_main(project_root: Path | str | None = None) -> None:
         print(f"Usage: ml < {' / '.join(script_names)} > ...\n", file=sys.stderr)
         for key, func in sorted(scripts.items()):
             if func.__doc__ is None:
-                print(f"* {colorize(key, 'green')}", file=sys.stderr)
+                print(f" ↪ {colorize(key, 'green')}", file=sys.stderr)
             else:
                 docstring = func.__doc__.strip().split("\n")[0]
-                print(f"* {colorize(key, 'green')}: {docstring}", file=sys.stderr)
+                print(f" ↪ {colorize(key, 'green')}: {docstring}", file=sys.stderr)
         print()
         sys.exit(1)
 
