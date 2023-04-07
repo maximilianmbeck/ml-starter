@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import cast
 
+import pytest
 import torch
 from omegaconf import OmegaConf
 from torch import Tensor, nn
@@ -13,6 +14,7 @@ from ml.trainers.base import BaseTrainerConfig
 from ml.utils.io import load_model_and_task
 
 
+@pytest.mark.slow
 def test_load_model_and_test(tmpdir: Path) -> None:
     """Tests saving and loading a model and task.
 
@@ -66,9 +68,20 @@ def test_load_model_and_test(tmpdir: Path) -> None:
     trainer.save_checkpoint(state, task, model)
 
     # Loads the model and task.
-    model, task = load_model_and_task(trainer.exp_dir / "config.yaml")
+    model, task = load_model_and_task(trainer.config_path)
 
     # Checks that the loaded model and task have the same parameters.
     assert isinstance(model, DummyModel)
     assert isinstance(task, DummyTask)
     assert model.weight.item() == 2.0
+
+    # Removes the checkpoint and checks that an error is thrown.
+    trainer.get_ckpt_path().unlink()
+    trainer.get_ckpt_path(state).unlink()
+    with pytest.raises(RuntimeError):
+        load_model_and_task(config_path=trainer.config_path)
+
+    # Allows missing checkpoints.
+    model, task = load_model_and_task(config_path=trainer.config_path, missing_ckpt_okay=True)
+    assert isinstance(model, DummyModel)
+    assert isinstance(task, DummyTask)

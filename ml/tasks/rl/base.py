@@ -5,7 +5,7 @@ import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Generic, Iterator, TypeVar, overload
+from typing import Generic, Iterator, Literal, TypeVar, overload
 
 import numpy as np
 import torch
@@ -272,9 +272,13 @@ class ReinforcementLearningTask(
         self,
         *,
         save_path: str | Path,
+        return_images: Literal[True] = True,
+        return_states: Literal[False] = False,
         model: ModelT | None = None,
         writer: Writer = "ffmpeg",
         use_tqdm: bool = True,
+        standardize_images: bool = True,
+        optimal: bool = True,
     ) -> None:
         ...
 
@@ -282,37 +286,81 @@ class ReinforcementLearningTask(
     def sample_clip(
         self,
         *,
+        return_images: Literal[True] = True,
+        return_states: Literal[False] = False,
         model: ModelT | None = None,
         use_tqdm: bool = True,
+        standardize_images: bool = True,
+        optimal: bool = True,
     ) -> Tensor:
+        ...
+
+    @overload
+    def sample_clip(
+        self,
+        *,
+        return_images: Literal[True] = True,
+        return_states: Literal[True],
+        model: ModelT | None = None,
+        use_tqdm: bool = True,
+        standardize_images: bool = True,
+        optimal: bool = True,
+    ) -> tuple[Tensor, list[tuple[RLState, RLAction]]]:
+        ...
+
+    @overload
+    def sample_clip(
+        self,
+        *,
+        return_images: Literal[False],
+        return_states: Literal[True],
+        model: ModelT | None = None,
+        use_tqdm: bool = True,
+        optimal: bool = True,
+    ) -> list[tuple[RLState, RLAction]]:
         ...
 
     def sample_clip(
         self,
         *,
         save_path: str | Path | None = None,
+        return_images: bool = True,
+        return_states: bool = False,
         model: ModelT | None = None,
         writer: Writer = "ffmpeg",
         use_tqdm: bool = True,
-    ) -> Tensor | None:
+        standardize_images: bool = True,
+        optimal: bool = True,
+    ) -> Tensor | list[tuple[RLState, RLAction]] | tuple[Tensor, list[tuple[RLState, RLAction]]] | None:
         """Samples a clip for a given model.
 
         Args:
             save_path: Where to save the sampled clips
+            return_images: Whether to return the images
+            return_states: Whether to return the states
             model: The model to sample from; if not provided, samples actions
                 randomly from the model
             writer: The writer to use to save the clip
             use_tqdm: Whether to use tqdm to display the progress
+            standardize_images: Whether to standardize the images
+            optimal: Whether to sample actions optimally
 
         Returns:
             The sampled clip, if `save_path` is not provided, otherwise `None`
             (the clip is saved to `save_path`).
+
+        Raises:
+            ValueError: If `save_path` is provided and `return_states` is `True`
         """
 
         env_cfg = self.config.environment
 
-        def iter_environment() -> Iterator[np.ndarray | Tensor]:
-            environment = self.get_environment_cached()
+        if not return_states and not return_images:
+            raise ValueError("Must return states, images or both")
+
+        environment = self.get_environment_cached()
+
+        def iter_states() -> Iterator[tuple[RLState, RLAction]]:
             state = environment.reset()
             if environment.terminated(state):
                 raise RuntimeError("Initial state is terminated")
@@ -324,13 +372,35 @@ class ReinforcementLearningTask(
                 if model is None:
                     action = environment.sample_action()
                 else:
-                    (action,) = self.get_actions(model, [state], True)
+                    (action,) = self.get_actions(model, [state], optimal)
                 state = environment.step(action)
+                yield (state, action)
+
+        def iter_images() -> Iterator[np.ndarray | Tensor]:
+            for state, _ in iter_states():
                 yield environment.render(state)
 
+        def iter_images_and_states() -> Iterator[tuple[np.ndarray | Tensor, tuple[RLState, RLAction]]]:
+            for state, action in iter_states():
+                image = environment.render(state)
+                if standardize_images:
+                    image = standardize_image(image)
+                yield image, (state, action)
+
         if save_path is None:
-            images_np = [standardize_image(image) for image in iter_environment()]
+            if return_images and return_states:
+                images, states = zip(*iter_images_and_states())
+                images_np = [standardize_image(image) for image in images]
+                return torch.from_numpy(np.stack(images_np)), list(states)
+
+            if return_states:
+                return list(iter_states())
+
+            images_np = [standardize_image(image) for image in iter_images()]
             return torch.from_numpy(np.stack(images_np))
 
-        VIDEO_WRITERS[writer](iter_environment(), save_path)
+        if return_states:
+            raise ValueError("Cannot return states when saving to a file")
+
+        VIDEO_WRITERS[writer](iter_images(), save_path)
         return None

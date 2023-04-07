@@ -34,13 +34,13 @@ def get_checkpoint_path(
     logger.warning("Could not find trainer checkpoint at %s", ckpt_path)
 
     # Tries loading other checkpoints.
-    ckpt_path = trainer.exp_dir / "ckpt.pt"
+    config_path = Path(config_path)
+    ckpt_path = config_path.parent / "ckpt.pt"
     if ckpt_path.exists():
         return ckpt_path
     logger.warning("Could not find checkpoint at %s", ckpt_path)
 
     # Searches for a checkpoint in the same directory as the config.
-    config_path = Path(config_path)
     ckpt_paths = list(config_path.parent.rglob("ckpt*.pt"))
     if ckpt_paths:
         return max(ckpt_paths, key=lambda p: p.stat().st_mtime)
@@ -53,6 +53,7 @@ def load_model_and_task(
     config_path: str | Path,
     ckpt_path: str | Path | None = None,
     to_device: bool = True,
+    missing_ckpt_okay: bool = False,
 ) -> tuple[BaseModel, BaseTask]:
     """Loads a trained checkpoint from a config, and optional checkpoint path.
 
@@ -65,9 +66,15 @@ def load_model_and_task(
             config.
         to_device: Whether to move the model to the device specified in the
             config.
+        missing_ckpt_okay: Whether to return a model and task even if the
+            checkpoint is missing.
 
     Returns:
         The model and task loaded from the checkpoint
+
+    Raises:
+        RuntimeError: If the checkpoint is missing and `missing_ckpt_okay` is
+            False.
     """
 
     with Timer("loading checkpoint"):
@@ -77,8 +84,14 @@ def load_model_and_task(
         trainer = DummyBaseTrainer(config.trainer)
 
         # Uses the dummy trainer to load the checkpoint.
-        ckpt_path = get_checkpoint_path(trainer, config_path, ckpt_path)
-        trainer.load_checkpoint(ckpt_path, task, model)
+        try:
+            ckpt_path = get_checkpoint_path(trainer, config_path, ckpt_path)
+            trainer.load_checkpoint(ckpt_path, task, model)
+        except RuntimeError:
+            if missing_ckpt_okay:
+                logger.exception("Could not load checkpoint")
+            else:
+                raise
 
         if to_device:
             device = AutoDevice.detect_device()

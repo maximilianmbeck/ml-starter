@@ -192,8 +192,7 @@ def diff_configs(
     return new_first, new_second
 
 
-def save_config(exp_dir: Path, raw_config: DictConfig) -> None:
-    config_path = exp_dir / "config.yaml"
+def save_config(config_path: Path, raw_config: DictConfig) -> None:
     if config_path.exists():
         added_keys, deleted_keys = diff_configs(raw_config, cast(DictConfig, OmegaConf.load(config_path)))
         if added_keys or deleted_keys:
@@ -277,8 +276,12 @@ class BaseTrainer(BaseObjectWithPointers[TrainerConfigT], Generic[TrainerConfigT
         for sublogger in subloggers:
             self.add_logger(sublogger)
 
+    @property
+    def config_path(self) -> Path:
+        return self.exp_dir / "config.yaml"
+
     def save_config(self) -> None:
-        save_config(self.exp_dir, self.raw_config)
+        save_config(self.config_path, self.raw_config)
 
     def add_lock_file(self, lock_type: LockType, *, exists_ok: bool = False) -> None:
         add_lock_file(self.exp_dir, lock_type=lock_type, exists_ok=exists_ok)
@@ -290,6 +293,10 @@ class BaseTrainer(BaseObjectWithPointers[TrainerConfigT], Generic[TrainerConfigT
 
     def get_ckpt_path(self, state: State | None = None) -> Path:
         return get_ckpt_path(self.exp_dir, state)
+
+    @property
+    def ckpt_path(self) -> Path:
+        return self.get_ckpt_path()
 
     def should_checkpoint(self, state: State) -> bool:
         if self.checkpoint_config.save_every_n_steps is not None:
