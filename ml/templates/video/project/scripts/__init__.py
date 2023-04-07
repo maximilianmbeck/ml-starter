@@ -1,1 +1,0 @@
-../../../empty/project/scripts/__init__.py

@@ -1,3 +1,2 @@
 include requirements*.txt
-recursive-include ml/ *.txt *.cpp *.h *.cu *.cuh *.pyi *.json *.yml *.md py.typed MANIFEST.in
-recursive-include ml/templates/ .darglint .env .gitignore .clang-format
+recursive-include ml/ *.txt *.cpp *.h *.cu *.cuh *.pyi py.typed MANIFEST.in

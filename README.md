@@ -4,23 +4,12 @@ This is a general-purpose template for machine learning projects in PyTorch.
 
 ## Getting Started
 
-Install the package:
+Clone one of the template repositories:
 
-```bash
-pip install ml-starter
-```
-
-Create a new project from a template:
-
-```bash
-create-ml-project
-```
-
-This will create a new project from one of the template repositories. For example, you can create a new project for training an RL agent using PPO using:
-
-```bash
-create-ml-project --template rl --name bipedal-walker-ppo
-```
+- [Empty repository](https://github.com/codekansas/ml-starter-empty)
+- [Image classification](https://github.com/codekansas/ml-starter-image)
+- [Reinforcement learning](https://github.com/codekansas/ml-starter-rl)
+- [C++ extension](https://github.com/codekansas/ml-starter-cpp)
 
 ## Run a command
 

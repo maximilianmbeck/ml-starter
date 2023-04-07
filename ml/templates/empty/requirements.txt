@@ -1,5 +1,0 @@
-# requirements.txt
-
-ml-starter
-numpy
-torch>=2.0.0

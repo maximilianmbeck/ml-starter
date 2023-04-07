@@ -1,1 +1,0 @@
-../../../empty/project/scripts/cli.py

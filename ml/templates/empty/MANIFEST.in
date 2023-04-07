@@ -1,2 +1,0 @@
-include requirements*.txt
-recursive-include project/ *.txt *.cpp *.h *.cu *.cuh *.pyi MANIFEST.in
