@@ -321,6 +321,13 @@ class register_base(ABC, Generic[Entry, Config]):  # pylint: disable=invalid-nam
         return reg_obj
 
     @classmethod
+    def build_entry_non_null(cls, raw_config: DictConfig) -> Entry:
+        entry = cls.build_entry(raw_config)
+        if entry is None:
+            raise ValueError(f"Missing {cls.config_key()} in config")
+        return entry
+
+    @classmethod
     def update_config(cls, raw_config: DictConfig) -> None:
         if cls.config_key() not in raw_config:
             return

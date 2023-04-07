@@ -16,12 +16,6 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 
-def check_built(obj: T | None, name: str) -> T:
-    if obj is None:
-        raise RuntimeError(f"Could not build {name}")
-    return obj
-
-
 def get_checkpoint_path(
     trainer: DummyBaseTrainer,
     config_path: str | Path,
@@ -78,9 +72,9 @@ def load_model_and_task(
 
     with Timer("loading checkpoint"):
         config = cast(DictConfig, OmegaConf.load(config_path))
-        model = check_built(register_model.build_entry(config), "model")
-        task = check_built(register_task.build_entry(config), "task")
-        trainer = DummyBaseTrainer(config)
+        model = register_model.build_entry_non_null(config)
+        task = register_task.build_entry_non_null(config)
+        trainer = DummyBaseTrainer(config.trainer)
 
         # Uses the dummy trainer to load the checkpoint.
         ckpt_path = get_checkpoint_path(trainer, config_path, ckpt_path)
