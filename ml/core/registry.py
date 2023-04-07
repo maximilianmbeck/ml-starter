@@ -116,7 +116,7 @@ def stage_environment() -> Path:
                 shutil.rmtree(tmp_dir.parent)
             tmp_dir.mkdir(exist_ok=False, parents=True)
             for fpath in fpaths:
-                new_fpath = tmp_dir / get_relative_path(fpath, base_dirs())
+                new_fpath = tmp_dir / get_relative_path(fpath, base_dirs(), True)
                 new_fpath.parent.mkdir(exist_ok=True, parents=True)
                 shutil.copyfile(fpath, new_fpath)
             tmp_dir.rename(out_dir)
