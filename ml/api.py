@@ -76,6 +76,7 @@ from ml.utils.distributed import (
     is_distributed,
     is_master,
 )
+from ml.utils.io import load_model_and_task
 from ml.utils.large_models import init_empty_weights, meta_to_empty_func
 from ml.utils.logging import configure_logging
 from ml.utils.timer import Timer, timeout
