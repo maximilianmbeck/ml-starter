@@ -302,16 +302,18 @@ class BaseTrainer(BaseObjectWithPointers[TrainerConfigT], Generic[TrainerConfigT
         ckpt_path: Path,
         task: TaskT,
         model: ModelT,
-        optim: Optimizer,
-        lr_sched: SchedulerAdapter,
+        optim: Optimizer | None = None,
+        lr_sched: SchedulerAdapter | None = None,
     ) -> State:
         with Timer("loading checkpoint"):
             ckpt = torch.load(ckpt_path)
             task.on_after_load_checkpoint(ckpt)
             model.load_state_dict(ckpt["model"])
             task.load_state_dict(ckpt["task"])
-            optim.load_state_dict(ckpt["optim"])
-            lr_sched.load_state_dict(ckpt["lr_sched"])
+            if optim is not None:
+                optim.load_state_dict(ckpt["optim"])
+            if lr_sched is not None:
+                lr_sched.load_state_dict(ckpt["lr_sched"])
             self.load_state_dict(ckpt)
             state = ckpt["state"]
         return state
@@ -321,8 +323,8 @@ class BaseTrainer(BaseObjectWithPointers[TrainerConfigT], Generic[TrainerConfigT
         state: State,
         task: TaskT,
         model: ModelT,
-        optim: Optimizer,
-        lr_sched: SchedulerAdapter,
+        optim: Optimizer | None = None,
+        lr_sched: SchedulerAdapter | None = None,
     ) -> None:
         if is_master():
             with Timer("saving checkpoint"):
@@ -333,8 +335,8 @@ class BaseTrainer(BaseObjectWithPointers[TrainerConfigT], Generic[TrainerConfigT
                 state_dict = {
                     "model": model.state_dict(),
                     "task": task.state_dict(),
-                    "optim": optim.state_dict(),
-                    "lr_sched": lr_sched.state_dict(),
+                    "optim": None if optim is None else optim.state_dict(),
+                    "lr_sched": None if lr_sched is None else lr_sched.state_dict(),
                     "state": state,
                 }
                 self.update_state_dict(state_dict)
@@ -365,15 +367,6 @@ class BaseTrainer(BaseObjectWithPointers[TrainerConfigT], Generic[TrainerConfigT
             task: The current task
             optimizer: The current optimizer
             lr_scheduler: The current learning rate scheduler
-        """
-
-    @abstractmethod
-    def evaluate(self, model: ModelT, task: TaskT) -> None:
-        """Runs the evaluation loop.
-
-        Args:
-            model: The current model
-            task: The current task
         """
 
     def write_logs(self, task: TaskT, model: ModelT, state: State) -> None:
@@ -445,3 +438,17 @@ class BaseTrainer(BaseObjectWithPointers[TrainerConfigT], Generic[TrainerConfigT
         lr_sched: SchedulerAdapter,
     ) -> None:
         task.on_epoch_end(state, model, optim, lr_sched)
+
+
+class DummyBaseTrainer(BaseTrainer):
+    """Defines a dummy trainer that does nothing.
+
+    This trainer can be used to access the base trainer's utility functions,
+    such as saving and loading checkpoints.
+    """
+
+    def launch(self) -> None:
+        raise NotImplementedError
+
+    def train(self, model: ModelT, task: TaskT, optimizer: BaseOptimizer, lr_scheduler: BaseLRScheduler) -> None:
+        raise NotImplementedError

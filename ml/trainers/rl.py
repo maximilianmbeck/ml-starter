@@ -183,9 +183,6 @@ class ReinforcementLearningVanillaTrainer(
                 self.remove_lock_file("running", missing_ok=True)
             logger.info("Exiting training job for %s", self.exp_dir / "config.yaml")
 
-    def evaluate(self, model: ModelT, task: ReinforcementLearningTaskT) -> None:
-        raise NotImplementedError
-
 
 @register_trainer("ddp_rl", ReinforcementLearningTrainerConfig)
 class ReinforcementLearningDDPTrainer(

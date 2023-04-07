@@ -9,17 +9,11 @@ import contextlib
 import logging
 import signal
 from dataclasses import dataclass
-from pathlib import Path
 from types import FrameType
 from typing import Generic, TypeVar
 
-import torch
-from torch import nn
-
 from ml.core.config import conf_field
 from ml.core.registry import register_trainer
-from ml.core.state import State
-from ml.loggers.meter import MeterLogger, MeterLoggerConfig
 from ml.lr_schedulers.base import BaseLRScheduler
 from ml.optimizers.base import BaseOptimizer
 from ml.tasks.sl.base import SupervisedLearningTask
@@ -193,54 +187,6 @@ class SupervisedLearningVanillaTrainer(
             if is_master():
                 self.remove_lock_file("running", missing_ok=True)
             logger.info("Exiting training job for %s", self.exp_dir / "config.yaml")
-
-    def evaluate(self, model: ModelT, task: SupervisedLearningTaskT) -> None:
-        """Runs the GPU-based evaluation loop.
-
-        Args:
-            model: The current model
-            task: The current task
-        """
-
-        # Saves the config at the start of evaluation.
-        self.save_config()
-
-        # Meter logger keeps track of value statistics.
-        meter_logger = MeterLogger(MeterLoggerConfig())
-        self.add_logger(meter_logger)
-
-        # Gets the dataset, dataloader and prefetcher.
-        test_ds = task.get_dataset("test")
-        test_dl = task.get_dataloader(test_ds, "test")
-        test_pf = self._device.get_prefetcher(test_dl)
-
-        def load_checkpoint(ckpt_path: Path) -> State:
-            with Timer("loading checkpoint"):
-                ckpt = torch.load(ckpt_path)
-                model.load_state_dict(ckpt["model"])
-                state = ckpt["state"]
-            return state
-
-        if (ckpt_path := self.get_ckpt_path()).exists():
-            state = load_checkpoint(ckpt_path)
-        else:
-            logger.warning("Missing checkpoint to evaluate; using uninitialized model")
-            state = State.init_state()
-
-        # Builds a mega-model.
-        task_model: nn.Module = self.get_task_model(task, model)
-
-        for test_batch in test_pf:
-            self.test_step(
-                task_model=task_model,
-                batch=test_batch,
-                state=state,
-                task=task,
-                model=model,
-            )
-
-        # Finally, saves meter logging results.
-        self.logger.log_config(self.raw_config, meter_logger.get_value_dict())
 
 
 @register_trainer("ddp_sl", SupervisedLearningTrainerConfig)
