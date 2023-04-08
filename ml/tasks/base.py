@@ -278,7 +278,9 @@ class BaseTask(
         """
 
         if isinstance(loss, Tensor):
-            if loss.ndim <= 1:
+            if loss.ndim == 0:
+                return loss.unsqueeze(0), ["loss"]
+            if loss.ndim == 1:
                 return loss, ["loss"]
             return reduce(loss, self.__final_loss_reduce_type).unsqueeze(0), ["loss"]
         assert isinstance(loss, dict), f"Loss should be a scalar or dictionary, not {type(loss)}"
