@@ -73,6 +73,8 @@ class BaseConfig:
 class BaseObject(Generic[BaseConfigT]):
     """Defines the base class for all objects."""
 
+    __constants__ = ["config"]
+
     def __init__(self, config: BaseConfigT) -> None:
         self.config: BaseConfigT = config
 
