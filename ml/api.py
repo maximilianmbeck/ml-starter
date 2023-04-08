@@ -37,6 +37,7 @@ __all__ = [
     "ClippifyDataset",
     "collate_non_null",
     "collate",
+    "CollateMode",
     "colorize",
     "conf_field",
     "configure_logging",
@@ -76,6 +77,8 @@ __all__ = [
     "NormType",
     "open_atomic",
     "Output",
+    "pad_all",
+    "pad_sequence",
     "Phase",
     "reduce",
     "register_logger",
@@ -138,7 +141,7 @@ from ml.tasks.base import BaseTask, BaseTaskConfig
 from ml.tasks.datasets import transforms
 from ml.tasks.datasets.async_iterable import AsyncIterableDataset
 from ml.tasks.datasets.clippify import ClippifyDataset
-from ml.tasks.datasets.collate import collate, collate_non_null
+from ml.tasks.datasets.collate import CollateMode, collate, collate_non_null, pad_all, pad_sequence
 from ml.tasks.datasets.multi_iter import MultiIterDataset
 from ml.tasks.datasets.samplers import ChunkSampler
 from ml.tasks.datasets.streaming import StreamingDataset
