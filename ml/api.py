@@ -92,6 +92,7 @@ __all__ = [
     "stage_environment",
     "State",
     "StreamingDataset",
+    "StreamingDatasetNoIndex",
     "SupervisedLearningTask",
     "SupervisedLearningTaskConfig",
     "SyncEnvironmentWorker",
@@ -145,7 +146,7 @@ from ml.tasks.datasets.clippify import ClippifyDataset
 from ml.tasks.datasets.collate import CollateMode, collate, collate_non_null, pad_all, pad_sequence
 from ml.tasks.datasets.multi_iter import MultiIterDataset
 from ml.tasks.datasets.samplers import ChunkSampler
-from ml.tasks.datasets.streaming import StreamingDataset
+from ml.tasks.datasets.streaming import StreamingDataset, StreamingDatasetNoIndex
 from ml.tasks.datasets.utils import test_dataset
 from ml.tasks.datasets.video_file import VideoFileDataset
 from ml.tasks.environments.base import Environment

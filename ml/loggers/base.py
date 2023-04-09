@@ -71,6 +71,16 @@ class BaseLogger(BaseObjectWithPointers[LoggerConfigT], Generic[LoggerConfigT], 
             namespace: The namespace to be logged
         """
 
+    def log_audio(self, key: str, value: Callable[[], Tensor], state: State, namespace: str) -> None:
+        """Logs a normalized audio, with shape (T,).
+
+        Args:
+            key: The key to log
+            value: The value to log
+            state: The current log state
+            namespace: The namespace to be logged
+        """
+
     def log_video(self, key: str, value: Callable[[], Tensor], state: State, namespace: str) -> None:
         """Logs a normalized video, with shape (T, C, H, W).
 

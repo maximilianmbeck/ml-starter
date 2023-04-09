@@ -105,3 +105,8 @@ class StreamingDataset(IterableDataset[tuple[int, Batch]], Generic[Batch]):
                 logger.debug("Finished one iteration for dataset %d", dataset_id)
                 self.return_dataset(reservoir_id)
         return dataset_id, sample
+
+
+class StreamingDatasetNoIndex(StreamingDataset[Batch], IterableDataset[tuple[int, Batch]], Generic[Batch]):
+    def __next__(self) -> Batch:  # type: ignore[override]
+        return super().__next__()[1]

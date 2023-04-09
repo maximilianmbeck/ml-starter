@@ -18,8 +18,10 @@ from ml.loggers.base import BaseLogger
 LogT = TypeVar("LogT")
 Number = int | float | Tensor
 
-VALID_CHANNEL_COUNTS = {1, 3}
+VALID_VIDEO_CHANNEL_COUNTS = {1, 3}
+VALID_AUDIO_CHANNEL_COUNTS = {1, 2}
 TARGET_FPS = 12
+TARGET_SAMPLE_RATE = 22050
 DEFAULT_NAMESPACE = "value"
 
 
@@ -145,9 +147,9 @@ def standardize_image(
     if image.ndim == 2:
         image = image.unsqueeze(0)
     elif image.ndim == 3:
-        if image.shape[0] in VALID_CHANNEL_COUNTS:
+        if image.shape[0] in VALID_VIDEO_CHANNEL_COUNTS:
             pass
-        elif image.shape[2] in VALID_CHANNEL_COUNTS:
+        elif image.shape[2] in VALID_VIDEO_CHANNEL_COUNTS:
             image = image.permute(2, 0, 1)
         else:
             raise ValueError(f"Invalid channel count{'' if log_key is None else f' for {log_key}'}: {image.shape}")
@@ -193,9 +195,9 @@ def standardize_images(
     if images.ndim == 3:
         images = images.unsqueeze(1)
     elif images.ndim == 4:
-        if images.shape[1] in VALID_CHANNEL_COUNTS:
+        if images.shape[1] in VALID_VIDEO_CHANNEL_COUNTS:
             images = images if max_images is None else images[:max_images]
-        elif images.shape[3] in VALID_CHANNEL_COUNTS:
+        elif images.shape[3] in VALID_VIDEO_CHANNEL_COUNTS:
             images = images.permute(0, 3, 1, 2)
             images = images if max_images is None else images[:max_images]
         else:
@@ -206,6 +208,34 @@ def standardize_images(
     if not keep_resolution:
         images = torch.stack([make_human_viewable_resolution(image) for image in images.unbind(0)], 0)
     return images
+
+
+def standardize_audio(audio: Tensor, *, log_key: str | None = None) -> Tensor:
+    """Converts an arbitrary audio tensor to shape (C, T).
+
+    Args:
+        audio: The audio tensor to log
+        log_key: An optional logging key to use in the exception message
+
+    Returns:
+        The standardized audio tensor, with shape (C, T)
+
+    Raises:
+        ValueError: If the audio shape is invalid
+    """
+
+    if audio.ndim == 1:
+        audio = audio.unsqueeze(0)
+    elif audio.ndim == 2:
+        if audio.shape[0] in VALID_AUDIO_CHANNEL_COUNTS:
+            pass
+        elif audio.shape[1] in VALID_AUDIO_CHANNEL_COUNTS:
+            audio = audio.permute(1, 0)
+        else:
+            raise ValueError(f"Invalid channel count{'' if log_key is None else f' for {log_key}'}: {audio.shape}")
+    else:
+        raise ValueError(f"Invalid audio shape{'' if log_key is None else f' for {log_key}'}: {audio.shape}")
+    return audio
 
 
 def standardize_video(video: Tensor, *, log_key: str | None = None, normalize: bool = True) -> Tensor:
@@ -232,9 +262,9 @@ def standardize_video(video: Tensor, *, log_key: str | None = None, normalize: b
     if video.ndim == 3:
         return video.unsqueeze(1)
     if video.ndim == 4:
-        if video.shape[1] in VALID_CHANNEL_COUNTS:
+        if video.shape[1] in VALID_VIDEO_CHANNEL_COUNTS:
             return video
-        if video.shape[3] in VALID_CHANNEL_COUNTS:
+        if video.shape[3] in VALID_VIDEO_CHANNEL_COUNTS:
             return video.permute(0, 3, 1, 2)
     raise ValueError(f"Invalid video shape{'' if log_key is None else f' for {log_key}'}: {video.shape}")
 
@@ -270,9 +300,9 @@ def standardize_videos(
     if videos.ndim == 4:
         return videos.unsqueeze(2)
     if videos.ndim == 5:
-        if videos.shape[2] in VALID_CHANNEL_COUNTS:
+        if videos.shape[2] in VALID_VIDEO_CHANNEL_COUNTS:
             return videos if max_videos is None else videos[:max_videos]
-        if videos.shape[4] in VALID_CHANNEL_COUNTS:
+        if videos.shape[4] in VALID_VIDEO_CHANNEL_COUNTS:
             videos = videos.permute(0, 3, 1, 2)
             return videos if max_videos is None else videos[:max_videos]
     raise ValueError(f"Invalid video shape{'' if log_key is None else f' for {log_key}'}: {videos.shape}")
@@ -324,10 +354,10 @@ def image_with_text(
     return V.pil_to_tensor(padded_image)
 
 
-def normalize_fps(
+def normalize_video_fps(
     video: Tensor | list[Tensor],
     fps: int | None,
-    length: int | None,
+    length: float | None,
     stack_dim: int = 0,
     target_fps: int = TARGET_FPS,
 ) -> Tensor:
@@ -360,6 +390,38 @@ def normalize_fps(
 
     frame_ids = torch.linspace(0, pre_frames - 1, post_frames, device=video.device).long()
     return video[frame_ids]
+
+
+def normalize_audio_sample_rate(
+    audio: Tensor,
+    sample_rate: int | None,
+    length: float | None,
+    target_sample_rate: int = TARGET_SAMPLE_RATE,
+) -> Tensor:
+    """Normalizes an audio signal to have a particular sample rate.
+
+    Args:
+        audio: The audio signal to normalize, with shape (T, C)
+        sample_rate: The desired sample rate
+        length: The desired audio length, in seconds, at the target sample rate
+        target_sample_rate: The target sample rate for the logger
+
+    Returns:
+        The normalized audio signal
+    """
+
+    if sample_rate is None and length is None:
+        return audio
+
+    pre_frames = audio.size(0)
+    if sample_rate is None:
+        assert length is not None  # Not used, just for type checker
+        sample_rate = int(pre_frames / length)
+
+    post_frames = int(pre_frames * (target_sample_rate / sample_rate))
+
+    frame_ids = torch.linspace(0, pre_frames - 1, post_frames, device=audio.device).long()
+    return audio[frame_ids]
 
 
 def standardize_point_cloud(value: Tensor, max_points: int, *, log_key: str | None) -> Tensor:
@@ -464,6 +526,7 @@ class MultiLogger:
         self.scalars: dict[str, dict[str, Callable[[], Number]]] = defaultdict(dict)
         self.strings: dict[str, dict[str, Callable[[], str]]] = defaultdict(dict)
         self.images: dict[str, dict[str, Callable[[], Tensor]]] = defaultdict(dict)
+        self.audio: dict[str, dict[str, Callable[[], Tensor]]] = defaultdict(dict)
         self.videos: dict[str, dict[str, Callable[[], Tensor]]] = defaultdict(dict)
         self.histograms: dict[str, dict[str, Callable[[], Tensor]]] = defaultdict(dict)
         self.point_clouds: dict[str, dict[str, Callable[[], Tensor]]] = defaultdict(dict)
@@ -577,9 +640,9 @@ class MultiLogger:
             assert isinstance(image, Tensor)
             assert isinstance(text, str)
             image = standardize_image(image, log_key=f"{namespace}/{key}", keep_resolution=keep_resolution)
-            text = standardize_text(text, max_line_length=max_line_length, remove_non_ascii=True)
+            text_list = standardize_text(text, max_line_length=max_line_length, remove_non_ascii=True)
             image = cast_fp32(image)
-            return image_with_text(image, text, centered=centered)
+            return image_with_text(image, text_list, centered=centered)
 
         self.images[namespace][key] = labeled_image_future
 
@@ -687,6 +750,39 @@ class MultiLogger:
 
         self.images[namespace][key] = labeled_images_future
 
+    def log_audio(
+        self,
+        key: str,
+        value: Callable[[], Tensor] | Tensor,
+        *,
+        namespace: str | None = None,
+        sample_rate: int = 44100,
+        length: float | None = None,
+    ) -> None:
+        """Logs an audio clip.
+
+        Args:
+            key: The key being logged
+            value: The audio clip being logged; can be (B, C, T) or (B, T) as
+                a mono (1 channel) or stereo (2 channel) audio clip, with
+                exactly B clips
+            namespace: An optional logging namespace
+            sample_rate: The sample rate of the audio clip
+            length: The maximum length of the audio clip, in seconds
+        """
+
+        namespace = self.resolve_namespace(namespace)
+
+        @functools.lru_cache
+        def audio_future() -> Tensor:
+            value_concrete = value() if callable(value) else value
+            assert isinstance(value_concrete, Tensor)
+            audio = standardize_audio(value_concrete, log_key=f"{namespace}/{key}")
+            audio = cast_fp32(audio)
+            return normalize_audio_sample_rate(audio, sample_rate, length)
+
+        self.audio[namespace][key] = audio_future
+
     def log_video(
         self,
         key: str,
@@ -694,7 +790,7 @@ class MultiLogger:
         *,
         namespace: str | None = None,
         fps: int | None = None,
-        length: int | None = None,
+        length: float | None = None,
     ) -> None:
         """Logs a video.
 
@@ -716,7 +812,7 @@ class MultiLogger:
             assert isinstance(value_concrete, Tensor)
             video = standardize_video(value_concrete, log_key=f"{namespace}/{key}")
             value_concrete = cast_fp32(value_concrete)
-            return normalize_fps(video, fps, length)
+            return normalize_video_fps(video, fps, length)
 
         self.videos[namespace][key] = video_future
 
@@ -752,7 +848,7 @@ class MultiLogger:
         def videos_future() -> Tensor:
             value_concrete = value() if callable(value) else value
             assert isinstance(value_concrete, (Tensor, list))
-            video = normalize_fps(value_concrete, fps, length, stack_dim=1)
+            video = normalize_video_fps(value_concrete, fps, length, stack_dim=1)
             video = standardize_videos(video, max_videos=max_videos, log_key=f"{namespace}/{key}")
             value_concrete = cast_fp32(value_concrete)
             return make_square_image_or_video(video, sep=sep)
@@ -831,6 +927,7 @@ class MultiLogger:
         self.write_dict(loggers, self.scalars, state, lambda logger: logger.log_scalar)
         self.write_dict(loggers, self.strings, state, lambda logger: logger.log_string)
         self.write_dict(loggers, self.images, state, lambda logger: logger.log_image)
+        self.write_dict(loggers, self.audio, state, lambda logger: logger.log_audio)
         self.write_dict(loggers, self.videos, state, lambda logger: logger.log_video)
         self.write_dict(loggers, self.histograms, state, lambda logger: logger.log_histogram)
         self.write_dict(loggers, self.point_clouds, state, lambda logger: logger.log_point_cloud)

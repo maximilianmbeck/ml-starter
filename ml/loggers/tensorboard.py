@@ -21,7 +21,7 @@ from ml.core.env import get_exp_name
 from ml.core.registry import register_logger
 from ml.core.state import Phase, State
 from ml.loggers.base import BaseLogger, BaseLoggerConfig
-from ml.loggers.multi import TARGET_FPS
+from ml.loggers.multi import TARGET_FPS, TARGET_SAMPLE_RATE
 from ml.utils.distributed import is_distributed, is_master
 from ml.utils.networking import get_unused_port
 
@@ -57,6 +57,7 @@ class TensorboardLogger(BaseLogger[TensorboardLoggerConfig]):
         self.scalars: dict[Phase, dict[str, Callable[[], int | float | Tensor]]] = defaultdict(dict)
         self.strings: dict[Phase, dict[str, Callable[[], str]]] = defaultdict(dict)
         self.images: dict[Phase, dict[str, Callable[[], Tensor]]] = defaultdict(dict)
+        self.audio: dict[Phase, dict[str, Callable[[], Tensor]]] = defaultdict(dict)
         self.videos: dict[Phase, dict[str, Callable[[], Tensor]]] = defaultdict(dict)
         self.histograms: dict[Phase, dict[str, Callable[[], Tensor]]] = defaultdict(dict)
         self.point_clouds: dict[Phase, dict[str, Callable[[], Tensor]]] = defaultdict(dict)
@@ -163,6 +164,9 @@ class TensorboardLogger(BaseLogger[TensorboardLoggerConfig]):
     def log_image(self, key: str, value: Callable[[], Tensor], state: State, namespace: str) -> None:
         self.images[state.phase][f"{namespace}/{key}"] = value
 
+    def log_audio(self, key: str, value: Callable[[], Tensor], state: State, namespace: str) -> None:
+        self.audio[state.phase][f"{namespace}/{key}"] = value
+
     def log_video(self, key: str, value: Callable[[], Tensor], state: State, namespace: str) -> None:
         self.videos[state.phase][f"{namespace}/{key}"] = value
 
@@ -188,6 +192,8 @@ class TensorboardLogger(BaseLogger[TensorboardLoggerConfig]):
             writer.add_text(string_key, string_value(), global_step=state.num_steps)
         for image_key, image_value in self.images[state.phase].items():
             writer.add_image(image_key, image_value(), global_step=state.num_steps)
+        for audio_key, audio_value in self.audio[state.phase].items():
+            writer.add_audio(audio_key, audio_value(), global_step=state.num_steps, sample_rate=TARGET_SAMPLE_RATE)
         for video_key, video_value in self.videos[state.phase].items():
             writer.add_video(video_key, video_value().unsqueeze(0), global_step=state.num_steps, fps=TARGET_FPS)
         for hist_key, hist_value in self.histograms[state.phase].items():
@@ -203,6 +209,7 @@ class TensorboardLogger(BaseLogger[TensorboardLoggerConfig]):
         self.scalars[state.phase].clear()
         self.strings[state.phase].clear()
         self.images[state.phase].clear()
+        self.audio[state.phase].clear()
         self.videos[state.phase].clear()
         self.histograms[state.phase].clear()
         self.point_clouds[state.phase].clear()
