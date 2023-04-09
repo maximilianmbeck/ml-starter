@@ -8,6 +8,12 @@ This is the core code for my ML project template over [here](https://github.com/
 pip install ml-starter
 ```
 
+Alternatively, the latest bleeding edge version can be installed from GitHub:
+
+```bash
+pip install git+https://github.com/codekansas/ml-starter.git
+```
+
 This expects a project structure like this:
 
 ```bash
