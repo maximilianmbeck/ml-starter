@@ -14,7 +14,7 @@ This expects a project structure like this:
 .
 ├── configs
 │   └── my_config.yaml
-├── project
+└── project
     ├── loggers
     ├── lr_schedulers
     ├── models
