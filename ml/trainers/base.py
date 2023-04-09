@@ -315,12 +315,24 @@ class BaseTrainer(BaseObjectWithPointers[TrainerConfigT], Generic[TrainerConfigT
         with Timer("loading checkpoint"):
             ckpt = torch.load(ckpt_path)
             task.on_after_load_checkpoint(ckpt)
-            model.load_state_dict(ckpt["model"])
-            task.load_state_dict(ckpt["task"])
+            if "model" in ckpt:
+                model.load_state_dict(ckpt["model"])
+            else:
+                logger.warning("Checkpoint does not contain a model state dict")
+            if "task" in ckpt:
+                task.load_state_dict(ckpt["task"])
+            else:
+                logger.warning("Checkpoint does not contain a task state dict")
             if optim is not None:
-                optim.load_state_dict(ckpt["optim"])
+                if "optim" in ckpt:
+                    optim.load_state_dict(ckpt["optim"])
+                else:
+                    logger.warning("Checkpoint does not contain an optimizer state dict")
             if lr_sched is not None:
-                lr_sched.load_state_dict(ckpt["lr_sched"])
+                if "lr_sched" in ckpt:
+                    lr_sched.load_state_dict(ckpt["lr_sched"])
+                else:
+                    logger.warning("Checkpoint does not contain a learning rate scheduler state dict")
             self.load_state_dict(ckpt)
             state = ckpt["state"]
         return state

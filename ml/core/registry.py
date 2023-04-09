@@ -183,6 +183,7 @@ class register_base(ABC, Generic[Entry, Config]):  # pylint: disable=invalid-nam
         # Next sweep over the search directory and check for prefix matches.
         search_dir = cls.search_directory()
         search_dirs = [base_dir / search_dir for base_dir in base_dirs()]
+        search_dirs = [search_dir for search_dir in search_dirs if search_dir.is_dir()]
         for path in iter_directory(*search_dirs):
             if path.stem.lower().startswith(lower_name) or lower_name.startswith(path.stem.lower()):
                 cls.manual_import(path)
