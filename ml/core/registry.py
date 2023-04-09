@@ -92,7 +92,7 @@ class register_base(ABC, Generic[Entry, Config]):  # pylint: disable=invalid-nam
 
     @classmethod
     def registry_path(cls) -> Path:
-        return Path(__file__).parent.resolve() / ".cache" / f"{cls.config_key()}.json"
+        return (get_project_root() or Path(__file__).parent.resolve()) / ".cache" / f"{cls.config_key()}.json"
 
     @classmethod
     @functools.lru_cache(None)
