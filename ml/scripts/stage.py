@@ -2,7 +2,8 @@ import logging
 
 from omegaconf import DictConfig, OmegaConf
 
-from ml.core.registry import stage_environment
+from ml.core.env import get_project_root, get_stage_dir
+from ml.utils.staging import stage_environment
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -12,10 +13,16 @@ def stage_main(config: DictConfig) -> None:
 
     Args:
         config: The configuration object.
+
+    Raises:
+        RuntimeError: If the project root is not set.
     """
 
     # Stages the currently-imported files.
-    out_dir = stage_environment()
+    project_root = get_project_root()
+    if project_root is None:
+        raise RuntimeError("Project root is not set.")
+    out_dir = stage_environment(project_root, get_stage_dir())
     logger.info("Staged environment to %s", out_dir)
 
     # Stages the raw config.

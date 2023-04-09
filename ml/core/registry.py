@@ -1,26 +1,21 @@
-import datetime
 import functools
-import hashlib
 import importlib.util
 import inspect
 import json
 import logging
-import os
-import shutil
 import sys
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generic, Iterator, TypeVar, cast
-from uuid import uuid4
 
 from omegaconf import DictConfig, ListConfig, OmegaConf
 from omegaconf.basecontainer import BaseContainer
 
 from ml.core.config import BaseConfig, BaseObject, BaseObjectWithPointers
-from ml.core.env import get_project_root, get_stage_dir
+from ml.core.env import get_project_root
 from ml.utils.colors import colorize
-from ml.utils.paths import get_relative_path, is_relative_to
+from ml.utils.paths import get_relative_path
 from ml.utils.timer import Timer
 
 if TYPE_CHECKING:
@@ -44,23 +39,15 @@ NAME_KEY = "name"
 # This points to the root directory location for the package.
 ROOT_DIR: Path = Path(__file__).parent.parent.resolve()
 
-# Date format for staging environments.
-DATE_FORMAT = "%Y-%m-%d"
-
 # Maximum number of days to keep a staging directory around. This should
 # correspond to the maximum number of days that an experiment could run.
 MAX_STAGING_DAYS = 31
 
 
 @functools.lru_cache
-def project_root() -> Path | None:
-    return get_project_root()
-
-
-@functools.lru_cache
 def base_dirs() -> list[Path]:
     base_dirs = [ROOT_DIR]
-    project_root_dir = project_root()
+    project_root_dir = get_project_root()
     if project_root_dir is not None:
         base_dirs.append(project_root_dir)
     return base_dirs
@@ -75,62 +62,6 @@ def get_name(key: str, config: BaseContainer) -> str:
     if not isinstance(name, str):
         raise ValueError(f"Expected {key} name to be a string, got {name}")
     return name
-
-
-def stage_environment() -> Path:
-    """Stages the current environment to a root directory.
-
-    Returns:
-        The stage environment path
-    """
-
-    stage_dir = get_stage_dir()
-
-    with Timer("getting files to stage"):
-        fpaths: list[Path] = []
-        for module in sys.modules.values():
-            if (fpath_str := getattr(module, "__file__", None)) is None:
-                continue
-            for base_dir in base_dirs():
-                fpath = Path(fpath_str).resolve()
-                if is_relative_to(fpath, base_dir):
-                    fpaths.append(fpath)
-                    break
-
-    assert fpaths, "Couldn't find any file paths to stage!"
-
-    with Timer("computing hash of current environment"):
-        hashobj = hashlib.md5()
-        for fpath in fpaths:
-            with open(fpath, "rb") as f:
-                while data := f.read(65536):
-                    hashobj.update(data)
-        hashval = hashobj.hexdigest()
-
-    date_str = datetime.datetime.now().strftime(DATE_FORMAT)
-    out_dir = stage_dir / f"{date_str}-{hashval[:10]}"
-    if not out_dir.exists():
-        with Timer("copying files to staging directory"):
-            tmp_dir = stage_dir / ".tmp" / str(uuid4())
-            if tmp_dir.parent.exists():
-                shutil.rmtree(tmp_dir.parent)
-            tmp_dir.mkdir(exist_ok=False, parents=True)
-            for fpath in fpaths:
-                new_fpath = tmp_dir / get_relative_path(fpath, base_dirs(), True)
-                new_fpath.parent.mkdir(exist_ok=True, parents=True)
-                shutil.copyfile(fpath, new_fpath)
-            tmp_dir.rename(out_dir)
-            tmp_dir.parent.rmdir()
-
-    with Timer("removing old directories"):
-        cur_time = datetime.datetime.now()
-        for dpath in stage_dir.iterdir():
-            dir_age = cur_time - datetime.datetime.fromtimestamp(os.stat(dpath).st_mtime)
-            if dir_age > datetime.timedelta(days=14):
-                logger.info("Removing old staging directory %s", dpath)
-                shutil.rmtree(dpath)
-
-    return out_dir
 
 
 class register_base(ABC, Generic[Entry, Config]):  # pylint: disable=invalid-name

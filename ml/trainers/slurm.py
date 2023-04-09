@@ -33,8 +33,8 @@ from torch import nn
 from torch.optim import Optimizer
 
 from ml.core.config import conf_field
-from ml.core.env import get_distributed_backend, is_torch_compiled
-from ml.core.registry import Objects, stage_environment
+from ml.core.env import ProjectRoot, get_distributed_backend, get_stage_dir, is_torch_compiled
+from ml.core.registry import Objects
 from ml.core.state import State
 from ml.lr_schedulers.base import SchedulerAdapter
 from ml.scripts.train import train_main
@@ -52,6 +52,7 @@ from ml.utils.distributed import (
     set_world_size,
 )
 from ml.utils.logging import configure_logging
+from ml.utils.staging import stage_environment
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -73,6 +74,7 @@ SBATCH_TEMPLATE: str = """
 #SBATCH --open-mode=append
 {extra_sbatch_lines}
 
+export PROJECT_ROOT={project_root}
 export PYTHONPATH={pythonpath}
 export MASTER_PORT={master_port}
 
@@ -93,7 +95,7 @@ srun \\
     --cpus-per-task={cpus_per_task} \\
     --gres={gres} \\
     --gpu-bind={gpu_bind} \\
-    python {stage_dir}/ml/trainers/slurm.py {config_path}
+    python -m ml.trainers.slurm {config_path}
 
 echo ""
 """.strip()
@@ -183,7 +185,11 @@ class SlurmTrainer(
         sbatch_path = self.exp_dir / "sbatch.sh"
 
         # Stages all files to a new directory.
-        stage_dir = stage_environment()
+        project_root = ProjectRoot.get()
+        if project_root is None:
+            raise ValueError("Project root not found; cannot stage files")
+        stage_dir = stage_environment(project_root, get_stage_dir())
+        new_project_root = stage_dir / ProjectRoot.get().name
 
         # Gets the python path with the new output directory.
         python_path_parts = [str(stage_dir)] + os.environ.get("PYTHONPATH", "").split(":")
@@ -213,6 +219,7 @@ class SlurmTrainer(
             output_path=slurm_log_dir / "slurm_out.txt",
             error_path=slurm_log_dir / "slurm_err.%j.txt",
             extra_sbatch_lines="\n".join(f"#SBATCH {line}" for line in sbatch_lines),
+            project_root=new_project_root,
             pythonpath=python_path,
             master_port=self.config.master_port,
             config_path=self.exp_dir / "config.yaml",
