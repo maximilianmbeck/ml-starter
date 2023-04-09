@@ -15,16 +15,16 @@ This expects a project structure like this:
 ├── configs
 │   └── my_config.yaml
 ├── project
-│   ├── loggers
-│   ├── lr_schedulers
-│   ├── models
-│   │   └── my_model.py
-│   ├── optimizers
-│   ├── scripts
-│   │   └── cli.py
-│   ├── tasks
-│   │   └── my_task.py
-│   └── trainers
+    ├── loggers
+    ├── lr_schedulers
+    ├── models
+    │   └── my_model.py
+    ├── optimizers
+    ├── scripts
+    │   └── cli.py
+    ├── tasks
+    │   └── my_task.py
+    └── trainers
 ```
 
 The `cli.py` file should look something like this:
@@ -51,4 +51,13 @@ You can then train a model for your config using this command:
 python -m project.scripts.cli train configs/my_config.yaml
 ```
 
-See the template repository for more details.
+This can be made more wieldy by adding it as an entry point to your `setup.cfg` file:
+
+```
+[options.entry_points]
+
+console_scripts =
+    runml = project.scripts.cli:cli_main
+```
+
+The template repository above already does this.
