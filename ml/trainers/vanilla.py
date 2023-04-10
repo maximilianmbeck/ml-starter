@@ -89,6 +89,8 @@ class VanillaTrainerConfig(
     use_tf32: bool = conf_field(True, help="If set, use TensorFloat32")
     update_interval: int = conf_field(1, help="How often to update model parameters")
     torch_compile: TorchCompileConfig = conf_field(TorchCompileConfig(), help="Torch compile config")
+    detect_anomaly: bool = conf_field(False, help="Whether to detect anomalies")
+    detect_anomaly_check_nan: bool = conf_field(False, help="Whether to check for NaNs when detecting anomalies")
 
 
 VanillaTrainerConfigT = TypeVar("VanillaTrainerConfigT", bound=VanillaTrainerConfig)
@@ -239,6 +241,10 @@ class VanillaTrainer(
         if is_master():
             with Timer("saving config"):
                 self.save_config()
+
+        # Enables anomaly detection.
+        if self.config.detect_anomaly:
+            torch.autograd.set_detect_anomaly(True, check_nan=self.config.detect_anomaly_check_nan)
 
     def _compile_model(self, model: ModelT) -> ModelT:
         if self.config.torch_compile.enabled and is_torch_compiled():
