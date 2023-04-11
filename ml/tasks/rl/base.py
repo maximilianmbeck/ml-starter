@@ -5,7 +5,7 @@ import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Generic, Iterator, Literal, TypeVar, overload
+from typing import Generic, Iterable, Iterator, Literal, TypeVar, overload
 
 import numpy as np
 import torch
@@ -150,24 +150,26 @@ class ReinforcementLearningTask(
 
         return trajectories
 
-    def collect_samples(
+    def iter_samples(
         self,
         model: ModelT,
         worker_pool: WorkerPool[RLState, RLAction],
-        total_samples: int,
+        *,
+        total_samples: int | None = None,
         min_trajectory_length: int = 1,
         max_trajectory_length: int | None = None,
         min_batch_size: int = 1,
         max_batch_size: int | None = None,
         max_wait_time: float | None = None,
         use_tqdm: bool = True,
-    ) -> MultiReplaySamples[tuple[RLState, RLAction]]:
+    ) -> Iterable[list[tuple[RLState, RLAction]]]:
         """Collects samples from the environment.
 
         Args:
             model: The model to sample from.
             worker_pool: The pool of workers for the environment
-            total_samples: The total number of samples to collect.
+            total_samples: The total number of samples to collect; if None,
+                iterates forever
             min_trajectory_length: Minimum sequence length to consider a
                 sequence as having contributed to `total_samples`
             max_trajectory_length: Maximum sequence length to consider a
@@ -177,29 +179,28 @@ class ReinforcementLearningTask(
             max_wait_time: Maximum amount of time to wait to build batch
             use_tqdm: Whether to use tqdm to display progress
 
-        Returns:
-            A list of lists of samples, where each list is a trajectory.
+        Yields:
+            Lists of samples from the environment.
 
         Raises:
             ValueError: If `min_batch_size` is greater than `max_batch_size`.
         """
 
         min_trajectory_length = max(min_trajectory_length, self.config.dataset.num_samples, 1)
-        num_samples = 0
+        num_samples, num_trajectories = 0, 0
 
         worker_pool.reset()
         trajectories: list[list[tuple[RLState, RLAction]]] = [[] for _ in range(len(worker_pool))]
-        all_trajectories: list[list[tuple[RLState, RLAction]]] = []
         max_batch_size = len(worker_pool) if max_batch_size is None else min(max_batch_size, len(worker_pool))
 
-        if min_trajectory_length > total_samples:
+        if total_samples is not None and min_trajectory_length > total_samples:
             raise ValueError(f"{min_trajectory_length=} > {total_samples=}")
 
         if min_batch_size > max_batch_size:
             raise ValueError(f"{min_batch_size=} > {max_batch_size=}")
 
         with tqdm.tqdm(total=total_samples, disable=not use_tqdm, desc="Sampling") as pbar, torch.no_grad():
-            while num_samples < total_samples:
+            while total_samples is not None and num_samples < total_samples:
                 start_time = time.time()
 
                 # Wait for new samples to be ready.
@@ -213,7 +214,7 @@ class ReinforcementLearningTask(
                     pbar.update()  # Update every time we get a new state.
                     if state == "terminated":
                         if len(trajectories[worker_id]) >= min_trajectory_length:
-                            all_trajectories.append(self.postprocess_trajectory(trajectories[worker_id]))
+                            yield self.postprocess_trajectory(trajectories[worker_id])
                             num_samples += len(trajectories[worker_id])
                         else:
                             logger.warning(
@@ -234,8 +235,9 @@ class ReinforcementLearningTask(
                 trajectory_lengths = 0
                 for state, action, worker_id in zip(states, actions, worker_ids):
                     if max_trajectory_length is not None and len(trajectories[worker_id]) >= max_trajectory_length:
-                        all_trajectories.append(self.postprocess_trajectory(trajectories[worker_id]))
+                        yield self.postprocess_trajectory(trajectories[worker_id])
                         num_samples += len(trajectories[worker_id])
+                        num_trajectories += 1
                         trajectories[worker_id] = []
                         worker_pool.send_action("reset", worker_id)
                     else:
@@ -252,16 +254,46 @@ class ReinforcementLearningTask(
 
                 # If the current trajectories would finish the episode, then
                 # add them to the list of all trajectories.
-                if num_samples + trajectory_lengths >= total_samples:
-                    all_trajectories.extend(
-                        self.postprocess_trajectory(t) for t in trajectories if len(t) >= min_trajectory_length
-                    )
+                if total_samples is not None and num_samples + trajectory_lengths >= total_samples:
+                    for t in trajectories:
+                        if len(t) < min_trajectory_length:
+                            continue
+                        yield self.postprocess_trajectory(t)
+                        num_trajectories += 1
                     num_samples += trajectory_lengths
                     pbar.update(trajectory_lengths)
                     break
 
+        logger.info("Collected %d total samples and %d trajectories", num_samples, num_trajectories)
+
+    def collect_samples(
+        self,
+        model: ModelT,
+        worker_pool: WorkerPool[RLState, RLAction],
+        total_samples: int,
+        *,
+        min_trajectory_length: int = 1,
+        max_trajectory_length: int | None = None,
+        min_batch_size: int = 1,
+        max_batch_size: int | None = None,
+        max_wait_time: float | None = None,
+        use_tqdm: bool = True,
+    ) -> MultiReplaySamples[tuple[RLState, RLAction]]:
+        trajectories_iter = self.iter_samples(
+            model=model,
+            worker_pool=worker_pool,
+            total_samples=total_samples,
+            min_trajectory_length=min_trajectory_length,
+            max_trajectory_length=max_trajectory_length,
+            min_batch_size=min_batch_size,
+            max_batch_size=max_batch_size,
+            max_wait_time=max_wait_time,
+            use_tqdm=use_tqdm,
+        )
+
+        # Does global postprocessing on the sampled trajectories.
+        all_trajectories = list(trajectories_iter)
         all_trajectories = self.postprocess_trajectories(all_trajectories)
-        logger.info("Collected %d total samples and %d trajectories", num_samples, len(all_trajectories))
 
         return MultiReplaySamples([ReplaySamples(t) for t in all_trajectories])
 
