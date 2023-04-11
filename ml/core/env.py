@@ -144,10 +144,6 @@ get_global_tags = GlobalTags.get
 set_global_tags = GlobalTags.set
 add_global_tag = GlobalTags.add
 
-# Determines if the model should be compiled.
-TorchCompile = _BoolEnvVar("TORCH_COMPILE", default=True)
-is_torch_compiled = TorchCompile.get
-
 # Disables using accelerator on Mac.
 DisableMetal = _BoolEnvVar("DISABLE_METAL", default=False)
 is_metal_disabled = DisableMetal.get

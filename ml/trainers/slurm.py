@@ -22,7 +22,6 @@ import signal
 import subprocess
 import sys
 import time
-import warnings
 from abc import ABC
 from dataclasses import dataclass
 from types import FrameType
@@ -33,7 +32,7 @@ from torch import nn
 from torch.optim import Optimizer
 
 from ml.core.config import conf_field
-from ml.core.env import ProjectRoot, get_distributed_backend, get_stage_dir, is_torch_compiled
+from ml.core.env import ProjectRoot, get_distributed_backend, get_stage_dir
 from ml.core.registry import Objects
 from ml.core.state import State
 from ml.lr_schedulers.base import SchedulerAdapter
@@ -74,6 +73,7 @@ SBATCH_TEMPLATE: str = """
 #SBATCH --open-mode=append
 {extra_sbatch_lines}
 
+# Sets the environment variables.
 export PROJECT_ROOT={project_root}
 export PYTHONPATH={pythonpath}
 export MASTER_PORT={master_port}
@@ -161,9 +161,6 @@ class SlurmTrainer(
         signal.signal(signal.SIGTERM, ignore_signal)
 
     def launch(self) -> None:
-        if not is_torch_compiled():
-            warnings.warn("The training job will run in eager mode; this may hurt performance", RuntimeWarning)
-
         # Gets some configuration options.
         gpus_per_node = self.config.gpus_per_node
         gpu_type = self.config.gpu_type

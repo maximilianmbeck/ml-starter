@@ -19,12 +19,12 @@ from types import FrameType
 from typing import Callable, Generic, TypeVar, cast
 
 import torch
+from omegaconf import II
 from torch import Tensor, nn
 from torch.optim import Optimizer
 
 from ml.core.common_types import Batch, Loss
 from ml.core.config import conf_field
-from ml.core.env import is_torch_compiled
 from ml.core.state import State, set_phase
 from ml.lr_schedulers.base import BaseLRScheduler, SchedulerAdapter
 from ml.optimizers.base import BaseOptimizer
@@ -68,7 +68,7 @@ class TaskModel(nn.Module, Generic[ModelT, TaskT, Batch, Loss]):
 
 @dataclass
 class TorchCompileConfig:
-    enabled: bool = conf_field(True, help="Enable `torch.compile`")
+    enabled: bool = conf_field(II("oc.env:TORCH_COMPILE,0"), help="Enable Torch compilation")
     fullgraph: bool = conf_field(False, help="Whether it is OK to break the model into subgraphs")
     dynamic: bool = conf_field(False, help="Whether to use dynamic shape tracing")
     backend: str = conf_field("auto", help="The backend to use")
@@ -245,7 +245,7 @@ class VanillaTrainer(
             torch.autograd.set_detect_anomaly(True, check_nan=self.config.detect_anomaly_check_nan)
 
     def _compile_model(self, model: ModelT) -> ModelT:
-        if self.config.torch_compile.enabled and is_torch_compiled():
+        if self.config.torch_compile.enabled:
             backend: str | Callable = self.config.torch_compile.backend
             if backend == "auto":
                 backend = self._device.get_torch_compile_backend()
