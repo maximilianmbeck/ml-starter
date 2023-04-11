@@ -2,10 +2,10 @@ from pathlib import Path
 from typing import Callable, Iterator
 
 import numpy as np
-import torch
 from torch import Tensor
 from torch.utils.data.dataset import IterableDataset
 
+from ml.utils.numpy import as_cpu_tensor
 from ml.utils.video import READERS, Reader, VideoProps
 
 
@@ -33,7 +33,7 @@ class VideoFileDataset(IterableDataset[Tensor]):
         self.transform = transform
 
     video_props: VideoProps
-    video_stream: Iterator[np.ndarray]
+    video_stream: Iterator[np.ndarray | Tensor]
 
     def __iter__(self) -> Iterator[Tensor]:
         self.video_props = VideoProps.from_file_ffmpeg(self.file_path)
@@ -42,7 +42,7 @@ class VideoFileDataset(IterableDataset[Tensor]):
 
     def __next__(self) -> Tensor:
         buffer = next(self.video_stream)
-        image = torch.from_numpy(buffer).permute(2, 0, 1)  # HWC -> CHW
+        image = as_cpu_tensor(buffer).permute(2, 0, 1)  # HWC -> CHW
         if self.transform is not None:
             image = self.transform(image)
         return image

@@ -4,8 +4,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Generic, TypeVar, Union
 
-import numpy as np
-import torch
 from omegaconf import DictConfig
 from torch import Tensor
 
@@ -36,11 +34,6 @@ class BaseLogger(BaseObjectWithPointers[LoggerConfigT], Generic[LoggerConfigT], 
 
     def initialize(self, log_directory: Path) -> None:
         self.log_directory = log_directory
-
-    def get_cpu_array(self, value: np.ndarray | Tensor) -> Tensor:
-        if isinstance(value, np.ndarray):
-            return torch.from_numpy(value)
-        return value.detach().cpu()
 
     def log_scalar(self, key: str, value: Callable[[], Number], state: State, namespace: str) -> None:
         """Logs a scalar value.
