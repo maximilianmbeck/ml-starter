@@ -86,7 +86,7 @@ def to_markdown_table(config: DictConfig) -> str:
 
     # Pads all rows to the same length.
     max_len = max(len(row) for row in rows)
-    rows = [row + [""] * (max_len - len(row)) for row in rows]
+    rows = [row[:-1] + [""] * (max_len - len(row)) + row[-1:] for row in rows]
 
     # Converts to a markdown table.
     header_str = "| " + " | ".join([f"key_{i}" for i in range(max_len - 1)]) + " | value |"
