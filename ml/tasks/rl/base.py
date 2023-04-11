@@ -26,6 +26,7 @@ from ml.tasks.environments.worker import (
     SyncEnvironmentWorker,
     WorkerPool,
     cast_worker_mode,
+    get_worker_pool,
 )
 from ml.tasks.rl.replay import MultiReplaySamples, ReplayDataset, ReplaySamples
 from ml.utils.video import WRITERS as VIDEO_WRITERS, Writer, standardize_image
@@ -123,6 +124,9 @@ class ReinforcementLearningTask(
             for rank in range(env_cfg.num_env_workers)
         ]
 
+    def get_worker_pool(self, force_sync: bool = False) -> WorkerPool[RLState, RLAction]:
+        return get_worker_pool(self.get_environment_workers(force_sync=force_sync), force_sync=force_sync)
+
     def postprocess_trajectory(self, samples: list[tuple[RLState, RLAction]]) -> list[tuple[RLState, RLAction]]:
         """Performs any global postprocessing on the trajectory.
 
@@ -162,6 +166,7 @@ class ReinforcementLearningTask(
         max_batch_size: int | None = None,
         max_wait_time: float | None = None,
         use_tqdm: bool = True,
+        optimal: bool = True,
     ) -> Iterable[list[tuple[RLState, RLAction]]]:
         """Collects samples from the environment.
 
@@ -178,6 +183,8 @@ class ReinforcementLearningTask(
             max_batch_size: Maximum batch size for doing inference on model
             max_wait_time: Maximum amount of time to wait to build batch
             use_tqdm: Whether to use tqdm to display progress
+            optimal: Whether to get the optimal action or to sample from
+                the policy.
 
         Yields:
             Lists of samples from the environment.
@@ -229,7 +236,7 @@ class ReinforcementLearningTask(
 
                 # Sample actions for the new samples
                 states, worker_ids = [state for state, _ in batch], [worker_id for _, worker_id in batch]
-                actions = self.get_actions(model, states, False) if states else []
+                actions = self.get_actions(model, states, optimal) if states else []
 
                 # Send the actions to the workers
                 trajectory_lengths = 0
@@ -278,6 +285,7 @@ class ReinforcementLearningTask(
         max_batch_size: int | None = None,
         max_wait_time: float | None = None,
         use_tqdm: bool = True,
+        optimal: bool = True,
     ) -> MultiReplaySamples[tuple[RLState, RLAction]]:
         trajectories_iter = self.iter_samples(
             model=model,
@@ -289,6 +297,7 @@ class ReinforcementLearningTask(
             max_batch_size=max_batch_size,
             max_wait_time=max_wait_time,
             use_tqdm=use_tqdm,
+            optimal=optimal,
         )
 
         # Does global postprocessing on the sampled trajectories.

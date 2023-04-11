@@ -19,7 +19,6 @@ from ml.core.config import conf_field
 from ml.core.registry import register_trainer
 from ml.lr_schedulers.base import BaseLRScheduler
 from ml.optimizers.base import BaseOptimizer
-from ml.tasks.environments.worker import get_worker_pool
 from ml.tasks.rl.base import ReinforcementLearningTask
 from ml.trainers.base import ModelT
 from ml.trainers.ddp import DDPTrainer
@@ -38,6 +37,7 @@ class SamplingConfig:
     min_trajectory_length: int = conf_field(1, help="Minimum length of trajectories to collect")
     max_trajectory_length: int | None = conf_field(None, help="Maximum length of trajectories to collect")
     force_sync: bool = conf_field(False, help="Force workers to run in sync mode rather than async mode")
+    optimal: bool = conf_field(False, help="Whether to choose the optimal action or sample from the policy")
 
 
 @dataclass
@@ -99,10 +99,7 @@ class ReinforcementLearningVanillaTrainer(
         signal.signal(signal.SIGUSR1, on_exit)
 
         # Gets the environment workers.
-        worker_pool = get_worker_pool(
-            task.get_environment_workers(force_sync=self.config.sampling.force_sync),
-            force_sync=self.config.sampling.force_sync,
-        )
+        worker_pool = task.get_worker_pool(force_sync=self.config.sampling.force_sync)
 
         try:
             with contextlib.ExitStack() as ctx:
@@ -127,6 +124,7 @@ class ReinforcementLearningVanillaTrainer(
                             min_batch_size=self.config.sampling.min_batch_size,
                             max_batch_size=self.config.sampling.max_batch_size,
                             max_wait_time=self.config.sampling.max_wait_time,
+                            optimal=self.config.sampling.optimal,
                         )
 
                     with self.step_context("build_rl_dataset"):
