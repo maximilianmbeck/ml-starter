@@ -6,6 +6,7 @@ from typing import Callable, Generic, TypeVar, Union
 
 import numpy as np
 import torch
+from omegaconf import DictConfig
 from torch import Tensor
 
 from ml.core.config import BaseConfig, BaseObjectWithPointers, conf_field
@@ -111,14 +112,13 @@ class BaseLogger(BaseObjectWithPointers[LoggerConfigT], Generic[LoggerConfigT], 
             namespace: The namespace to be logged
         """
 
-    def log_config(self, config: dict[str, int | float | str | bool], metrics: dict[str, int | float]) -> None:
+    def log_config(self, config: DictConfig) -> None:
         """Logs a set of metrics and configuration.
 
         This is only called once, when metrics are computed for a whole dataset.
 
         Args:
             config: The run config
-            metrics: Dictionary of metrics
         """
 
     def should_write(self, state: State) -> bool:

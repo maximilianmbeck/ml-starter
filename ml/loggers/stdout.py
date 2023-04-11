@@ -66,10 +66,6 @@ class StdoutLogger(BaseLogger[StdoutLoggerConfig]):
     def log_string(self, key: str, value: Callable[[], str], state: State, namespace: str) -> None:
         self.get_log_dict(state, namespace)[key] = value
 
-    def log_config(self, config: dict[str, int | float | str | bool], metrics: dict[str, int | float]) -> None:
-        for k, v in sorted(metrics.items()):
-            self.logger.info("%s: %s", k, as_str(v, self.config.precision))
-
     def write(self, state: State) -> None:
         if not (phase_log_values := self.log_values.get(state.phase)):
             return

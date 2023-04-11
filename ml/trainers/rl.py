@@ -25,7 +25,6 @@ from ml.trainers.base import ModelT
 from ml.trainers.ddp import DDPTrainer
 from ml.trainers.slurm import SlurmTrainer, SlurmTrainerConfig
 from ml.trainers.vanilla import TrainingFinishedException, VanillaTrainer, VanillaTrainerConfig
-from ml.utils.distributed import is_master
 
 logger = logging.getLogger(__name__)
 
@@ -179,8 +178,7 @@ class ReinforcementLearningVanillaTrainer(
             logger.exception("Caught exception during training loop")
 
         finally:
-            if is_master():
-                self.remove_lock_file("running", missing_ok=True)
+            self.remove_lock_file("running", missing_ok=True)
             logger.info("Exiting training job for %s", self.exp_dir / "config.yaml")
 
 

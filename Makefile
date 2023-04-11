@@ -52,19 +52,12 @@ clean:
 #       Static Checks      #
 # ------------------------ #
 
-# py-files := $$(git ls-files '*.py')
-py-files := $$(git ls-files '*.py' | grep -v 'ml/templates/')
+py-files := $$(git ls-files '*.py')
 
 format:
 	black $(py-files)
 	ruff --fix $(py-files)
 .PHONY: format
-
-format-recursive: format
-	@for dir in $$(find ml/templates/ -maxdepth 1 -type d); do \
-		$(MAKE) -C $$dir format; \
-	done
-.PHONY: format-recursive
 
 static-checks:
 	black --diff --check $(py-files)

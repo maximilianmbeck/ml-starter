@@ -220,9 +220,7 @@ class VanillaTrainer(
     ) -> None:
         logger.info("Handling interrupt %s", sig.name)
         self.save_checkpoint(state, task, model, optim, lr_scheduler)
-        logger.info("Removing lock file")
-        if is_master():
-            self.remove_lock_file("running", missing_ok=True)
+        self.remove_lock_file("running", missing_ok=True)
 
     def set_signal_handler(self, handler: Callable[[int, FrameType | None], None]) -> None:
         pass
@@ -238,9 +236,9 @@ class VanillaTrainer(
             torch.backends.cuda.matmul.allow_tf32 = True
 
         # Saves the config at the start of training.
-        if is_master():
-            with Timer("saving config"):
-                self.save_config()
+        with Timer("saving config"):
+            self.save_config()
+            self.log_run_config()
 
         # Enables anomaly detection.
         if self.config.detect_anomaly:

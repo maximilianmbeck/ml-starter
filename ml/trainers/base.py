@@ -56,22 +56,24 @@ LockType = Literal["running", "scheduled", "ckpt"]
 
 
 def add_lock_file(exp_dir: Path, lock_type: LockType, *, exists_ok: bool = False) -> None:
-    if (lock_file := exp_dir / f".lock_{lock_type}").exists():
-        if not exists_ok:
-            raise RuntimeError(f"Lock file already exists at {lock_file}")
-    else:
-        with open(lock_file, "w", encoding="utf-8") as f:
-            f.write(f"PID: {os.getpid()}")
+    if is_master():
+        if (lock_file := exp_dir / f".lock_{lock_type}").exists():
+            if not exists_ok:
+                raise RuntimeError(f"Lock file already exists at {lock_file}")
+        else:
+            with open(lock_file, "w", encoding="utf-8") as f:
+                f.write(f"PID: {os.getpid()}")
+            logger.debug("Added %s lock file to experiment directory %s", lock_type, exp_dir)
 
 
-def remove_lock_file(exp_dir: Path, lock_type: LockType, *, missing_ok: bool = False) -> bool:
-    if (lock_file := exp_dir / f".lock_{lock_type}").exists():
-        lock_file.unlink()
-        return True
-    else:
-        if not missing_ok:
-            raise RuntimeError(f"Lock file not found at {lock_file}")
-        return False
+def remove_lock_file(exp_dir: Path, lock_type: LockType, *, missing_ok: bool = False) -> None:
+    if is_master():
+        if (lock_file := exp_dir / f".lock_{lock_type}").exists():
+            lock_file.unlink()
+            logger.debug("Removed %s lock file from experiment directory %s", lock_type, exp_dir)
+        else:
+            if not missing_ok:
+                raise RuntimeError(f"Lock file not found at {lock_file}")
 
 
 def has_lock_file(exp_dir: Path, lock_type: LockType | None = None) -> bool:
@@ -193,19 +195,20 @@ def diff_configs(
 
 
 def save_config(config_path: Path, raw_config: DictConfig) -> None:
-    if config_path.exists():
-        added_keys, deleted_keys = diff_configs(raw_config, cast(DictConfig, OmegaConf.load(config_path)))
-        if added_keys or deleted_keys:
-            change_lines: list[str] = []
-            change_lines += [f" ↪ {colorize('+', 'green')} {added_key}" for added_key in added_keys]
-            change_lines += [f" ↪ {colorize('-', 'red')} {deleted_key}" for deleted_key in deleted_keys]
-            change_summary = "\n".join(change_lines)
-            logger.warning("Overwriting config %s:\n%s", config_path, change_summary)
+    if is_master():
+        if config_path.exists():
+            added_keys, deleted_keys = diff_configs(raw_config, cast(DictConfig, OmegaConf.load(config_path)))
+            if added_keys or deleted_keys:
+                change_lines: list[str] = []
+                change_lines += [f" ↪ {colorize('+', 'green')} {added_key}" for added_key in added_keys]
+                change_lines += [f" ↪ {colorize('-', 'red')} {deleted_key}" for deleted_key in deleted_keys]
+                change_summary = "\n".join(change_lines)
+                logger.warning("Overwriting config %s:\n%s", config_path, change_summary)
+                OmegaConf.save(raw_config, config_path)
+        else:
+            config_path.parent.mkdir(exist_ok=True, parents=True)
             OmegaConf.save(raw_config, config_path)
-    else:
-        config_path.parent.mkdir(exist_ok=True, parents=True)
-        OmegaConf.save(raw_config, config_path)
-        logger.info("Saved config to %s", config_path)
+            logger.info("Saved config to %s", config_path)
 
 
 @dataclass
@@ -283,13 +286,16 @@ class BaseTrainer(BaseObjectWithPointers[TrainerConfigT], Generic[TrainerConfigT
     def save_config(self) -> None:
         save_config(self.config_path, self.raw_config)
 
+    def log_run_config(self) -> None:
+        if is_master():
+            for logger in self.loggers:
+                logger.log_config(self.raw_config)
+
     def add_lock_file(self, lock_type: LockType, *, exists_ok: bool = False) -> None:
         add_lock_file(self.exp_dir, lock_type=lock_type, exists_ok=exists_ok)
-        logger.debug("Added %s lock file to experiment directory %s", lock_type, self.exp_dir)
 
     def remove_lock_file(self, lock_type: LockType, *, missing_ok: bool = False) -> None:
-        if remove_lock_file(self.exp_dir, lock_type=lock_type, missing_ok=missing_ok):
-            logger.debug("Removed %s lock file in %s", lock_type, self.exp_dir)
+        remove_lock_file(self.exp_dir, lock_type=lock_type, missing_ok=missing_ok)
 
     def get_ckpt_path(self, state: State | None = None) -> Path:
         return get_ckpt_path(self.exp_dir, state)

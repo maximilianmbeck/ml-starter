@@ -22,7 +22,6 @@ from ml.trainers.ddp import DDPTrainer
 from ml.trainers.mixins.device.base import InfinitePrefetcher
 from ml.trainers.slurm import SlurmTrainer, SlurmTrainerConfig
 from ml.trainers.vanilla import TrainingFinishedException, VanillaTrainer, VanillaTrainerConfig
-from ml.utils.distributed import is_master
 from ml.utils.timer import Timer
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -184,8 +183,7 @@ class SupervisedLearningVanillaTrainer(
             logger.exception("Caught exception during training loop")
 
         finally:
-            if is_master():
-                self.remove_lock_file("running", missing_ok=True)
+            self.remove_lock_file("running", missing_ok=True)
             logger.info("Exiting training job for %s", self.exp_dir / "config.yaml")
 
 

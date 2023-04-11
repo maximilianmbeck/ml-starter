@@ -9,15 +9,14 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable, Iterator, cast
 
 import torch
-from omegaconf import MISSING, OmegaConf
+from omegaconf import MISSING, DictConfig, OmegaConf
 from torch import Tensor
 from torch.utils.tensorboard import SummaryWriter
 
 from ml.core.config import conf_field
-from ml.core.env import get_exp_name
 from ml.core.registry import register_logger
 from ml.core.state import Phase, State
 from ml.loggers.base import BaseLogger, BaseLoggerConfig
@@ -28,6 +27,72 @@ from ml.utils.networking import get_unused_port
 logger: logging.Logger = logging.getLogger(__name__)
 
 WRITE_PROC_TEXT_EVERY_N_SECONDS: int = 60 * 2
+
+
+def format_as_string(value: Any) -> str:
+    if isinstance(value, str):
+        return value
+    if isinstance(value, Tensor):
+        value = value.detach().float().cpu().item()
+    if isinstance(value, (int, float)):
+        return f"{value:.4g}"
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, datetime.datetime):
+        return value.isoformat()
+    if isinstance(value, datetime.timedelta):
+        return f"{value.total_seconds():.4g}s"
+    if value is None:
+        return ""
+    if value is MISSING:
+        return ""
+    return str(value)
+
+
+def iter_flat(config: dict) -> Iterator[tuple[list[str | None], str]]:
+    for key, value in config.items():
+        if isinstance(value, dict):
+            is_first = True
+            for sub_key_list, sub_value in iter_flat(value):
+                yield [format_as_string(key) if is_first else None] + sub_key_list, sub_value
+                is_first = False
+        elif isinstance(value, (list, tuple)):
+            is_first = True
+            for i, sub_value in enumerate(value):
+                for sub_key_list, sub_sub_value in iter_flat({f"{i}": sub_value}):
+                    yield [format_as_string(key) if is_first else None] + sub_key_list, sub_sub_value
+                    is_first = False
+        else:
+            yield [format_as_string(key)], format_as_string(value)
+
+
+def to_markdown_table(config: DictConfig) -> str:
+    config = cast(
+        dict,
+        OmegaConf.to_container(
+            config,
+            resolve=True,
+            throw_on_missing=False,
+            enum_to_str=True,
+        ),
+    )
+    config_flat = list(iter_flat(config))
+
+    # Gets rows of strings.
+    rows: list[list[str]] = []
+    for key_list, value in config_flat:
+        row = ["" if key is None else key for key in key_list] + [value]
+        rows.append(row)
+
+    # Pads all rows to the same length.
+    max_len = max(len(row) for row in rows)
+    rows = [row + [""] * (max_len - len(row)) for row in rows]
+
+    # Converts to a markdown table.
+    header_str = "| " + " | ".join([f"key_{i}" for i in range(max_len - 1)]) + " | value |"
+    header_sep_str = "|-" + "-|-" * (max_len - 1) + "-|"
+    rows_str = "\n".join(["| " + " | ".join(row) + " |" for row in rows])
+    return "\n".join([header_str, header_sep_str, rows_str])
 
 
 def make_bold(strs: list[str]) -> str:
@@ -61,6 +126,9 @@ class TensorboardLogger(BaseLogger[TensorboardLoggerConfig]):
         self.videos: dict[Phase, dict[str, Callable[[], Tensor]]] = defaultdict(dict)
         self.histograms: dict[Phase, dict[str, Callable[[], Tensor]]] = defaultdict(dict)
         self.point_clouds: dict[Phase, dict[str, Callable[[], Tensor]]] = defaultdict(dict)
+
+        self.run_config: DictConfig | None = None
+        self.logged_run_config = False
 
         self.line_str: str | None = None
         self.last_tensorboard_write_time = time.time()
@@ -176,8 +244,8 @@ class TensorboardLogger(BaseLogger[TensorboardLoggerConfig]):
     def log_point_cloud(self, key: str, value: Callable[[], Tensor], state: State, namespace: str) -> None:
         self.point_clouds[state.phase][f"{namespace}/{key}"] = value
 
-    def log_config(self, config: dict[str, int | float | str | bool], metrics: dict[str, int | float]) -> None:
-        self.test_writer.add_hparams(config, metrics, run_name=get_exp_name())
+    def log_config(self, config: DictConfig) -> None:
+        self.run_config = config
 
     def write(self, state: State) -> None:
         if self.line_str is not None:
@@ -204,6 +272,9 @@ class TensorboardLogger(BaseLogger[TensorboardLoggerConfig]):
             colors = torch.randint(0, 255, (bsz, 1, 3), device=pc_value.device).expand_as(pc_value)
             pc_value, colors = pc_value.flatten(0, 1).unsqueeze(0), colors.flatten(0, 1).unsqueeze(0)
             writer.add_mesh(pc_key, pc_value, colors=colors, global_step=state.num_steps)
+        if not self.logged_run_config and self.run_config is not None:
+            writer.add_text("config", to_markdown_table(self.run_config), global_step=state.num_steps)
+            self.logged_run_config = True
 
     def clear(self, state: State) -> None:
         self.scalars[state.phase].clear()

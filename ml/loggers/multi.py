@@ -7,7 +7,6 @@ from typing import Any, Callable, Iterator, Sequence, TypeVar
 import torch
 import torch.nn.functional as F
 import torchvision.transforms.functional as V
-from omegaconf import DictConfig, OmegaConf, SCMode
 from PIL import Image, ImageDraw, ImageFont
 from torch import Tensor
 from torchvision.transforms import InterpolationMode
@@ -23,41 +22,6 @@ VALID_AUDIO_CHANNEL_COUNTS = {1, 2}
 TARGET_FPS = 12
 TARGET_SAMPLE_RATE = 22050
 DEFAULT_NAMESPACE = "value"
-
-
-def flatten(d: dict[str, Any] | list[Any] | tuple[Any, ...]) -> dict[str, int | float | str | bool]:
-    out_dict: dict[str, int | float | str | bool] = {}
-
-    # Flattens dictionaries.
-    if isinstance(d, dict):
-        for k, v in d.items():
-            if isinstance(v, (int, float, str, bool)):
-                out_dict[k] = v
-            elif isinstance(v, (dict, list, tuple)):
-                for kk, vv in flatten(v).items():
-                    out_dict[f"{k}.{kk}"] = vv
-            elif v is None:
-                pass
-            else:
-                raise NotImplementedError(f"Unsupported value type {type(v)}")
-
-    # Flattens lists and tuples.
-    elif isinstance(d, (list, tuple)):
-        for i, v in enumerate(d):
-            if isinstance(v, (int, float, str, bool)):
-                out_dict[f"{i}"] = v
-            elif isinstance(v, (dict, list, tuple)):
-                for kk, vv in flatten(v).items():
-                    out_dict[f"{i}.{kk}"] = vv
-            elif v is None:
-                pass
-            else:
-                raise NotImplementedError(f"Unsupported value type {type(v)}")
-
-    else:
-        raise NotImplementedError(f"Unsupported top-level type: {type(d)}")
-
-    return out_dict
 
 
 def _aminmax(t: Tensor) -> tuple[Tensor, Tensor]:
@@ -521,8 +485,6 @@ class MultiLogger:
     """Defines an intermediate container which holds values to log somewhere else."""
 
     def __init__(self, default_namespace: str = DEFAULT_NAMESPACE) -> None:
-        self.config: tuple[DictConfig, dict[str, int | float]] | None = None
-        self.has_logged_config = False
         self.scalars: dict[str, dict[str, Callable[[], Number]]] = defaultdict(dict)
         self.strings: dict[str, dict[str, Callable[[], str]]] = defaultdict(dict)
         self.images: dict[str, dict[str, Callable[[], Tensor]]] = defaultdict(dict)
@@ -918,11 +880,6 @@ class MultiLogger:
                     func(logger)(key, log_value, state, namespace)
         values.clear()
 
-    def log_config(self, config: DictConfig, metrics: dict[str, int | float]) -> None:
-        if self.config is not None:
-            raise RuntimeError("Config has already been logged; don't log it twice")
-        self.config = (config, metrics)
-
     def write(self, loggers: list[BaseLogger], state: State) -> None:
         self.write_dict(loggers, self.scalars, state, lambda logger: logger.log_scalar)
         self.write_dict(loggers, self.strings, state, lambda logger: logger.log_string)
@@ -931,18 +888,3 @@ class MultiLogger:
         self.write_dict(loggers, self.videos, state, lambda logger: logger.log_video)
         self.write_dict(loggers, self.histograms, state, lambda logger: logger.log_histogram)
         self.write_dict(loggers, self.point_clouds, state, lambda logger: logger.log_point_cloud)
-
-        # Only writes the config once.
-        if self.config is not None and not self.has_logged_config:
-            raw_config, metrics = self.config
-            raw_config_dict = OmegaConf.to_container(
-                cfg=raw_config,
-                resolve=True,
-                throw_on_missing=False,
-                enum_to_str=True,
-                structured_config_mode=SCMode.DICT,
-            )
-            config_dict = flatten(raw_config_dict)  # type: ignore
-            for logger in loggers:
-                logger.log_config(config_dict, metrics)
-            self.has_logged_config = True
