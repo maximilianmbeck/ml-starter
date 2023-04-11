@@ -6,10 +6,10 @@ from collections import Counter
 from dataclasses import dataclass
 from typing import Iterator, TypeVar
 
-from torch.utils.data.dataloader import get_worker_info
 from torch.utils.data.dataset import Dataset, IterableDataset
 
 from ml.core.config import conf_field
+from ml.utils.data import get_worker_info
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -87,7 +87,7 @@ class ExceptionSummary:
 
     def flush(self) -> None:
         worker_info = get_worker_info()
-        if (worker_info is None or worker_info.id == 0) and self.total_exceptions > 0:
+        if worker_info.worker_id and self.total_exceptions > 0:
             logger.info("Exception summary:\n\n%s\n", self.summary())
         self.exceptions.clear()
         self.exception_classes.clear()

@@ -68,7 +68,7 @@ class Prefetcher(Iterable[Batch]):
         self.raise_stop_iter = raise_stop_iter
         self.dataloader_iter = iter(self.dataloader)
         self.next_sample = None
-        self.get_batch_time = -1.0
+        self.get_batch_time = 0.0
         self.num_queued_samples = -1
 
     def get_next_sample(self) -> Any:

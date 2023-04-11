@@ -6,6 +6,7 @@ from typing import Callable, Generic, Iterator, TypeVar
 from torch.utils.data.dataset import IterableDataset
 
 from ml.tasks.datasets.collate import collate
+from ml.utils.data import get_worker_info
 
 T = TypeVar("T")
 
@@ -47,6 +48,9 @@ class MultiReplaySamples(Generic[T]):
 
         self.samples = samples
 
+    def partition(self, rank: int, world_size: int) -> "MultiReplaySamples":
+        return MultiReplaySamples(self.samples[rank::world_size])
+
     def sample(self, clip_size: int, stride: int = 1, only_last: bool = False) -> list[list[T]]:
         return [s.sample(clip_size, stride=stride, only_last=only_last) for s in self.samples]
 
@@ -76,11 +80,21 @@ class ReplayDataset(IterableDataset[T], Generic[T]):
         super().__init__()
 
         self.buffer = buffer
+        self._buffer_partitioned: MultiReplaySamples[T] | None = None
         self.clip_size = clip_size
         self.stride = stride
         self.collate_fn = collate_fn
 
+    @property
+    def buffer_partitioned(self) -> MultiReplaySamples[T]:
+        if self._buffer_partitioned is None:
+            raise ValueError("Cannot access partitioned buffer before `__iter__` is called")
+        return self._buffer_partitioned
+
     def __iter__(self) -> Iterator[T]:
+        if self._buffer_partitioned is None:
+            worker_info = get_worker_info()
+            self._buffer_partitioned = self.buffer.partition(worker_info.worker_id, worker_info.num_workers)
         return self
 
     def __next__(self) -> T:

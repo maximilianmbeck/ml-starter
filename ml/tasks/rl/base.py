@@ -86,7 +86,8 @@ class ReinforcementLearningTask(
         """
 
     def build_rl_dataset(
-        self, samples: MultiReplaySamples[tuple[RLState, RLAction]]
+        self,
+        samples: MultiReplaySamples[tuple[RLState, RLAction]],
     ) -> Dataset[tuple[RLState, RLAction]]:
         return ReplayDataset(
             samples,

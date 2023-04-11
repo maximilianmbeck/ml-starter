@@ -2,8 +2,9 @@ import logging
 import random
 from typing import Collection, Generic, Iterator, TypeVar
 
-from torch.utils.data.dataloader import get_worker_info
 from torch.utils.data.dataset import IterableDataset
+
+from ml.utils.data import get_worker_info
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -51,16 +52,15 @@ class StreamingDataset(IterableDataset[tuple[int, Batch]], Generic[Batch]):
     def __iter__(self) -> Iterator[tuple[int, Batch]]:
         worker_info = get_worker_info()
         dataset_ids = list(range(len(self.datasets)))
-        if worker_info is None:
-            worker_id = 0
-        else:
-            worker_id = worker_info.id
-            dataset_ids = dataset_ids[worker_id :: worker_info.num_workers]
+        dataset_ids = dataset_ids[worker_info.worker_id :: worker_info.num_workers]
 
         # Gets the subset of worker dataset for this iterator.
         self.worker_datasets = {i: self.datasets[i] for i in dataset_ids}
         if len(self.worker_datasets) == 0:
-            raise ValueError(f"Worker {worker_id} doesn't have any datasets; consider reducing the worker count")
+            raise ValueError(
+                f"Worker {worker_info.worker_id} doesn't have any datasets; "
+                f"consider reducing the worker count to {len(self.datasets)}"
+            )
 
         # Creates a reservoir of available IDs, and a dict of active iterators.
         self.iterators = {}
