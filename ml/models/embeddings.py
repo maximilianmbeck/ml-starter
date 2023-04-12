@@ -1,5 +1,15 @@
+from typing import Literal, cast, get_args
+
 import torch
 from torch import Tensor, nn
+
+EmbeddingKind = Literal["sinusoidal", "rotary"]
+
+
+def cast_embedding_kind(k: str) -> EmbeddingKind:
+    args = get_args(EmbeddingKind)
+    assert k in args, f"Invalid initialization type: '{k}' Valid options are {args}"
+    return cast(EmbeddingKind, k)
 
 
 class SinusoidalEmbeddings(nn.Module):
@@ -36,17 +46,8 @@ class SinusoidalEmbeddings(nn.Module):
         embeddings[:, 1::2] = torch.cos(embeddings[:, 1::2])
         return embeddings
 
-    def forward(self, x: Tensor) -> Tensor:
-        """Computes the sinusoidal embeddings for the given input.
-
-        Args:
-            x: The input tensor, with shape (B, T, D).
-
-        Returns:
-            The tensor with the embeddings added, wiith shape (B, T, D).
-        """
-
-        return x + self.embeddings[None, : x.size(1)]
+    def forward(self, x: Tensor, offset: int = 0, times: Tensor | None = None) -> Tensor:
+        return x + self.embeddings[None, offset : offset + x.size(1)] if times is None else self.embeddings[times]
 
 
 class RotaryEmbeddings(nn.Module):
@@ -89,18 +90,72 @@ class RotaryEmbeddings(nn.Module):
         quarter_d = self.embed_dim // 4
         return torch.cat([-x[..., quarter_d:], x[..., :quarter_d]], dim=-1)
 
-    def forward(self, x: Tensor) -> Tensor:
-        """Computes the rotary embeddings for the given input.
+    def forward(self, x: Tensor, offset: int = 0, times: Tensor | None = None) -> Tensor:
+        half_d = self.embed_dim // 2
+        x_rope, x_pass = x[..., :half_d], x[..., half_d:]
+        neg_half_x = self._neg_half(x_rope)
+        cos_part = x_rope * self.cos[None, offset : offset + x.shape[1]]
+        sin_part = neg_half_x * self.sin[None, offset : offset + x.shape[1]]
+        x_rope = cos_part + sin_part
+        return torch.cat((x_rope, x_pass), dim=-1)
+
+
+class Embeddings(nn.Module):
+    def __init__(
+        self,
+        max_tsz: int,
+        embed_dim: int,
+        kind: EmbeddingKind,
+        learnable: bool = False,
+        base: int = 10_000,
+    ) -> None:
+        """Defines the common embeddings module.
+
+        Args:
+            max_tsz: The maximum sequence length.
+            embed_dim: The embedding dimension.
+            kind: The type of embedding to use.
+            learnable: Whether the embeddings are learnable.
+            base: The base for the sinusoidal embeddings.
+
+        Raises:
+            ValueError: If an invalid embedding kind is supplied.
+        """
+
+        super().__init__()
+
+        self.module: nn.Module
+
+        if kind == "sinusoidal":
+            self.module = SinusoidalEmbeddings(
+                max_tsz=max_tsz,
+                embed_dim=embed_dim,
+                learnable=learnable,
+                base=base,
+            )
+
+        elif kind == "rotary":
+            self.module = RotaryEmbeddings(
+                max_tsz=max_tsz,
+                embed_dim=embed_dim,
+                learnable=learnable,
+                base=base,
+            )
+
+        else:
+            raise ValueError(f"Invalid embedding kind: {kind}")
+
+    def forward(self, x: Tensor, offset: int = 0, times: Tensor | None = None) -> Tensor:
+        """Computes the embeddings for the given input.
 
         Args:
             x: The input tensor, with shape (B, T, D).
+            offset: The time offset.
+            times: The explicit times associated with the input tensor, with
+                shape (B, T).
 
         Returns:
             The tensor with the embeddings added, wiith shape (B, T, D).
         """
 
-        half_d = self.embed_dim // 2
-        x_rope, x_pass = x[..., :half_d], x[..., half_d:]
-        neg_half_x = self._neg_half(x_rope)
-        x_rope = (x_rope * self.cos[None, : x.shape[1]]) + (neg_half_x * self.sin[None, : x.shape[1]])
-        return torch.cat((x_rope, x_pass), dim=-1)
+        return self.module(x, offset=offset, times=times)

@@ -32,6 +32,7 @@ __all__ = [
     "Batch",
     "cached_object",
     "cast_activation_type",
+    "cast_embedding_kind",
     "cast_init_type",
     "cast_norm_type",
     "cast_reduce_type",
@@ -44,6 +45,7 @@ __all__ = [
     "conf_field",
     "configure_logging",
     "DDPTrainer",
+    "Embeddings",
     "Environment",
     "format_timedelta",
     "from_args",
@@ -98,8 +100,10 @@ __all__ = [
     "ReinforcementLearningTaskConfig",
     "ReinforcementLearningTrainerConfig",
     "ReinforcementLearningVanillaTrainer",
+    "RotaryEmbeddings",
     "set_slurm_master_addr",
     "set_slurm_rank_and_world_size",
+    "SinusoidalEmbeddings",
     "SlurmTrainer",
     "SlurmTrainerConfig",
     "stage_environment",
@@ -149,6 +153,7 @@ from ml.core.state import Phase, State
 from ml.lr_schedulers.base import BaseLRScheduler, BaseLRSchedulerConfig
 from ml.models.activations import ActivationType, cast_activation_type, get_activation
 from ml.models.base import BaseModel, BaseModelConfig
+from ml.models.embeddings import Embeddings, RotaryEmbeddings, SinusoidalEmbeddings, cast_embedding_kind
 from ml.models.init import InitializationType, cast_init_type, init_
 from ml.models.norms import (
     NormType,

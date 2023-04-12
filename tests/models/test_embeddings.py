@@ -1,20 +1,16 @@
+from typing import get_args
+
 import pytest
 import torch
 
-from ml.models.embeddings import RotaryEmbeddings, SinusoidalEmbeddings
+from ml.models.embeddings import EmbeddingKind, Embeddings
 
 
-@pytest.mark.skip("Seems to break in CI")
-def test_sinusoidal_embeddings() -> None:
-    emb = SinusoidalEmbeddings(max_tsz=16, embed_dim=8)
-    x = torch.randn(2, 12, 8)
-    y = emb(x)
-    assert y.shape == (2, 12, 8)
-
-
-@pytest.mark.skip("Seems to break in CI")
-def test_rotary_embeddings() -> None:
-    emb = RotaryEmbeddings(max_tsz=16, embed_dim=8)
-    x = torch.randn(2, 12, 8)
-    y = emb(x)
-    assert y.shape == (2, 12, 8)
+@pytest.mark.parametrize("kind", get_args(EmbeddingKind))
+@pytest.mark.parametrize("use_times", [True, False])
+def test_embeddings_api(kind: EmbeddingKind, use_times: bool) -> None:
+    x = torch.randn(3, 5, 8)
+    times = torch.randint(0, 11, (3, 5)) if use_times else None
+    emb = Embeddings(max_tsz=12, embed_dim=8, kind=kind)
+    y = emb(x, times=times)
+    assert y.shape == (3, 5, 8)
