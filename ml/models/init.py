@@ -69,27 +69,32 @@ def init_(
         weight = weight.data
     if isinstance(bias, nn.Parameter):
         bias = bias.data
-    if init == "orthogonal":
-        if weight.dtype == torch.float16:
+    match init:
+        case "orthogonal":
+            if weight.dtype == torch.float16:
+                return (
+                    weight.copy_(nn.init.orthogonal_(weight.float(), gain=0.01).to(weight)),
+                    None if bias is None else nn.init.zeros_(bias),
+                )
+            return nn.init.orthogonal_(weight), None if bias is None else nn.init.zeros_(bias)
+        case "normal":
+            return nn.init.normal_(weight, std=normal_std), None if bias is None else nn.init.zeros_(bias)
+        case "biased_normal":
             return (
-                weight.copy_(nn.init.orthogonal_(weight.float(), gain=0.01).to(weight)),
-                None if bias is None else nn.init.zeros_(bias),
+                nn.init.normal_(weight, std=normal_std),
+                None if bias is None else nn.init.normal_(bias, std=normal_std),
             )
-        return nn.init.orthogonal_(weight), None if bias is None else nn.init.zeros_(bias)
-    if init == "normal":
-        return nn.init.normal_(weight, std=normal_std), None if bias is None else nn.init.zeros_(bias)
-    if init == "biased_normal":
-        return nn.init.normal_(weight, std=normal_std), None if bias is None else nn.init.normal_(bias, std=normal_std)
-    if init == "uniform":
-        return nn.init.uniform_(weight, b=uniform_scale), None if bias is None else nn.init.zeros_(bias)
-    if init == "kaiming_uniform":
-        return nn.init.kaiming_uniform_(weight), _uniform_bias(weight, bias)
-    if init == "kaiming_normal":
-        return nn.init.kaiming_normal_(weight), _uniform_bias(weight, bias)
-    if init == "xavier_uniform":
-        return nn.init.xavier_uniform_(weight), _uniform_bias(weight, bias)
-    if init == "xavier_normal":
-        return nn.init.xavier_normal_(weight), _uniform_bias(weight, bias)
-    if init == "ones":
-        return nn.init.ones_(weight), None if bias is None else nn.init.zeros_(bias)
-    raise NotImplementedError(f"Unexpected initialization: {init}")
+        case "uniform":
+            return nn.init.uniform_(weight, b=uniform_scale), None if bias is None else nn.init.zeros_(bias)
+        case "kaiming_uniform":
+            return nn.init.kaiming_uniform_(weight), _uniform_bias(weight, bias)
+        case "kaiming_normal":
+            return nn.init.kaiming_normal_(weight), _uniform_bias(weight, bias)
+        case "xavier_uniform":
+            return nn.init.xavier_uniform_(weight), _uniform_bias(weight, bias)
+        case "xavier_normal":
+            return nn.init.xavier_normal_(weight), _uniform_bias(weight, bias)
+        case "ones":
+            return nn.init.ones_(weight), None if bias is None else nn.init.zeros_(bias)
+        case _:
+            raise NotImplementedError(f"Unexpected initialization: {init}")

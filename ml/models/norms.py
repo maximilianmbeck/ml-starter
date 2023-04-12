@@ -162,32 +162,42 @@ def get_norm_1d(
     device: torch.device | None = None,
     dtype: torch.dtype | None = None,
 ) -> nn.Module:
-    if norm == "no_norm":
-        return nn.Identity()
-    if norm == "batch":
-        if dim is None:
-            return nn.LazyBatchNorm1d(affine=False, device=device, dtype=dtype)
-        return nn.BatchNorm1d(dim, affine=False, device=device, dtype=dtype)
-    if norm == "batch_affine":
-        if dim is None:
-            return nn.LazyBatchNorm1d(affine=True, device=device, dtype=dtype)
-        return nn.BatchNorm1d(dim, affine=True, device=device, dtype=dtype)
-    if norm == "instance":
-        if dim is None:
-            return nn.LazyInstanceNorm1d(affine=False, device=device, dtype=dtype)
-        return nn.InstanceNorm1d(dim, affine=False, device=device, dtype=dtype)
-    if norm == "instance_affine":
-        if dim is None:
-            return nn.LazyInstanceNorm1d(affine=True, device=device, dtype=dtype)
-        return nn.InstanceNorm1d(dim, affine=True, device=device, dtype=dtype)
-    if norm in ("group", "group_affine"):
-        assert dim is not None, "`dim` is required for group norm"
-        assert groups is not None, "`groups` is required for group norm"
-        return nn.GroupNorm(groups, dim, affine=norm == "group_affine", device=device, dtype=dtype)
-    if norm in ("layer", "layer_affine"):
-        assert dim is not None
-        return ConvLayerNorm(dim, dims=1, elementwise_affine=norm == "layer_affine", device=device, dtype=dtype)
-    raise NotImplementedError(f"Invalid 1D norm type: {norm}")
+    """Returns a normalization layer for tensors with shape (B, C, T).
+
+    Args:
+        norm: The norm type to use
+        dim: The number of dimensions in the input tensor
+        groups: The number of groups to use for group normalization
+        device: The device to use for the layer
+        dtype: The dtype to use for the layer
+
+    Returns:
+        A normalization layer
+
+    Raises:
+        NotImplementedError: If `norm` is not a valid 1D norm type
+    """
+
+    match norm:
+        case "no_norm":
+            return nn.Identity()
+        case "batch" | "batch_affine":
+            if dim is None:
+                return nn.LazyBatchNorm1d(affine=norm == "batch_affine", device=device, dtype=dtype)
+            return nn.BatchNorm1d(dim, affine=norm == "batch_affine", device=device, dtype=dtype)
+        case "instance" | "instance_affine":
+            if dim is None:
+                return nn.LazyInstanceNorm1d(affine=norm == "instance_affine", device=device, dtype=dtype)
+            return nn.InstanceNorm1d(dim, affine=norm == "instance_affine", device=device, dtype=dtype)
+        case "group" | "group_affine":
+            assert dim is not None, "`dim` is required for group norm"
+            assert groups is not None, "`groups` is required for group norm"
+            return nn.GroupNorm(groups, dim, affine=norm == "group_affine", device=device, dtype=dtype)
+        case "layer" | "layer_affine":
+            assert dim is not None
+            return ConvLayerNorm(dim, dims=1, elementwise_affine=norm == "layer_affine", device=device, dtype=dtype)
+        case _:
+            raise NotImplementedError(f"Invalid 1D norm type: {norm}")
 
 
 def get_norm_2d(
@@ -198,32 +208,42 @@ def get_norm_2d(
     device: torch.device | None = None,
     dtype: torch.dtype | None = None,
 ) -> nn.Module:
-    if norm == "no_norm":
-        return nn.Identity()
-    if norm == "batch":
-        if dim is None:
-            return nn.LazyBatchNorm2d(affine=False, device=device, dtype=dtype)
-        return nn.BatchNorm2d(dim, affine=False, device=device, dtype=dtype)
-    if norm == "batch_affine":
-        if dim is None:
-            return nn.LazyBatchNorm2d(affine=True, device=device, dtype=dtype)
-        return nn.BatchNorm2d(dim, affine=True, device=device, dtype=dtype)
-    if norm == "instance":
-        if dim is None:
-            return nn.LazyInstanceNorm2d(affine=False, device=device, dtype=dtype)
-        return nn.InstanceNorm2d(dim, affine=False, device=device, dtype=dtype)
-    if norm == "instance_affine":
-        if dim is None:
-            return nn.LazyInstanceNorm2d(affine=True, device=device, dtype=dtype)
-        return nn.InstanceNorm2d(dim, affine=True, device=device, dtype=dtype)
-    if norm in ("group", "group_affine"):
-        assert dim is not None, "`dim` is required for group norm"
-        assert groups is not None, "`groups` is required for group norm"
-        return nn.GroupNorm(groups, dim, affine=norm == "group_affine", device=device, dtype=dtype)
-    if norm in ("layer", "layer_affine"):
-        assert dim is not None
-        return ConvLayerNorm(dim, dims=2, elementwise_affine=norm == "layer_affine", device=device, dtype=dtype)
-    raise NotImplementedError(f"Invalid 2D norm type: {norm}")
+    """Returns a normalization layer for tensors with shape (B, C, H, W).
+
+    Args:
+        norm: The norm type to use
+        dim: The number of dimensions in the input tensor
+        groups: The number of groups to use for group normalization
+        device: The device to use for the layer
+        dtype: The dtype to use for the layer
+
+    Returns:
+        A normalization layer
+
+    Raises:
+        NotImplementedError: If `norm` is not a valid 2D norm type
+    """
+
+    match norm:
+        case "no_norm":
+            return nn.Identity()
+        case "batch" | "batch_affine":
+            if dim is None:
+                return nn.LazyBatchNorm2d(affine=norm == "batch_affine", device=device, dtype=dtype)
+            return nn.BatchNorm2d(dim, affine=norm == "batch_affine", device=device, dtype=dtype)
+        case "instance" | "instance_affine":
+            if dim is None:
+                return nn.LazyInstanceNorm2d(affine=norm == "instance_affine", device=device, dtype=dtype)
+            return nn.InstanceNorm2d(dim, affine=norm == "instance_affine", device=device, dtype=dtype)
+        case "group" | "group_affine":
+            assert dim is not None, "`dim` is required for group norm"
+            assert groups is not None, "`groups` is required for group norm"
+            return nn.GroupNorm(groups, dim, affine=norm == "group_affine", device=device, dtype=dtype)
+        case "layer" | "layer_affine":
+            assert dim is not None
+            return ConvLayerNorm(dim, dims=2, elementwise_affine=norm == "layer_affine", device=device, dtype=dtype)
+        case _:
+            raise NotImplementedError(f"Invalid 2D norm type: {norm}")
 
 
 def get_norm_3d(
@@ -234,32 +254,42 @@ def get_norm_3d(
     device: torch.device | None = None,
     dtype: torch.dtype | None = None,
 ) -> nn.Module:
-    if norm == "no_norm":
-        return nn.Identity()
-    if norm == "batch":
-        if dim is None:
-            return nn.LazyBatchNorm3d(affine=False, device=device, dtype=dtype)
-        return nn.BatchNorm3d(dim, affine=False, device=device, dtype=dtype)
-    if norm == "batch_affine":
-        if dim is None:
-            return nn.LazyBatchNorm3d(affine=True, device=device, dtype=dtype)
-        return nn.BatchNorm3d(dim, affine=True, device=device, dtype=dtype)
-    if norm == "instance":
-        if dim is None:
-            return nn.LazyInstanceNorm3d(affine=False, device=device, dtype=dtype)
-        return nn.InstanceNorm3d(dim, affine=False, device=device, dtype=dtype)
-    if norm == "instance_affine":
-        if dim is None:
-            return nn.LazyInstanceNorm3d(affine=True, device=device, dtype=dtype)
-        return nn.InstanceNorm3d(dim, affine=True, device=device, dtype=dtype)
-    if norm in ("group", "group_affine"):
-        assert dim is not None, "`dim` is required for group norm"
-        assert groups is not None, "`groups` is required for group norm"
-        return nn.GroupNorm(groups, dim, affine=norm == "group_affine", device=device, dtype=dtype)
-    if norm in ("layer", "layer_affine"):
-        assert dim is not None
-        return ConvLayerNorm(dim, dims=1, elementwise_affine=norm == "layer_affine", device=device, dtype=dtype)
-    raise NotImplementedError(f"Invalid 3D norm type: {norm}")
+    """Returns a normalization layer for tensors with shape (B, C, D, H, W).
+
+    Args:
+        norm: The norm type to use
+        dim: The number of dimensions in the input tensor
+        groups: The number of groups to use for group normalization
+        device: The device to use for the layer
+        dtype: The dtype to use for the layer
+
+    Returns:
+        A normalization layer
+
+    Raises:
+        NotImplementedError: If `norm` is not a valid 3D norm type
+    """
+
+    match norm:
+        case "no_norm":
+            return nn.Identity()
+        case "batch" | "batch_affine":
+            if dim is None:
+                return nn.LazyBatchNorm3d(affine=norm == "batch_affine", device=device, dtype=dtype)
+            return nn.BatchNorm3d(dim, affine=norm == "batch_affine", device=device, dtype=dtype)
+        case "instance" | "instance_affine":
+            if dim is None:
+                return nn.LazyInstanceNorm3d(affine=norm == "instance_affine", device=device, dtype=dtype)
+            return nn.InstanceNorm3d(dim, affine=norm == "instance_affine", device=device, dtype=dtype)
+        case "group" | "group_affine":
+            assert dim is not None, "`dim` is required for group norm"
+            assert groups is not None, "`groups` is required for group norm"
+            return nn.GroupNorm(groups, dim, affine=norm == "group_affine", device=device, dtype=dtype)
+        case "layer" | "layer_affine":
+            assert dim is not None
+            return ConvLayerNorm(dim, dims=3, elementwise_affine=norm == "layer_affine", device=device, dtype=dtype)
+        case _:
+            raise NotImplementedError(f"Invalid 3D norm type: {norm}")
 
 
 def get_norm_linear(
@@ -269,18 +299,29 @@ def get_norm_linear(
     device: torch.device | None = None,
     dtype: torch.dtype | None = None,
 ) -> nn.Module:
-    if norm == "no_norm":
-        return nn.Identity()
-    if norm == "batch":
-        assert dim is not None, "`dim` is required for batch norm"
-        return LastBatchNorm(dim, affine=False, device=device, dtype=dtype)
-    if norm == "batch_affine":
-        assert dim is not None, "`dim` is required for batch norm"
-        return LastBatchNorm(dim, affine=True, device=device, dtype=dtype)
-    if norm == "layer":
-        assert dim is not None, "`dim` is required for layer norm"
-        return nn.LayerNorm(dim, elementwise_affine=False, device=device, dtype=dtype)
-    if norm == "layer_affine":
-        assert dim is not None, "`dim` is required for layer norm"
-        return nn.LayerNorm(dim, elementwise_affine=True, device=device, dtype=dtype)
-    raise NotImplementedError(f"Invalid linear norm type: {norm}")
+    """Returns a normalization layer for tensors with shape (B, ..., C).
+
+    Args:
+        norm: The norm type to use
+        dim: The number of dimensions in the input tensor
+        device: The device to use for the layer
+        dtype: The dtype to use for the layer
+
+    Returns:
+        A normalization layer
+
+    Raises:
+        NotImplementedError: If `norm` is not a valid linear norm type
+    """
+
+    match norm:
+        case "no_norm":
+            return nn.Identity()
+        case "batch" | "batch_affine":
+            assert dim is not None, "`dim` is required for batch norm"
+            return LastBatchNorm(dim, affine=norm == "batch_affine", device=device, dtype=dtype)
+        case "layer" | "layer_affine":
+            assert dim is not None, "`dim` is required for layer norm"
+            return nn.LayerNorm(dim, elementwise_affine=norm == "layer_affine", device=device, dtype=dtype)
+        case _:
+            raise NotImplementedError(f"Invalid linear norm type: {norm}")

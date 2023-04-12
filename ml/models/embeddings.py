@@ -1,11 +1,11 @@
-from typing import Literal, cast, get_args
+from typing import Literal, cast, get_args, overload
 
 import torch
 from torch import Tensor, nn
 
 from ml.models.init import InitializationType, init_
 
-EmbeddingKind = Literal["sinusoidal", "rotary", "learned"]
+EmbeddingKind = Literal["learned", "sinusoidal", "rotary"]
 
 
 def cast_embedding_kind(k: str) -> EmbeddingKind:
@@ -132,69 +132,92 @@ class RotaryEmbeddings(nn.Module):
         return torch.cat((x_rope, x_pass), dim=-1)
 
 
-class PositionalEmbeddings(nn.Module):
-    def __init__(
-        self,
-        max_tsz: int,
-        embed_dim: int,
-        kind: EmbeddingKind,
-        learnable: bool = False,
-        base: int = 10_000,
-    ) -> None:
-        """Defines the common module for adding positional embeddings.
+@overload
+def get_positional_embeddings(
+    max_tsz: int,
+    embed_dim: int,
+    kind: Literal["learned"],
+    *,
+    weight_init: InitializationType = "normal",
+    learnable: bool = True,
+) -> LearnedPositionalEmbeddings:
+    ...
 
-        Args:
-            max_tsz: The maximum sequence length.
-            embed_dim: The embedding dimension.
-            kind: The type of embedding to use.
-            learnable: Whether the embeddings are learnable.
-            base: The base for the sinusoidal embeddings.
 
-        Raises:
-            ValueError: If an invalid embedding kind is supplied.
-        """
+@overload
+def get_positional_embeddings(
+    max_tsz: int,
+    embed_dim: int,
+    kind: Literal["sinusoidal"],
+    *,
+    learnable: bool = True,
+    base: int = 10_000,
+) -> SinusoidalEmbeddings:
+    ...
 
-        super().__init__()
 
-        self.module: nn.Module
+@overload
+def get_positional_embeddings(
+    max_tsz: int,
+    embed_dim: int,
+    kind: Literal["rotary"],
+    *,
+    learnable: bool = False,
+    base: int = 10_000,
+) -> RotaryEmbeddings:
+    ...
 
-        if kind == "sinusoidal":
-            self.module = SinusoidalEmbeddings(
+
+def get_positional_embeddings(
+    max_tsz: int,
+    embed_dim: int,
+    kind: EmbeddingKind,
+    *,
+    weight_init: InitializationType = "normal",
+    learnable: bool = False,
+    base: int = 10_000,
+) -> LearnedPositionalEmbeddings | SinusoidalEmbeddings | RotaryEmbeddings:
+    """Defines the common module for adding positional embeddings.
+
+    Args:
+        max_tsz: The maximum sequence length.
+        embed_dim: The embedding dimension.
+        kind: The type of embedding to use.
+        weight_init: The weight initialization for learned embeddings.
+        learnable: Whether the embeddings are learnable.
+        base: The base for the sinusoidal embeddings.
+
+    Returns:
+        The positional embeddings module.
+
+    Raises:
+        ValueError: If an invalid embedding kind is supplied.
+    """
+
+    match kind:
+        case "sinusoidal":
+            return SinusoidalEmbeddings(
                 max_tsz=max_tsz,
                 embed_dim=embed_dim,
                 learnable=learnable,
                 base=base,
             )
 
-        elif kind == "rotary":
-            self.module = RotaryEmbeddings(
+        case "rotary":
+            return RotaryEmbeddings(
                 max_tsz=max_tsz,
                 embed_dim=embed_dim,
                 learnable=learnable,
                 base=base,
             )
 
-        elif kind == "learned":
-            self.module = LearnedPositionalEmbeddings(
+        case "learned":
+            return LearnedPositionalEmbeddings(
                 max_tsz=max_tsz,
                 embed_dim=embed_dim,
+                weight_init=weight_init,
                 learnable=learnable,
             )
 
-        else:
+        case _:
             raise ValueError(f"Invalid embedding kind: {kind}")
-
-    def forward(self, x: Tensor, offset: int = 0, times: Tensor | None = None) -> Tensor:
-        """Computes the embeddings for the given input.
-
-        Args:
-            x: The input tensor, with shape (B, T, D).
-            offset: The time offset.
-            times: The explicit times associated with the input tensor, with
-                shape (B, T).
-
-        Returns:
-            The tensor with the embeddings added, wiith shape (B, T, D).
-        """
-
-        return self.module(x, offset=offset, times=times)

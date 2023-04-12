@@ -37,6 +37,7 @@ __all__ = [
     "cast_norm_type",
     "cast_reduce_type",
     "ChunkSampler",
+    "Clamp",
     "ClippifyDataset",
     "collate_non_null",
     "collate",
@@ -63,6 +64,7 @@ __all__ = [
     "get_norm_2d",
     "get_norm_3d",
     "get_norm_linear",
+    "get_positional_embeddings",
     "get_random_port",
     "get_rank_optional",
     "get_rank",
@@ -86,7 +88,6 @@ __all__ = [
     "pad_all",
     "pad_sequence",
     "Phase",
-    "PositionalEmbeddings",
     "reduce",
     "register_logger",
     "register_lr_scheduler",
@@ -152,14 +153,14 @@ from ml.core.registry import (
 )
 from ml.core.state import Phase, State
 from ml.lr_schedulers.base import BaseLRScheduler, BaseLRSchedulerConfig
-from ml.models.activations import ActivationType, cast_activation_type, get_activation
+from ml.models.activations import ActivationType, Clamp, cast_activation_type, get_activation
 from ml.models.base import BaseModel, BaseModelConfig
 from ml.models.embeddings import (
     LearnedPositionalEmbeddings,
-    PositionalEmbeddings,
     RotaryEmbeddings,
     SinusoidalEmbeddings,
     cast_embedding_kind,
+    get_positional_embeddings,
 )
 from ml.models.init import InitializationType, cast_init_type, init_
 from ml.models.norms import (
