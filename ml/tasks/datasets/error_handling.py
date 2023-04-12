@@ -1,6 +1,7 @@
 import bdb
 import logging
 import random
+import sys
 import time
 from collections import Counter
 from dataclasses import dataclass
@@ -16,6 +17,18 @@ logger: logging.Logger = logging.getLogger(__name__)
 BatchT = TypeVar("BatchT")
 
 
+def get_loc(num_excs: int = 1) -> str:
+    _, _, exc_tb = sys.exc_info()
+    if exc_tb is None or (exc_tb := exc_tb.tb_next) is None:
+        return "unknown"
+    exc_strs: list[str] = []
+    for _ in range(num_excs):
+        exc_strs += [f"{exc_tb.tb_frame.f_code.co_filename}:{exc_tb.tb_lineno}"]
+        if (exc_tb := exc_tb.tb_next) is None:
+            break
+    return "\n".join(exc_strs)
+
+
 @dataclass
 class ErrorHandlingConfig:
     enabled: bool = conf_field(True, help="Is error handling enabled?")
@@ -26,6 +39,7 @@ class ErrorHandlingConfig:
     log_full_exception: bool = conf_field(False, help="Log the full exception message for each exception")
     flush_exception_summary_every: int = conf_field(500, help="How often to flush exception summary")
     report_top_n_exception_types: int = conf_field(5, help="Number of exceptions to summarize")
+    exception_location_traceback_depth: int = conf_field(3, help="Traceback length for the exception location")
 
 
 class ExceptionSummary:
@@ -34,14 +48,16 @@ class ExceptionSummary:
         self.total_exceptions = 0
         self.flush_every = flush_every
         self.summary_length = summary_length
-        self.exception_classes: Counter[str] = Counter()
         self.exceptions: Counter[str] = Counter()
+        self.exception_classes: Counter[str] = Counter()
+        self.exception_locs: Counter[str] = Counter()
         self.last_exception: Exception | None = None
 
-    def add_exception(self, exc: Exception) -> None:
+    def add_exception(self, exc: Exception, loc: str) -> None:
         self.last_exception = exc
-        self.exception_classes[exc.__class__.__name__] += 1
         self.exceptions[f"{exc.__class__.__name__}: {exc}"] += 1
+        self.exception_classes[exc.__class__.__name__] += 1
+        self.exception_locs[loc] += 1
         self.total_exceptions += 1
 
     def step(self) -> None:
@@ -52,8 +68,14 @@ class ExceptionSummary:
     def summary(self) -> str:
         lines: list[str] = []
 
-        def get_log_line(k: str, v: int) -> str:
-            chunks = [k[i : i + 60] for i in range(0, len(k), 60)]
+        def get_segment_header(header: str) -> list[str]:
+            return [
+                f"| {header:60s} | {'Count':10s} | {'Percent':10s} |",
+                f"| {'-' * 60} | {'-' * 10} | {'-' * 10} |",
+            ]
+
+        def get_log_line(ks: str, v: int) -> str:
+            chunks = [k[i : i + 60] for k in ks.split("\n") for i in range(0, len(k), 60)]
             v_int, v_prct = f"{v}", f"{int(v * 100 / self.steps)} %"
             log_lines = [f"| {chunks[0]:60s} | {v_int:10s} | {v_prct:10s} |"]
             for chunk in chunks[1:]:
@@ -65,16 +87,20 @@ class ExceptionSummary:
 
         # Logs the unique exception strings.
         lines += [get_line_break()]
-        lines += [f"| {'Exception (by message)':60s} | {'Count':10s} | {'Percent':10s} |"]
-        lines += [f"| {'-' * 60} | {'-' * 10} | {'-' * 10} |"]
+        lines += get_segment_header("Exception (by message)")
         for k, v in self.exceptions.most_common(self.summary_length):
             lines += [get_log_line(k, v)]
 
         # Logs the individual exception classes.
         lines += [get_line_break()]
-        lines += [f"| {'Exception (by class)':60s} | {'Count':10s} | {'Percent':10s} |"]
-        lines += [f"| {'-' * 60} | {'-' * 10} | {'-' * 10} |"]
+        lines += get_segment_header("Exception (by class)")
         for k, v in self.exception_classes.most_common(self.summary_length):
+            lines += [get_log_line(k, v)]
+
+        # Logs by line number.
+        lines += [get_line_break()]
+        lines += get_segment_header("Exception (by location)")
+        for k, v in self.exception_locs.most_common(self.summary_length):
             lines += [get_log_line(k, v)]
 
         # Logs the total number of exceptions.
@@ -91,6 +117,7 @@ class ExceptionSummary:
             logger.info("Exception summary:\n\n%s\n", self.summary())
         self.exceptions.clear()
         self.exception_classes.clear()
+        self.exception_locs.clear()
         self.steps = 0
         self.total_exceptions = 0
 
@@ -124,7 +151,7 @@ class ErrorHandlingDataset(Dataset[BatchT]):
             except Exception as e:
                 if self.config.log_full_exception:
                     logger.exception("Caught exception on index %d", index)
-                self.exc_summary.add_exception(e)
+                self.exc_summary.add_exception(e, get_loc(self.config.exception_location_traceback_depth))
                 index = random.randint(0, len(self) - 1)
             num_exceptions += 1
             if num_exceptions > self.config.backoff_after:
@@ -186,7 +213,7 @@ class ErrorHandlingIterableDataset(IterableDataset[BatchT]):
             except Exception as e:
                 if self.config.log_full_exception:
                     logger.exception("Caught exception on iteration %d", self.iteration)
-                self.exc_summary.add_exception(e)
+                self.exc_summary.add_exception(e, get_loc(self.config.exception_location_traceback_depth))
             num_exceptions += 1
             if num_exceptions > self.config.backoff_after:
                 logger.error(
