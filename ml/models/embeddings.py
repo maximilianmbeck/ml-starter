@@ -49,7 +49,7 @@ class LearnedPositionalEmbeddings(nn.Module):
         init_(self.embeddings.data, None, self.weight_init)
 
     def forward(self, x: Tensor, offset: int = 0, times: Tensor | None = None) -> Tensor:
-        return x + self.embeddings[None, offset : offset + x.size(1)] if times is None else self.embeddings[times]
+        return x + (self.embeddings[None, offset : offset + x.size(1)] if times is None else self.embeddings[times])
 
 
 class SinusoidalEmbeddings(LearnedPositionalEmbeddings):
@@ -131,9 +131,9 @@ class RotaryEmbeddings(nn.Module):
         half_d = self.embed_dim // 2
         x_rope, x_pass = x[..., :half_d], x[..., half_d:]
         neg_half_x = self._neg_half(x_rope)
-        cos_part = x_rope * self.cos[None, offset : offset + x.shape[1]]
-        sin_part = neg_half_x * self.sin[None, offset : offset + x.shape[1]]
-        x_rope = cos_part + sin_part
+        cos_part = self.cos[None, offset : offset + x.shape[1]] if times is None else self.cos[times]
+        sin_part = self.sin[None, offset : offset + x.shape[1]] if times is None else self.sin[times]
+        x_rope = x_rope * cos_part + neg_half_x * sin_part
         return torch.cat((x_rope, x_pass), dim=-1)
 
 
@@ -182,6 +182,7 @@ def get_positional_embeddings(
     ...
 
 
+@overload
 def get_positional_embeddings(
     max_tsz: int,
     embed_dim: int,
@@ -191,6 +192,18 @@ def get_positional_embeddings(
     learnable: bool = False,
     base: int = 10_000,
 ) -> IdentityPositionalEmbeddings | LearnedPositionalEmbeddings | SinusoidalEmbeddings | RotaryEmbeddings:
+    ...
+
+
+def get_positional_embeddings(
+    max_tsz: int,
+    embed_dim: int,
+    kind: EmbeddingKind,
+    *,
+    weight_init: InitializationType = "normal",
+    learnable: bool = False,
+    base: int = 10_000,
+) -> nn.Module:
     """Defines the common module for adding positional embeddings.
 
     Args:
