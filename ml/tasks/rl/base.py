@@ -207,7 +207,7 @@ class ReinforcementLearningTask(
             raise ValueError(f"{min_batch_size=} > {max_batch_size=}")
 
         with tqdm.tqdm(total=total_samples, disable=not use_tqdm, desc="Sampling") as pbar, torch.no_grad():
-            while total_samples is not None and num_samples < total_samples:
+            while total_samples is None or num_samples < total_samples:
                 start_time = time.time()
 
                 # Wait for new samples to be ready.
