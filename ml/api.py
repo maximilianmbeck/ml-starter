@@ -11,6 +11,7 @@ hand quickly.
 __all__ = [
     "ActivationType",
     "as_cpu_tensor",
+    "as_numpy_array",
     "assert_no_nans",
     "AsyncEnvironmentWorker",
     "AsyncIterableDataset",
@@ -185,7 +186,7 @@ from ml.utils.distributed import (
 from ml.utils.io import load_model_and_task
 from ml.utils.large_models import init_empty_weights, meta_to_empty_func
 from ml.utils.logging import configure_logging
-from ml.utils.numpy import as_cpu_tensor
+from ml.utils.numpy import as_cpu_tensor, as_numpy_array
 from ml.utils.staging import stage_environment
 from ml.utils.timer import Timer, timeout
 from ml.utils.video import READERS as VIDEO_READERS, WRITERS as VIDEO_WRITERS
