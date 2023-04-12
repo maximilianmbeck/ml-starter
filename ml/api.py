@@ -53,6 +53,8 @@ __all__ = [
     "get_args",
     "get_cache_dir",
     "get_data_dir",
+    "get_dataset_split_for_phase",
+    "get_dataset_splits",
     "get_eval_dir",
     "get_exp_name",
     "get_image_mask",
@@ -219,7 +221,7 @@ from ml.utils.augmentation import get_image_mask
 from ml.utils.caching import cached_object
 from ml.utils.checks import assert_no_nans
 from ml.utils.colors import colorize
-from ml.utils.data import get_worker_info
+from ml.utils.data import get_dataset_split_for_phase, get_dataset_splits, get_worker_info
 from ml.utils.datetime import format_timedelta
 from ml.utils.distributed import (
     get_master_addr,
