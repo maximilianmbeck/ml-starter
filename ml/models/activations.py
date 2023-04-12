@@ -9,13 +9,21 @@ ActivationType = Literal[
     "clamp6",
     "leaky_relu",
     "elu",
+    "celu",
     "selu",
     "sigmoid",
     "log_sigmoid",
+    "hard_sigomid",
     "tanh",
     "softsign",
     "softplus",
     "silu",
+    "mish",
+    "hard_swish",
+    "soft_shrink",
+    "hard_shrink",
+    "tanh_shrink",
+    "soft_sign",
 ]
 
 
@@ -85,12 +93,16 @@ def get_activation(act: ActivationType, *, inplace: bool = True) -> nn.Module:
             return nn.LeakyReLU(inplace=inplace)
         case "elu":
             return nn.ELU(inplace=inplace)
+        case "celu":
+            return nn.CELU(inplace=inplace)
         case "selu":
             return nn.SELU(inplace=inplace)
         case "sigmoid":
             return nn.Sigmoid()
         case "log_sigmoid":
             return nn.LogSigmoid()
+        case "hard_sigomid":
+            return nn.Hardsigmoid(inplace=inplace)
         case "tanh":
             return nn.Tanh()
         case "softsign":
@@ -99,5 +111,17 @@ def get_activation(act: ActivationType, *, inplace: bool = True) -> nn.Module:
             return nn.Softplus()
         case "silu":
             return nn.SiLU()
+        case "mish":
+            return nn.Mish(inplace=inplace)
+        case "hard_swish":
+            return nn.Hardswish(inplace=inplace)
+        case "soft_shrink":
+            return nn.Softshrink()
+        case "hard_shrink":
+            return nn.Hardshrink()
+        case "tanh_shrink":
+            return nn.Tanhshrink()
+        case "soft_sign":
+            return nn.Softsign()
         case _:
             raise NotImplementedError(f"Activation function '{act}' is not implemented.")
