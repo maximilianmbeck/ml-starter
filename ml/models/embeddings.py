@@ -5,13 +5,18 @@ from torch import Tensor, nn
 
 from ml.models.init import InitializationType, init_
 
-EmbeddingKind = Literal["learned", "sinusoidal", "rotary"]
+EmbeddingKind = Literal["identity", "learned", "sinusoidal", "rotary"]
 
 
 def cast_embedding_kind(k: str) -> EmbeddingKind:
     args = get_args(EmbeddingKind)
     assert k in args, f"Invalid initialization type: '{k}' Valid options are {args}"
     return cast(EmbeddingKind, k)
+
+
+class IdentityPositionalEmbeddings(nn.Module):
+    def forward(self, x: Tensor, offset: int = 0, times: Tensor | None = None) -> Tensor:
+        return x
 
 
 class LearnedPositionalEmbeddings(nn.Module):
@@ -136,6 +141,15 @@ class RotaryEmbeddings(nn.Module):
 def get_positional_embeddings(
     max_tsz: int,
     embed_dim: int,
+    kind: Literal["identity"],
+) -> IdentityPositionalEmbeddings:
+    ...
+
+
+@overload
+def get_positional_embeddings(
+    max_tsz: int,
+    embed_dim: int,
     kind: Literal["learned"],
     *,
     weight_init: InitializationType = "normal",
@@ -176,7 +190,7 @@ def get_positional_embeddings(
     weight_init: InitializationType = "normal",
     learnable: bool = False,
     base: int = 10_000,
-) -> LearnedPositionalEmbeddings | SinusoidalEmbeddings | RotaryEmbeddings:
+) -> IdentityPositionalEmbeddings | LearnedPositionalEmbeddings | SinusoidalEmbeddings | RotaryEmbeddings:
     """Defines the common module for adding positional embeddings.
 
     Args:
@@ -195,6 +209,17 @@ def get_positional_embeddings(
     """
 
     match kind:
+        case "identity":
+            return IdentityPositionalEmbeddings()
+
+        case "learned":
+            return LearnedPositionalEmbeddings(
+                max_tsz=max_tsz,
+                embed_dim=embed_dim,
+                weight_init=weight_init,
+                learnable=learnable,
+            )
+
         case "sinusoidal":
             return SinusoidalEmbeddings(
                 max_tsz=max_tsz,
@@ -209,14 +234,6 @@ def get_positional_embeddings(
                 embed_dim=embed_dim,
                 learnable=learnable,
                 base=base,
-            )
-
-        case "learned":
-            return LearnedPositionalEmbeddings(
-                max_tsz=max_tsz,
-                embed_dim=embed_dim,
-                weight_init=weight_init,
-                learnable=learnable,
             )
 
         case _:
