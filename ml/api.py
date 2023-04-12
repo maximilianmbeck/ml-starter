@@ -43,6 +43,7 @@ __all__ = [
     "colorize",
     "conf_field",
     "configure_logging",
+    "DDPTrainer",
     "Environment",
     "format_timedelta",
     "from_args",
@@ -61,6 +62,7 @@ __all__ = [
     "get_norm_2d",
     "get_norm_3d",
     "get_norm_linear",
+    "get_random_port",
     "get_rank_optional",
     "get_rank",
     "get_type_from_string",
@@ -89,20 +91,36 @@ __all__ = [
     "register_optimizer",
     "register_task",
     "register_trainer",
+    "ReinforcementLearningDDPTrainer",
+    "ReinforcementLearningSlurmTrainer",
+    "ReinforcementLearningSlurmTrainerConfig",
     "ReinforcementLearningTask",
     "ReinforcementLearningTaskConfig",
+    "ReinforcementLearningTrainerConfig",
+    "ReinforcementLearningVanillaTrainer",
+    "set_slurm_master_addr",
+    "set_slurm_rank_and_world_size",
+    "SlurmTrainer",
+    "SlurmTrainerConfig",
     "stage_environment",
     "State",
     "StreamingDataset",
     "StreamingDatasetNoIndex",
+    "SupervisedLearningDDPTrainer",
+    "SupervisedLearningSlurmTrainer",
+    "SupervisedLearningSlurmTrainerConfig",
     "SupervisedLearningTask",
     "SupervisedLearningTaskConfig",
+    "SupervisedLearningTrainerConfig",
+    "SupervisedLearningVanillaTrainer",
     "SyncEnvironmentWorker",
     "SyncWorkerPool",
     "test_dataset",
     "timeout",
     "Timer",
     "transforms",
+    "VanillaTrainer",
+    "VanillaTrainerConfig",
     "VIDEO_READERS",
     "VIDEO_WRITERS",
     "VideoFileDataset",
@@ -164,7 +182,24 @@ from ml.tasks.losses.reduce import cast_reduce_type, reduce
 from ml.tasks.rl.base import ReinforcementLearningTask, ReinforcementLearningTaskConfig
 from ml.tasks.sl.base import SupervisedLearningTask, SupervisedLearningTaskConfig
 from ml.trainers.base import BaseTrainer, BaseTrainerConfig
+from ml.trainers.ddp import DDPTrainer
 from ml.trainers.mixins.device.auto import AutoDevice
+from ml.trainers.rl import (
+    ReinforcementLearningDDPTrainer,
+    ReinforcementLearningSlurmTrainer,
+    ReinforcementLearningSlurmTrainerConfig,
+    ReinforcementLearningTrainerConfig,
+    ReinforcementLearningVanillaTrainer,
+)
+from ml.trainers.sl import (
+    SupervisedLearningDDPTrainer,
+    SupervisedLearningSlurmTrainer,
+    SupervisedLearningSlurmTrainerConfig,
+    SupervisedLearningTrainerConfig,
+    SupervisedLearningVanillaTrainer,
+)
+from ml.trainers.slurm import SlurmTrainer, SlurmTrainerConfig, set_slurm_master_addr, set_slurm_rank_and_world_size
+from ml.trainers.vanilla import VanillaTrainer, VanillaTrainerConfig
 from ml.utils.argparse import from_args, get_args, get_type_from_string
 from ml.utils.atomic import atomic_save, open_atomic
 from ml.utils.augmentation import get_image_mask
@@ -176,6 +211,7 @@ from ml.utils.datetime import format_timedelta
 from ml.utils.distributed import (
     get_master_addr,
     get_master_port,
+    get_random_port,
     get_rank,
     get_rank_optional,
     get_world_size,

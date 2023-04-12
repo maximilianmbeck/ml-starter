@@ -16,12 +16,10 @@ This allows for repeatability by just scheduling the same `sbatch.sh` file.
 
 import logging
 import os
-import random
 import re
 import signal
 import subprocess
 import sys
-import time
 from abc import ABC
 from dataclasses import dataclass
 from types import FrameType
@@ -42,6 +40,7 @@ from ml.trainers.vanilla import VanillaTrainer, VanillaTrainerConfig
 from ml.utils.distributed import (
     get_master_addr,
     get_master_port,
+    get_random_port,
     get_world_size,
     init_process_group,
     is_master,
@@ -101,8 +100,27 @@ echo ""
 """.strip()
 
 
-def get_random_port() -> int:
-    return (hash(time.time()) + random.randint(0, 100000)) % (65_535 - 10_000) + 10_000
+def set_slurm_rank_and_world_size() -> tuple[int, int]:
+    node_id = int(os.environ["SLURM_NODEID"])
+    local_id = int(os.environ["SLURM_LOCALID"])
+    tasks_per_node = int(os.environ["SLURM_NTASKS_PER_NODE"])
+    num_nodes = int(os.environ["SLURM_NNODES"])
+    rank = node_id * tasks_per_node + local_id
+    world_size = num_nodes * tasks_per_node
+    set_rank(rank)
+    set_world_size(world_size)
+    return rank, world_size
+
+
+def set_slurm_master_addr() -> str:
+    node_list = os.environ.get("SLURM_STEP_NODELIST")
+    if node_list is None:
+        node_list = os.environ.get("SLURM_JOB_NODELIST")
+    assert node_list is not None, "`SLURM_JOB_NODELIST` environment variable not set"
+    hostnames = subprocess.check_output(["scontrol", "show", "hostnames", node_list])
+    host = hostnames.split()[0].decode("utf-8")
+    set_master_addr(host)
+    return host
 
 
 @dataclass
@@ -259,26 +277,9 @@ def slurm_main() -> None:
     # Loads the raw config.
     raw_config = OmegaConf.load(args[0])
 
-    # Gets node list for current job.
-    node_list = os.environ.get("SLURM_STEP_NODELIST")
-    if node_list is None:
-        node_list = os.environ.get("SLURM_JOB_NODELIST")
-    assert node_list is not None, "`SLURM_JOB_NODELIST` environment variable not set"
-
-    # Resolves the complete node list.
-    hostnames = subprocess.check_output(["scontrol", "show", "hostnames", node_list])
-    host = hostnames.split()[0].decode("utf-8")
-    set_master_addr(host)
-
-    # Resolves the rank and world size.
-    node_id = int(os.environ["SLURM_NODEID"])
-    local_id = int(os.environ["SLURM_LOCALID"])
-    tasks_per_node = int(os.environ["SLURM_NTASKS_PER_NODE"])
-    num_nodes = int(os.environ["SLURM_NNODES"])
-    rank = node_id * tasks_per_node + local_id
-    world_size = num_nodes * tasks_per_node
-    set_rank(rank)
-    set_world_size(world_size)
+    # Sets environment variables from Clurm environment variables.
+    set_slurm_master_addr()
+    rank, world_size = set_slurm_rank_and_world_size()
 
     # Sets the initialization method and configures per-rank logging.
     set_init_method(f"tcp://{get_master_addr()}:{get_master_port()}")

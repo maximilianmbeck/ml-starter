@@ -1,5 +1,7 @@
 import logging
 import os
+import random
+import time
 
 import torch
 import torch.distributed as dist
@@ -79,3 +81,7 @@ def init_process_group(backend: str | dist.Backend) -> None:
     else:
         logger.log(INFOALL, "Finished initializing %d / %d", rank, world_size)
     logger.log(INFOALL, "Dummy all-reduce succeeded")
+
+
+def get_random_port() -> int:
+    return (hash(time.time()) + random.randint(0, 100000)) % (65_535 - 10_000) + 10_000
