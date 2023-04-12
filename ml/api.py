@@ -45,7 +45,6 @@ __all__ = [
     "conf_field",
     "configure_logging",
     "DDPTrainer",
-    "Embeddings",
     "Environment",
     "format_timedelta",
     "from_args",
@@ -76,6 +75,7 @@ __all__ = [
     "InitializationType",
     "is_distributed",
     "is_master",
+    "LearnedPositionalEmbeddings",
     "load_model_and_task",
     "Loss",
     "meta_to_empty_func",
@@ -86,6 +86,7 @@ __all__ = [
     "pad_all",
     "pad_sequence",
     "Phase",
+    "PositionalEmbeddings",
     "reduce",
     "register_logger",
     "register_lr_scheduler",
@@ -153,7 +154,13 @@ from ml.core.state import Phase, State
 from ml.lr_schedulers.base import BaseLRScheduler, BaseLRSchedulerConfig
 from ml.models.activations import ActivationType, cast_activation_type, get_activation
 from ml.models.base import BaseModel, BaseModelConfig
-from ml.models.embeddings import Embeddings, RotaryEmbeddings, SinusoidalEmbeddings, cast_embedding_kind
+from ml.models.embeddings import (
+    LearnedPositionalEmbeddings,
+    PositionalEmbeddings,
+    RotaryEmbeddings,
+    SinusoidalEmbeddings,
+    cast_embedding_kind,
+)
 from ml.models.init import InitializationType, cast_init_type, init_
 from ml.models.norms import (
     NormType,

@@ -3,7 +3,9 @@ from typing import Literal, cast, get_args
 import torch
 from torch import Tensor, nn
 
-EmbeddingKind = Literal["sinusoidal", "rotary"]
+from ml.models.init import InitializationType, init_
+
+EmbeddingKind = Literal["sinusoidal", "rotary", "learned"]
 
 
 def cast_embedding_kind(k: str) -> EmbeddingKind:
@@ -12,7 +14,40 @@ def cast_embedding_kind(k: str) -> EmbeddingKind:
     return cast(EmbeddingKind, k)
 
 
-class SinusoidalEmbeddings(nn.Module):
+class LearnedPositionalEmbeddings(nn.Module):
+    def __init__(
+        self,
+        max_tsz: int,
+        embed_dim: int,
+        weight_init: InitializationType = "normal",
+        learnable: bool = True,
+    ) -> None:
+        """Defines a learned embeddings module.
+
+        Args:
+            max_tsz: The maximum sequence length.
+            embed_dim: The embedding dimension.
+            weight_init: The initialization type for the embedding weight.
+            learnable: Whether the embeddings are learnable.
+        """
+
+        super().__init__()
+
+        self.max_tsz = max_tsz
+        self.embed_dim = embed_dim
+        self.weight_init = weight_init
+
+        self.embeddings = nn.Parameter(torch.empty(max_tsz, embed_dim), requires_grad=learnable)
+        self.reset_parameters()
+
+    def reset_parameters(self) -> None:
+        init_(self.embeddings.data, None, self.weight_init)
+
+    def forward(self, x: Tensor, offset: int = 0, times: Tensor | None = None) -> Tensor:
+        return x + self.embeddings[None, offset : offset + x.size(1)] if times is None else self.embeddings[times]
+
+
+class SinusoidalEmbeddings(LearnedPositionalEmbeddings):
     def __init__(
         self,
         max_tsz: int,
@@ -29,13 +64,13 @@ class SinusoidalEmbeddings(nn.Module):
             base: The base for the sinusoidal embeddings.
         """
 
-        super().__init__()
-
-        self.embed_dim = embed_dim
         self.learnable = learnable
         self.base = base
 
-        self.embeddings = nn.Parameter(self.get_embeddings(max_tsz), requires_grad=learnable)
+        super().__init__(max_tsz, embed_dim, learnable=learnable)
+
+    def reset_parameters(self) -> None:
+        self.embeddings.data.copy_(self.get_embeddings(self.max_tsz))
 
     def get_embeddings(self, tsz: int) -> Tensor:
         positions = torch.arange(tsz, dtype=torch.float32)
@@ -45,9 +80,6 @@ class SinusoidalEmbeddings(nn.Module):
         embeddings[:, 0::2] = torch.sin(embeddings[:, 0::2])
         embeddings[:, 1::2] = torch.cos(embeddings[:, 1::2])
         return embeddings
-
-    def forward(self, x: Tensor, offset: int = 0, times: Tensor | None = None) -> Tensor:
-        return x + self.embeddings[None, offset : offset + x.size(1)] if times is None else self.embeddings[times]
 
 
 class RotaryEmbeddings(nn.Module):
@@ -100,7 +132,7 @@ class RotaryEmbeddings(nn.Module):
         return torch.cat((x_rope, x_pass), dim=-1)
 
 
-class Embeddings(nn.Module):
+class PositionalEmbeddings(nn.Module):
     def __init__(
         self,
         max_tsz: int,
@@ -109,7 +141,7 @@ class Embeddings(nn.Module):
         learnable: bool = False,
         base: int = 10_000,
     ) -> None:
-        """Defines the common embeddings module.
+        """Defines the common module for adding positional embeddings.
 
         Args:
             max_tsz: The maximum sequence length.
@@ -140,6 +172,13 @@ class Embeddings(nn.Module):
                 embed_dim=embed_dim,
                 learnable=learnable,
                 base=base,
+            )
+
+        elif kind == "learned":
+            self.module = LearnedPositionalEmbeddings(
+                max_tsz=max_tsz,
+                embed_dim=embed_dim,
+                learnable=learnable,
             )
 
         else:
