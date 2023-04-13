@@ -77,6 +77,7 @@ __all__ = [
     "init_",
     "init_empty_weights",
     "InitializationType",
+    "is_debugging",
     "is_distributed",
     "is_master",
     "LearnedPositionalEmbeddings",
@@ -144,6 +145,7 @@ from ml.core.env import (
     get_exp_name,
     get_log_dir,
     get_model_dir,
+    is_debugging,
 )
 from ml.core.registry import (
     register_logger,
