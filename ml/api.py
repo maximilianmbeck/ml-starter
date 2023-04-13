@@ -18,6 +18,7 @@ __all__ = [
     "AsyncWorkerPool",
     "atomic_save",
     "AutoDevice",
+    "BaseDevice",
     "BaseEnvironmentWorker",
     "BaseLRScheduler",
     "BaseLRSchedulerConfig",
@@ -202,6 +203,7 @@ from ml.tasks.sl.base import SupervisedLearningTask, SupervisedLearningTaskConfi
 from ml.trainers.base import BaseTrainer, BaseTrainerConfig
 from ml.trainers.ddp import DDPTrainer
 from ml.trainers.mixins.device.auto import AutoDevice
+from ml.trainers.mixins.device.base import BaseDevice
 from ml.trainers.rl import (
     ReinforcementLearningDDPTrainer,
     ReinforcementLearningSlurmTrainer,
