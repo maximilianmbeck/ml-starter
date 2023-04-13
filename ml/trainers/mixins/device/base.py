@@ -17,6 +17,10 @@ from ml.core.common_types import Batch
 from ml.utils.timer import Timer
 
 
+def allow_nonblocking(device_a: torch.device, device_b: torch.device) -> bool:
+    return device_a.type in ("cpu", "cuda") and device_b.type in ("cpu", "cuda")
+
+
 def get_tasks_outstanding(dataloader_iter: _BaseDataLoaderIter) -> int:
     if isinstance(dataloader_iter, _MultiProcessingDataLoaderIter):
         try:
@@ -194,7 +198,7 @@ class BaseDevice(ABC):
             lambda t: t.to(
                 device,
                 dtype_fp if t.is_floating_point() else t.dtype,
-                non_blocking=True,
+                non_blocking=allow_nonblocking(t.device, device),
             ),
         )
 

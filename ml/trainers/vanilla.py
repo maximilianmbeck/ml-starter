@@ -108,7 +108,7 @@ class VanillaTrainer(
     def get_task_model_impl(self, task: TaskT, model: ModelT) -> nn.Module:
         device, dtype = self._device.get_device(), self._weight_precision
         model.init(device, dtype)
-        task.to(device, dtype, non_blocking=True)
+        task.to(device, dtype)
         task_model: nn.Module = TaskModel(task=task, model=model)
         return task_model
 

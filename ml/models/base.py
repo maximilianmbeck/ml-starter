@@ -7,6 +7,7 @@ from torch import Tensor, nn
 
 from ml.core.config import BaseConfig, BaseObject
 from ml.loggers.multi import MultiLogger
+from ml.trainers.mixins.device.base import allow_nonblocking
 from ml.utils.colors import colorize
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -40,8 +41,8 @@ class BaseModel(BaseObject[ModelConfigT], Generic[ModelConfigT], nn.Module):
             if t.is_meta:
                 return t
             if t.is_floating_point():
-                return t.to(device=device, dtype=dtype, non_blocking=True)
-            return t.to(device=device, non_blocking=True)
+                return t.to(device=device, dtype=dtype, non_blocking=allow_nonblocking(device, t.device))
+            return t.to(device=device, non_blocking=allow_nonblocking(device, t.device))
 
         self._apply(move_to_device)
 
@@ -79,5 +80,5 @@ class BaseModel(BaseObject[ModelConfigT], Generic[ModelConfigT], nn.Module):
     def tensor_to(self, tensor: Tensor, non_blocking: bool = False) -> Tensor:
         device, dtype = self.get_device(), self.get_dtype()
         if tensor.is_floating_point() or tensor.is_complex():
-            return tensor.to(device, dtype, non_blocking=non_blocking)
-        return tensor.to(device, non_blocking=non_blocking)
+            return tensor.to(device, dtype, non_blocking=non_blocking and allow_nonblocking(device, tensor.device))
+        return tensor.to(device, non_blocking=non_blocking and allow_nonblocking(device, tensor.device))
