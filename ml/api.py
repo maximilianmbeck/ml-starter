@@ -106,6 +106,7 @@ __all__ = [
     "ReinforcementLearningTrainerConfig",
     "ReinforcementLearningVanillaTrainer",
     "RotaryEmbeddings",
+    "set_random_seed",
     "set_slurm_master_addr",
     "set_slurm_rank_and_world_size",
     "SinusoidalEmbeddings",
@@ -240,6 +241,7 @@ from ml.utils.io import load_model_and_task
 from ml.utils.large_models import init_empty_weights, meta_to_empty_func
 from ml.utils.logging import configure_logging
 from ml.utils.numpy import as_cpu_tensor, as_numpy_array
+from ml.utils.random import set_random_seed
 from ml.utils.staging import stage_environment
 from ml.utils.timer import Timer, timeout
 from ml.utils.video import READERS as VIDEO_READERS, WRITERS as VIDEO_WRITERS
