@@ -103,15 +103,15 @@ is_debugging = Debugging.get
 CacheDir = _PathEnvVar("CACHE_DIR", default=Path.home() / ".cache", suffix="model-artifacts")
 get_cache_dir = CacheDir.get
 
-# Where to store run log info.
-LogDir = _PathEnvVar("LOG_DIR")
-get_log_dir = LogDir.get
-set_log_dir = LogDir.set
+# Root directory for training runs.
+RunDir = _PathEnvVar("RUN_DIR")
+get_run_dir = RunDir.get
+set_run_dir = RunDir.set
 
-# Where to store eval results.
-EvalDir = _PathEnvVar("EVAL_DIR")
-get_eval_dir = EvalDir.get
-set_eval_dir = EvalDir.set
+# Root directory for evaluation runs.
+EvalRunDir = _PathEnvVar("EVAL_RUN_DIR")
+get_eval_run_dir = EvalRunDir.get
+set_eval_run_dir = EvalRunDir.set
 
 # The name of the experiment (set by the training script).
 ExpName = _StrEnvVar("EXPERIMENT_NAME", default="Experiment")

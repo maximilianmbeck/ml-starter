@@ -56,10 +56,9 @@ __all__ = [
     "get_data_dir",
     "get_dataset_split_for_phase",
     "get_dataset_splits",
-    "get_eval_dir",
+    "get_eval_run_dir",
     "get_exp_name",
     "get_image_mask",
-    "get_log_dir",
     "get_master_addr",
     "get_master_port",
     "get_model_dir",
@@ -71,6 +70,7 @@ __all__ = [
     "get_random_port",
     "get_rank_optional",
     "get_rank",
+    "get_run_dir",
     "get_type_from_string",
     "get_worker_info",
     "get_world_size_optional",
@@ -143,10 +143,10 @@ from ml.core.config import conf_field
 from ml.core.env import (
     get_cache_dir,
     get_data_dir,
-    get_eval_dir,
+    get_eval_run_dir,
     get_exp_name,
-    get_log_dir,
     get_model_dir,
+    get_run_dir,
     is_debugging,
 )
 from ml.core.registry import (
