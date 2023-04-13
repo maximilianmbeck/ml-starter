@@ -3,8 +3,9 @@ import functools
 import logging
 import os
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
+from pickle import UnpicklingError
 from typing import Any, Generic, Literal, TypeVar, cast, get_args
 
 import torch
@@ -317,9 +318,19 @@ class BaseTrainer(BaseObjectWithPointers[TrainerConfigT], Generic[TrainerConfigT
         model: ModelT,
         optim: Optimizer | None = None,
         lr_sched: SchedulerAdapter | None = None,
+        *,
+        weights_only: bool = True,
     ) -> State:
         with Timer("loading checkpoint"):
-            ckpt = torch.load(ckpt_path)
+            try:
+                ckpt = torch.load(ckpt_path, weights_only=weights_only)
+            except UnpicklingError:
+                if weights_only:
+                    logger.warning("Failed to load checkpoint using `weights_only` flag, retrying without it")
+                    ckpt = torch.load(ckpt_path, weights_only=False)
+                else:
+                    raise
+
             task.on_after_load_checkpoint(ckpt)
             if "model" in ckpt:
                 model.load_state_dict(ckpt["model"])
@@ -340,7 +351,7 @@ class BaseTrainer(BaseObjectWithPointers[TrainerConfigT], Generic[TrainerConfigT
                 else:
                     logger.warning("Checkpoint does not contain a learning rate scheduler state dict")
             self.load_state_dict(ckpt)
-            state = ckpt["state"]
+            state = State(**ckpt["state"])
         return state
 
     def save_checkpoint(
@@ -362,7 +373,7 @@ class BaseTrainer(BaseObjectWithPointers[TrainerConfigT], Generic[TrainerConfigT
                     "task": task.state_dict(),
                     "optim": None if optim is None else optim.state_dict(),
                     "lr_sched": None if lr_sched is None else lr_sched.state_dict(),
-                    "state": state,
+                    "state": asdict(state),
                 }
                 self.update_state_dict(state_dict)
                 if last_ckpt_path.exists():
