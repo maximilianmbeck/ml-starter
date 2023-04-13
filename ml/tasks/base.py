@@ -30,8 +30,8 @@ from ml.tasks.datasets.error_handling import (
     get_error_handling_dataset,
 )
 from ml.tasks.losses.reduce import cast_reduce_type, reduce
-from ml.trainers.mixins.device.auto import AutoDevice
-from ml.trainers.mixins.device.base import BaseDevice
+from ml.utils.device.auto import AutoDevice
+from ml.utils.device.base import BaseDevice
 from ml.utils.random import set_random_seed
 
 logger: logging.Logger = logging.getLogger(__name__)

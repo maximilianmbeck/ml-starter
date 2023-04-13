@@ -8,7 +8,7 @@ from ml.core.registry import register_model, register_task
 from ml.models.base import BaseModel
 from ml.tasks.base import BaseTask
 from ml.trainers.base import DummyBaseTrainer
-from ml.trainers.mixins.device.auto import AutoDevice
+from ml.utils.device.auto import AutoDevice
 from ml.utils.timer import Timer
 
 logger = logging.getLogger(__name__)

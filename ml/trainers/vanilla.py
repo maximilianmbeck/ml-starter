@@ -25,7 +25,7 @@ from torch.optim import Optimizer
 
 from ml.core.common_types import Batch, Loss
 from ml.core.config import conf_field
-from ml.core.state import State, set_phase
+from ml.core.state import Phase, State, set_phase
 from ml.lr_schedulers.base import BaseLRScheduler, SchedulerAdapter
 from ml.optimizers.base import BaseOptimizer
 from ml.trainers.base import BaseTrainer, BaseTrainerConfig, ModelT, TaskT
@@ -40,6 +40,7 @@ from ml.trainers.mixins.mixed_precision import (
     MixedPrecisionTrainerMixin,
 )
 from ml.trainers.mixins.profiler import ProfilerTrainerConfig, ProfilerTrainerMixin
+from ml.utils.device.base import Prefetcher
 from ml.utils.distributed import is_master
 from ml.utils.timer import Timer
 
@@ -287,6 +288,11 @@ class VanillaTrainer(
         if (ckpt_path := self.get_ckpt_path()).exists():
             return self.load_checkpoint(ckpt_path, task, model, optim, lr_sched)
         return State.init_state()
+
+    def _log_prefetcher_stats(self, pf: Prefetcher, phase: Phase) -> None:
+        self.logger.log_scalar(f"num_queued_{phase}_samples", pf.num_queued_samples, namespace="trainer")
+        self.logger.log_scalar(f"dt/get_{phase}_batch", pf.get_batch_time, namespace="timers")
+        self.logger.log_scalar(f"dt/get_{phase}_batch", pf.to_device_time, namespace="timers")
 
     def launch(self) -> None:
         raise NotImplementedError(f"{self.__class__.__name__} doesn't support multiprocess training")

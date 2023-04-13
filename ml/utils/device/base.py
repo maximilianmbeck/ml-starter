@@ -73,16 +73,18 @@ class Prefetcher(Iterable[Batch]):
         self.dataloader_iter = iter(self.dataloader)
         self.next_sample = None
         self.get_batch_time = 0.0
+        self.to_device_time = 0.0
         self.num_queued_samples = -1
-
-    def get_next_sample(self) -> Any:
-        sample = self.to_device_func(next(self.dataloader_iter))
-        self.num_queued_samples = get_tasks_outstanding(self.dataloader_iter)
-        return sample
 
     def prefetch(self) -> None:
         try:
-            self.next_sample = self.get_next_sample()
+            with Timer("getting sample from dataloader") as timer:
+                next_sample = next(self.dataloader_iter)
+            self.get_batch_time = timer.elapsed_time
+            with Timer("moving sample to device") as timer:
+                self.next_sample = self.to_device_func(next_sample)
+            self.to_device_time = timer.elapsed_time
+            self.num_queued_samples = get_tasks_outstanding(self.dataloader_iter)
         except StopIteration:
             self.next_sample = None
 
@@ -127,10 +129,8 @@ class Prefetcher(Iterable[Batch]):
             while True:
                 if self.next_sample is None:
                     raise StopIteration
-                with Timer("getting batch") as timer:
-                    sample = self.next_sample
-                    self.prefetch()
-                self.get_batch_time = timer.elapsed_time
+                sample = self.next_sample
+                self.prefetch()
                 yield sample
 
         except StopIteration:

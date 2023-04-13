@@ -133,8 +133,7 @@ class ReinforcementLearningVanillaTrainer(
                         train_pf = self._device.get_prefetcher(train_dl)
 
                     for train_batch in train_pf:
-                        self.logger.log_scalar("num_queued_samples", train_pf.num_queued_samples, namespace="trainer")
-                        self.logger.log_scalar("dt/get_batch", train_pf.get_batch_time, namespace="timers")
+                        self._log_prefetcher_stats(train_pf, "train")
 
                         if task.is_training_over(state):
                             on_finish_training()
@@ -170,7 +169,12 @@ class ReinforcementLearningVanillaTrainer(
                     state.num_epochs += 1
 
         except TrainingFinishedException:
-            logger.info("Finished training for %s", self.exp_dir / "config.yaml")
+            logger.info(
+                "Finished training after %d epochs, %d steps, %d samples",
+                state.num_epochs,
+                state.num_steps,
+                state.num_samples,
+            )
 
         except Exception:
             logger.exception("Caught exception during training loop")

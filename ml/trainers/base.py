@@ -21,9 +21,9 @@ from ml.lr_schedulers.base import BaseLRScheduler, SchedulerAdapter
 from ml.models.base import BaseModel
 from ml.optimizers.base import BaseOptimizer
 from ml.tasks.base import BaseTask
-from ml.trainers.mixins.device.auto import AutoDevice
-from ml.trainers.mixins.device.base import BaseDevice
 from ml.utils.colors import colorize
+from ml.utils.device.auto import AutoDevice
+from ml.utils.device.base import BaseDevice
 from ml.utils.distributed import is_master
 from ml.utils.timer import Timer
 

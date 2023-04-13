@@ -7,8 +7,8 @@ from torch import Tensor, nn
 
 from ml.core.config import BaseConfig, BaseObject
 from ml.loggers.multi import MultiLogger
-from ml.trainers.mixins.device.base import allow_nonblocking
 from ml.utils.colors import colorize
+from ml.utils.device.base import allow_nonblocking
 
 logger: logging.Logger = logging.getLogger(__name__)
 

@@ -3,7 +3,7 @@ from typing import Callable
 import torch
 
 from ml.core.env import is_metal_disabled
-from ml.trainers.mixins.device.base import BaseDevice
+from ml.utils.device.base import BaseDevice
 
 
 class MetalDevice(BaseDevice):

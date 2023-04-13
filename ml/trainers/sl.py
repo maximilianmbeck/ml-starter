@@ -19,9 +19,9 @@ from ml.optimizers.base import BaseOptimizer
 from ml.tasks.sl.base import SupervisedLearningTask
 from ml.trainers.base import ModelT
 from ml.trainers.ddp import DDPTrainer
-from ml.trainers.mixins.device.base import InfinitePrefetcher
 from ml.trainers.slurm import SlurmTrainer, SlurmTrainerConfig
 from ml.trainers.vanilla import TrainingFinishedException, VanillaTrainer, VanillaTrainerConfig
+from ml.utils.device.base import InfinitePrefetcher
 from ml.utils.timer import Timer
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -133,8 +133,7 @@ class SupervisedLearningVanillaTrainer(
                     state.num_epoch_samples = 0
 
                     for train_batch in train_pf:
-                        self.logger.log_scalar("num_queued_samples", train_pf.num_queued_samples, namespace="trainer")
-                        self.logger.log_scalar("dt/get_batch", train_pf.get_batch_time, namespace="timers")
+                        self._log_prefetcher_stats(train_pf, "train")
 
                         if task.is_training_over(state):
                             on_finish_training()
@@ -154,6 +153,8 @@ class SupervisedLearningVanillaTrainer(
 
                         valid_every_n_steps = self.config.validation.valid_every_n_steps
                         if valid_every_n_steps is not None and state.num_steps % valid_every_n_steps == 0:
+                            self._log_prefetcher_stats(valid_pf, "valid")
+
                             self.val_step(
                                 task_model=task_model,
                                 batch=next(valid_pf_iter),
@@ -177,7 +178,12 @@ class SupervisedLearningVanillaTrainer(
                     state.num_epochs += 1
 
         except TrainingFinishedException:
-            logger.info("Finished training for %s", self.exp_dir / "config.yaml")
+            logger.info(
+                "Finished training after %d epochs, %d steps, %d samples",
+                state.num_epochs,
+                state.num_steps,
+                state.num_samples,
+            )
 
         except Exception:
             logger.exception("Caught exception during training loop")

@@ -2,10 +2,10 @@ import functools
 import logging
 from typing import Type
 
-from ml.trainers.mixins.device.base import BaseDevice
-from ml.trainers.mixins.device.cpu import CPUDevice
-from ml.trainers.mixins.device.gpu import GPUDevice
-from ml.trainers.mixins.device.metal import MetalDevice
+from ml.utils.device.base import BaseDevice
+from ml.utils.device.cpu import CPUDevice
+from ml.utils.device.gpu import GPUDevice
+from ml.utils.device.metal import MetalDevice
 from ml.utils.logging import INFOALL
 
 logger: logging.Logger = logging.getLogger(__name__)

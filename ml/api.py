@@ -202,8 +202,6 @@ from ml.tasks.rl.base import ReinforcementLearningTask, ReinforcementLearningTas
 from ml.tasks.sl.base import SupervisedLearningTask, SupervisedLearningTaskConfig
 from ml.trainers.base import BaseTrainer, BaseTrainerConfig
 from ml.trainers.ddp import DDPTrainer
-from ml.trainers.mixins.device.auto import AutoDevice
-from ml.trainers.mixins.device.base import BaseDevice
 from ml.trainers.rl import (
     ReinforcementLearningDDPTrainer,
     ReinforcementLearningSlurmTrainer,
@@ -228,6 +226,8 @@ from ml.utils.checks import assert_no_nans
 from ml.utils.colors import colorize
 from ml.utils.data import get_dataset_split_for_phase, get_dataset_splits, get_worker_info
 from ml.utils.datetime import format_timedelta
+from ml.utils.device.auto import AutoDevice
+from ml.utils.device.base import BaseDevice
 from ml.utils.distributed import (
     get_master_addr,
     get_master_port,

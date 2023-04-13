@@ -5,7 +5,7 @@ import torch
 import torch.distributed as dist
 from torch import Tensor
 
-from ml.trainers.mixins.device.auto import AutoDevice
+from ml.utils.device.auto import AutoDevice
 
 
 @functools.lru_cache
