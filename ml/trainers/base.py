@@ -313,7 +313,7 @@ class BaseTrainer(BaseObjectWithPointers[TrainerConfigT], Generic[TrainerConfigT
 
     def load_checkpoint(
         self,
-        ckpt_path: Path,
+        ckpt: str | Path | dict,
         task: TaskT,
         model: ModelT,
         optim: Optimizer | None = None,
@@ -321,15 +321,33 @@ class BaseTrainer(BaseObjectWithPointers[TrainerConfigT], Generic[TrainerConfigT
         *,
         weights_only: bool = True,
     ) -> State:
+        """Loads a given checkpoint, from a path or dictionary.
+
+        Args:
+            ckpt: The checkpoint to load.
+            task: The task to load the checkpoint into.
+            model: The model to load the checkpoint into.
+            optim: The optimizer to load the checkpoint into.
+            lr_sched: The learning rate scheduler to load the checkpoint into.
+            weights_only: If set, only load the model weights.
+
+        Returns:
+            The state loaded from the checkpoint.
+
+        Raises:
+            UnpicklingError: If there is some issue unpickling the checkpoint.
+        """
+
         with Timer("loading checkpoint"):
-            try:
-                ckpt = torch.load(ckpt_path, weights_only=weights_only)
-            except UnpicklingError:
-                if weights_only:
-                    logger.warning("Failed to load checkpoint using `weights_only` flag, retrying without it")
-                    ckpt = torch.load(ckpt_path, weights_only=False)
-                else:
-                    raise
+            if isinstance(ckpt, (str, Path)):
+                try:
+                    ckpt = cast(dict, torch.load(ckpt, weights_only=weights_only))
+                except UnpicklingError:
+                    if weights_only:
+                        logger.warning("Failed to load checkpoint using `weights_only` flag, retrying without it")
+                        ckpt = cast(dict, torch.load(cast(str | Path, ckpt), weights_only=False))
+                    else:
+                        raise
 
             task.on_after_load_checkpoint(ckpt)
             if "model" in ckpt:
@@ -368,13 +386,15 @@ class BaseTrainer(BaseObjectWithPointers[TrainerConfigT], Generic[TrainerConfigT
                 logger.info("Saving checkpoint to %s", ckpt_path)
                 last_ckpt_path = self.get_ckpt_path()
                 ckpt_path.parent.mkdir(exist_ok=True, parents=True)
-                state_dict = {
+                state_dict: dict[str, Any] = {
                     "model": model.state_dict(),
                     "task": task.state_dict(),
                     "optim": None if optim is None else optim.state_dict(),
                     "lr_sched": None if lr_sched is None else lr_sched.state_dict(),
                     "state": asdict(state),
                 }
+                if self._raw_config is not None:
+                    state_dict["config"] = OmegaConf.to_container(self._raw_config)
                 self.update_state_dict(state_dict)
                 if last_ckpt_path.exists():
                     if self.checkpoint_config.only_save_most_recent:

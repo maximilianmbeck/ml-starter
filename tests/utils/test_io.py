@@ -67,8 +67,13 @@ def test_load_model_and_test(tmpdir: Path) -> None:
     trainer.save_config()
     trainer.save_checkpoint(state, task, model)
 
+    # Load directly from checkpoint.
+    model, task = load_model_and_task(ckpt_path=trainer.ckpt_path)
+    assert isinstance(model, DummyModel)
+    assert isinstance(task, DummyTask)
+
     # Loads the model and task.
-    model, task = load_model_and_task(trainer.config_path)
+    model, task = load_model_and_task(config_path=trainer.config_path)
 
     # Checks that the loaded model and task have the same parameters.
     assert isinstance(model, DummyModel)

@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 from typing import TypeVar, cast
 
+import torch
 from omegaconf import DictConfig, OmegaConf
 
 from ml.core.registry import register_model, register_task
@@ -50,10 +51,11 @@ def get_checkpoint_path(
 
 
 def load_model_and_task(
-    config_path: str | Path,
+    config_path: str | Path | None = None,
     ckpt_path: str | Path | None = None,
     to_device: bool = True,
     missing_ckpt_okay: bool = False,
+    weights_only: bool = True,
 ) -> tuple[BaseModel, BaseTask]:
     """Loads a trained checkpoint from a config, and optional checkpoint path.
 
@@ -68,30 +70,48 @@ def load_model_and_task(
             config.
         missing_ckpt_okay: Whether to return a model and task even if the
             checkpoint is missing.
+        weights_only: Whether to load only the weights of the model, or the
+            entire model.
 
     Returns:
         The model and task loaded from the checkpoint
 
     Raises:
+        ValueError: If both `config_path` and `ckpt_path` are None.
         RuntimeError: If the checkpoint is missing and `missing_ckpt_okay` is
             False.
     """
 
     with Timer("loading checkpoint"):
-        config = cast(DictConfig, OmegaConf.load(config_path))
+        ckpt: str | Path | dict | None = None
+
+        if config_path is None:
+            if ckpt_path is None:
+                raise ValueError("Must provide either a config path or a checkpoint path")
+
+            ckpt = cast(dict, torch.load(ckpt_path, map_location="cpu"))
+            if "config" not in ckpt:
+                raise ValueError("Could not find a config in the checkpoint")
+            config = OmegaConf.create(ckpt["config"])
+            trainer = DummyBaseTrainer(config.trainer)
+
+        else:
+            config = cast(DictConfig, OmegaConf.load(config_path))
+            trainer = DummyBaseTrainer(config.trainer)
+
+            # Uses the dummy trainer to load the checkpoint.
+            try:
+                ckpt = get_checkpoint_path(trainer, config_path, ckpt_path)
+            except RuntimeError:
+                if missing_ckpt_okay:
+                    logger.exception("Could not load checkpoint")
+                else:
+                    raise
+
         model = register_model.build_entry_non_null(config)
         task = register_task.build_entry_non_null(config)
-        trainer = DummyBaseTrainer(config.trainer)
-
-        # Uses the dummy trainer to load the checkpoint.
-        try:
-            ckpt_path = get_checkpoint_path(trainer, config_path, ckpt_path)
-            trainer.load_checkpoint(ckpt_path, task, model)
-        except RuntimeError:
-            if missing_ckpt_okay:
-                logger.exception("Could not load checkpoint")
-            else:
-                raise
+        if ckpt is not None:
+            trainer.load_checkpoint(ckpt, task, model, weights_only=weights_only)
 
         if to_device:
             device = AutoDevice.detect_device()
