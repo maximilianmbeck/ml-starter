@@ -78,6 +78,7 @@ __all__ = [
     "init_",
     "init_empty_weights",
     "InitializationType",
+    "instantiate_config",
     "is_debugging",
     "is_distributed",
     "is_master",
@@ -239,7 +240,7 @@ from ml.utils.distributed import (
     is_distributed,
     is_master,
 )
-from ml.utils.io import load_model_and_task
+from ml.utils.io import instantiate_config, load_model_and_task
 from ml.utils.large_models import init_empty_weights, meta_to_empty_func
 from ml.utils.logging import configure_logging
 from ml.utils.numpy import as_cpu_tensor, as_numpy_array

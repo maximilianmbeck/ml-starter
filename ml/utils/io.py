@@ -5,7 +5,7 @@ from typing import TypeVar, cast
 import torch
 from omegaconf import DictConfig, OmegaConf
 
-from ml.core.registry import register_model, register_task
+from ml.core.registry import Objects, register_model, register_task
 from ml.models.base import BaseModel
 from ml.tasks.base import BaseTask
 from ml.trainers.base import DummyBaseTrainer
@@ -15,6 +15,25 @@ from ml.utils.timer import Timer
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
+
+
+def instantiate_config(config: str | Path | DictConfig | dict) -> Objects:
+    """Builds the objects from the raw config.
+
+    Args:
+        config: The config to use. If a string or a Path, it is expected to
+            be a path to a YAML file.
+
+    Returns:
+        The instantiated objects.
+    """
+
+    if isinstance(config, (str, Path)):
+        config = cast(DictConfig, OmegaConf.load(config))
+    elif isinstance(config, dict):
+        config = OmegaConf.create(config)
+    Objects.resolve_config(config)
+    return Objects.parse_raw_config(config)
 
 
 def get_checkpoint_path(

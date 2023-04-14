@@ -61,16 +61,16 @@ def cli_main(project_root: Path | str | None = None) -> None:
     # Adds a global tag with the currently-selected option.
     add_global_tag(option)
 
-    # Parses the command-line arguments to a single DictConfig object.
-    config = parse_cli(args)
-    Objects.resolve_config(config)
-
     if option in without_objects_scripts:
         # Special handling for multi-processing; don't initialize anything since
         # everything will be initialized inside the child processes.
+        config = parse_cli(args)
+        Objects.resolve_config(config)
         without_objects_scripts[option](config)
     elif option in with_objects_scripts:
         # Converts the raw config to the objects they are pointing at.
+        config = parse_cli(args)
+        Objects.resolve_config(config)
         objs = Objects.parse_raw_config(config)
         with_objects_scripts[option](objs)
     else:
