@@ -41,7 +41,6 @@ from ml.trainers.mixins.mixed_precision import (
 )
 from ml.trainers.mixins.profiler import ProfilerTrainerConfig, ProfilerTrainerMixin
 from ml.utils.device.base import Prefetcher
-from ml.utils.distributed import is_master
 from ml.utils.timer import Timer
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -227,9 +226,6 @@ class VanillaTrainer(
         pass
 
     def _init_environment(self) -> None:
-        if is_master():
-            self.add_lock_file("running", exists_ok=True)
-
         # Sets up environment.
         if self.config.deterministic:
             torch.use_deterministic_algorithms(True)
@@ -240,6 +236,8 @@ class VanillaTrainer(
         with Timer("saving config"):
             self.save_config()
             self.log_run_config()
+
+        self.add_lock_file("running", exists_ok=True)
 
         # Enables anomaly detection.
         if self.config.detect_anomaly:
