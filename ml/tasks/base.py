@@ -405,8 +405,8 @@ class BaseTask(
             "worker_init_fn": self.worker_init_fn,
             "multiprocessing_context": None,
             "generator": None,
-            "prefetch_factor": None if debugging else cfg.prefetch_factor,
-            "persistent_workers": False if debugging else cfg.persistent_workers,
+            "prefetch_factor": None if debugging or cfg.num_workers == 0 else cfg.prefetch_factor,
+            "persistent_workers": False if debugging or cfg.num_workers == 0 else cfg.persistent_workers,
         }
 
         try:
