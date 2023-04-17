@@ -147,7 +147,7 @@ class CPUStatsMonitor:
         self._proc = mp.Process(
             target=worker,
             args=(ping_interval, self._cpu_stats_smem, self._event, os.getpid()),
-            daemon=True,
+            daemon=False,
         )
         self._proc.start()
         atexit.register(self.stop)

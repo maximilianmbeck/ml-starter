@@ -152,7 +152,7 @@ class GPUStatsMonitor:
         self._proc = mp.Process(
             target=worker,
             args=(ping_interval, self._smems, self._main_event, self._events),
-            daemon=True,
+            daemon=False,
         )
         self._proc.start()
         atexit.register(self.stop)
