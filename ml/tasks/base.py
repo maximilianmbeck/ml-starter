@@ -502,3 +502,21 @@ class BaseTask(
         lr_sched: SchedulerAdapter,
     ) -> None:
         pass
+
+    def on_training_start(
+        self,
+        state: State,
+        model: ModelT,
+        optim: Optimizer,
+        lr_sched: SchedulerAdapter,
+    ) -> None:
+        pass
+
+    def on_training_end(
+        self,
+        state: State,
+        model: ModelT,
+        optim: Optimizer,
+        lr_sched: SchedulerAdapter,
+    ) -> None:
+        pass

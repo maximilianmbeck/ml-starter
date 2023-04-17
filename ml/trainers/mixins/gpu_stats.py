@@ -1,9 +1,9 @@
-import atexit
 import functools
 import logging
 import multiprocessing as mp
 import os
 import re
+import shutil
 import subprocess
 from ctypes import Structure, c_double, c_uint32
 from dataclasses import dataclass
@@ -118,7 +118,15 @@ def gen_gpu_stats(loop_secs: int = 5) -> Iterable[GPUStats]:
         logger.exception("Caught exception while trying to query `nvidia-smi`")
 
 
-def worker(ping_interval: int, smems: list[ValueProxy[GPUStats]], main_event: Event, events: list[Event]) -> None:
+def worker(
+    ping_interval: int,
+    smems: list[ValueProxy[GPUStats]],
+    main_event: Event,
+    events: list[Event],
+    start_event: Event,
+) -> None:
+    start_event.set()
+
     for gpu_stat in gen_gpu_stats(ping_interval):
         if gpu_stat.index >= len(smems):
             logger.warning("GPU index %d is out of range", gpu_stat.index)
@@ -135,6 +143,8 @@ class GPUStatsMonitor:
         num_gpus = get_num_gpus()
         self._main_event = manager.Event()
         self._events = [manager.Event() for _ in range(num_gpus)]
+        self._start_event = manager.Event()
+
         self._smems = [
             manager.Value(
                 GPUStats,
@@ -151,11 +161,9 @@ class GPUStatsMonitor:
 
         self._proc = mp.Process(
             target=worker,
-            args=(ping_interval, self._smems, self._main_event, self._events),
+            args=(ping_interval, self._smems, self._main_event, self._events, self._start_event),
             daemon=False,
         )
-        self._proc.start()
-        atexit.register(self.stop)
 
     def get_if_set(self) -> dict[int, GPUStatsInfo]:
         gpu_stats: dict[int, GPUStatsInfo] = {}
@@ -171,6 +179,11 @@ class GPUStatsMonitor:
         self._gpu_stats.update(self.get_if_set())
         return self._gpu_stats
 
+    def start(self, wait: bool = False) -> None:
+        self._proc.start()
+        if wait:
+            self._start_event.wait()
+
     def stop(self) -> None:
         if self._proc.is_alive():
             self._proc.terminate()
@@ -184,7 +197,35 @@ class GPUStatsMixin(MonitorProcessMixin[GPUStatsConfigT, ModelT, TaskT]):
     def __init__(self, config: GPUStatsConfigT) -> None:
         super().__init__(config)
 
-        self._gpu_stats_monitor = GPUStatsMonitor(config.gpu_stats_ping_interval, self._mp_manager)
+        self._gpu_stats_monitor: GPUStatsMonitor | None = None
+        if shutil.which("nvidia-smi") is not None:
+            self._gpu_stats_monitor = GPUStatsMonitor(config.gpu_stats_ping_interval, self._mp_manager)
+
+    def on_training_start(
+        self,
+        state: State,
+        task: TaskT,
+        model: ModelT,
+        optim: Optimizer,
+        lr_sched: SchedulerAdapter,
+    ) -> None:
+        super().on_training_start(state, task, model, optim, lr_sched)
+
+        if self._gpu_stats_monitor is not None:
+            self._gpu_stats_monitor.start()
+
+    def on_training_end(
+        self,
+        state: State,
+        task: TaskT,
+        model: ModelT,
+        optim: Optimizer,
+        lr_sched: SchedulerAdapter,
+    ) -> None:
+        super().on_training_end(state, task, model, optim, lr_sched)
+
+        if self._gpu_stats_monitor is not None:
+            self._gpu_stats_monitor.stop()
 
     def on_step_start(
         self,
@@ -197,7 +238,9 @@ class GPUStatsMixin(MonitorProcessMixin[GPUStatsConfigT, ModelT, TaskT]):
     ) -> None:
         super().on_step_start(state, train_batch, task, model, optim, lr_sched)
 
-        monitor = self._gpu_stats_monitor
+        if (monitor := self._gpu_stats_monitor) is None:
+            return
+
         stats = monitor.get_if_set() if self.config.gpu_stats_only_log_once else monitor.get()
 
         for gpu_stat in stats.values():

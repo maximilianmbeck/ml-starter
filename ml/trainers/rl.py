@@ -24,6 +24,7 @@ from ml.trainers.base import ModelT
 from ml.trainers.ddp import DDPTrainer
 from ml.trainers.slurm import SlurmTrainer, SlurmTrainerConfig
 from ml.trainers.vanilla import TrainingFinishedException, VanillaTrainer, VanillaTrainerConfig
+from ml.utils.timer import Timer
 
 logger = logging.getLogger(__name__)
 
@@ -101,6 +102,8 @@ class ReinforcementLearningVanillaTrainer(
         # Gets the environment workers.
         worker_pool = task.get_worker_pool(force_sync=self.config.sampling.force_sync)
 
+        self.on_training_start(state, task, model, optim, lr_sched)
+
         try:
             with contextlib.ExitStack() as ctx:
                 profile = self.get_profile()
@@ -128,9 +131,12 @@ class ReinforcementLearningVanillaTrainer(
                         )
 
                     with self.step_context("build_rl_dataset"):
-                        train_ds = task.build_rl_dataset(samples)
-                        train_dl = task.get_dataloader(train_ds, "train")
-                        train_pf = self._device.get_prefetcher(train_dl)
+                        with Timer("building dataset", spinner=True):
+                            train_ds = task.build_rl_dataset(samples)
+                        with Timer("building dataloader", spinner=True):
+                            train_dl = task.get_dataloader(train_ds, "train")
+                        with Timer("getting prefetcher", spinner=True):
+                            train_pf = self._device.get_prefetcher(train_dl)
 
                     for train_batch in train_pf:
                         self._log_prefetcher_stats(train_pf)
@@ -180,8 +186,7 @@ class ReinforcementLearningVanillaTrainer(
             logger.exception("Caught exception during training loop")
 
         finally:
-            self.remove_lock_file("running", missing_ok=True)
-            logger.info("Exiting training job for %s", self.exp_dir / "config.yaml")
+            self.on_training_end(state, task, model, optim, lr_sched)
 
 
 @register_trainer("ddp_rl", ReinforcementLearningTrainerConfig)

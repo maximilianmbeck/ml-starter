@@ -175,6 +175,8 @@ class SlurmTrainer(
                 logger.info("SLURM_JOB_ID environment variable not found; not requeueing")
 
     def set_signal_handler(self, handler: Callable[[int, FrameType | None], None]) -> None:
+        super().set_signal_handler(handler)
+
         signal.signal(signal.SIGUSR1, handler)
         signal.signal(signal.SIGTERM, ignore_signal)
 

@@ -15,6 +15,7 @@ def test_gpu_stats_monitor() -> None:
     cuda_tensor = torch.randn(1, 2, 3, device="cuda")
     manager = mp.Manager()
     monitor = GPUStatsMonitor(1, manager)
+    monitor.start(wait=True)
     while len(stats := monitor.get()) == 0:
         time.sleep(1)
     monitor.stop()

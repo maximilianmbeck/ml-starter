@@ -220,7 +220,6 @@ class VanillaTrainer(
     ) -> None:
         logger.info("Handling interrupt %s", sig.name)
         self.save_checkpoint(state, task, model, optim, lr_scheduler)
-        self.remove_lock_file("running", missing_ok=True)
 
     def set_signal_handler(self, handler: Callable[[int, FrameType | None], None]) -> None:
         pass
@@ -233,11 +232,9 @@ class VanillaTrainer(
             torch.backends.cuda.matmul.allow_tf32 = True
 
         # Saves the config at the start of training.
-        with Timer("saving config"):
+        with Timer("saving config", spinner=True):
             self.save_config()
             self.log_run_config()
-
-        self.add_lock_file("running", exists_ok=True)
 
         # Enables anomaly detection.
         if self.config.detect_anomaly:
@@ -270,9 +267,9 @@ class VanillaTrainer(
         optimizer: BaseOptimizer,
         lr_scheduler: BaseLRScheduler,
     ) -> tuple[Optimizer, SchedulerAdapter]:
-        with Timer("building optimizer", 0.1):
+        with Timer("building optimizer", 0.1, spinner=True):
             optim = optimizer.get(model)
-        with Timer("building learning rate scheduler", 0.1):
+        with Timer("building learning rate scheduler", 0.1, spinner=True):
             lr_sched = lr_scheduler.get(optim)
         return optim, lr_sched
 

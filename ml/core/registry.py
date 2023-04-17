@@ -509,7 +509,7 @@ class Objects:
             config: The config to resolve
         """
 
-        with Timer("building config"):
+        with Timer("building config", spinner=True):
             # Pre-builds the config using the structured configs.
             register_model.update_config(config)
             register_task.update_config(config)
@@ -518,7 +518,7 @@ class Objects:
             register_lr_scheduler.update_config(config)
             register_logger.update_config(config)
 
-        with Timer("resolving configs"):
+        with Timer("resolving configs", spinner=True):
             # Resolves the final config once all structured configs have been merged.
             OmegaConf.resolve(config)
 
@@ -541,14 +541,27 @@ class Objects:
             The parsed Objects dataclass
         """
 
+        with Timer("building model", spinner=True):
+            model = register_model.build_entry(config)
+        with Timer("building task", spinner=True):
+            task = register_task.build_entry(config)
+        with Timer("building trainer", spinner=True):
+            trainer = register_trainer.build_entry(config)
+        with Timer("building optimizer", spinner=True):
+            optimizer = register_optimizer.build_entry(config)
+        with Timer("building lr scheduler", spinner=True):
+            lr_scheduler = register_lr_scheduler.build_entry(config)
+        with Timer("building loggers", spinner=True):
+            loggers = register_logger.build_entry(config)
+
         objs = Objects(
             raw_config=config,
-            model=register_model.build_entry(config),
-            task=register_task.build_entry(config),
-            trainer=register_trainer.build_entry(config),
-            optimizer=register_optimizer.build_entry(config),
-            lr_scheduler=register_lr_scheduler.build_entry(config),
-            logger=register_logger.build_entry(config),
+            model=model,
+            task=task,
+            trainer=trainer,
+            optimizer=optimizer,
+            lr_scheduler=lr_scheduler,
+            logger=loggers,
         )
 
         logger.info("%s", objs.summarize())

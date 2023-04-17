@@ -62,6 +62,7 @@ class DummyEnvironment(Environment[DummyState, DummyAction]):
 @pytest.mark.parametrize("pool_cls", [SyncWorkerPool, AsyncWorkerPool])
 @pytest.mark.parametrize("num_workers", [3])
 @pytest.mark.parametrize("num_actions", [10])
+@pytest.mark.slow
 def test_worker_and_pool(
     worker_cls: Type[BaseEnvironmentWorker],
     pool_cls: Type[WorkerPool],
@@ -100,6 +101,7 @@ def test_worker_and_pool(
 
 @pytest.mark.skip(reason="This test is too slow to run on CI, run using CLI instead.")
 @pytest.mark.parametrize("num_workers", [3])
+@pytest.mark.slow
 def test_for_memory_leaks(num_workers: int) -> None:
     """Repeatedly creates and destroys a worker pool to check for memory leaks.
 

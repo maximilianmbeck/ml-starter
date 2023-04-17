@@ -72,7 +72,7 @@ class SupervisedLearningVanillaTrainer(
         self._init_environment()
         model = self._compile_model(model)
 
-        with Timer("building task model"):
+        with Timer("building task model", spinner=True):
             task_model = self.get_task_model(task, model)
             self.maybe_add_grad_clipping(task_model)
 
@@ -93,20 +93,22 @@ class SupervisedLearningVanillaTrainer(
         signal.signal(signal.SIGUSR1, on_exit)
 
         # Gets the datasets.
-        with Timer("getting datasets", 0.1):
+        with Timer("getting datasets", 0.1, spinner=True):
             train_ds = task.get_dataset("train")
             valid_ds = task.get_dataset("valid")
 
         # Gets the dataloaders.
-        with Timer("getting dataloaders", 0.1):
+        with Timer("getting dataloaders", 0.1, spinner=True):
             train_dl = task.get_dataloader(train_ds, "train")
             valid_dl = task.get_dataloader(valid_ds, "valid")
 
         # Gets the prefetchers.
-        with Timer("getting prefetchers", 0.1):
+        with Timer("getting prefetchers", 0.1, spinner=True):
             train_pf = self._device.get_prefetcher(train_dl)
             valid_pf = self._device.get_prefetcher(valid_dl)
             valid_pf_iter = iter(InfinitePrefetcher(valid_pf))
+
+        self.on_training_start(state, task, model, optim, lr_sched)
 
         try:
             with contextlib.ExitStack() as ctx:
@@ -114,7 +116,7 @@ class SupervisedLearningVanillaTrainer(
                 if profile is not None:
                     ctx.enter_context(profile)
 
-                with Timer("initial validation step(s)"):
+                with Timer("initial validation step(s)", spinner=True):
                     if (num_init_valid_steps := self.config.validation.num_init_valid_steps) is not None:
                         for _ in range(num_init_valid_steps):
                             self.val_step(
@@ -189,8 +191,7 @@ class SupervisedLearningVanillaTrainer(
             logger.exception("Caught exception during training loop")
 
         finally:
-            self.remove_lock_file("running", missing_ok=True)
-            logger.info("Exiting training job for %s", self.exp_dir / "config.yaml")
+            self.on_training_end(state, task, model, optim, lr_sched)
 
 
 @register_trainer("ddp_sl", SupervisedLearningTrainerConfig)

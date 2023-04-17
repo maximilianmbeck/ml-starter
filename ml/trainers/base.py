@@ -338,7 +338,7 @@ class BaseTrainer(BaseObjectWithPointers[TrainerConfigT], Generic[TrainerConfigT
             UnpicklingError: If there is some issue unpickling the checkpoint.
         """
 
-        with Timer("loading checkpoint"):
+        with Timer("loading checkpoint", spinner=True):
             if isinstance(ckpt, (str, Path)):
                 try:
                     ckpt = cast(dict, torch.load(ckpt, weights_only=weights_only))
@@ -381,7 +381,7 @@ class BaseTrainer(BaseObjectWithPointers[TrainerConfigT], Generic[TrainerConfigT
         lr_sched: SchedulerAdapter | None = None,
     ) -> None:
         if is_master():
-            with Timer("saving checkpoint"):
+            with Timer("saving checkpoint", spinner=True):
                 ckpt_path = self.get_ckpt_path(state)
                 logger.info("Saving checkpoint to %s", ckpt_path)
                 last_ckpt_path = self.get_ckpt_path()
@@ -494,6 +494,29 @@ class BaseTrainer(BaseObjectWithPointers[TrainerConfigT], Generic[TrainerConfigT
         lr_sched: SchedulerAdapter,
     ) -> None:
         task.on_epoch_end(state, model, optim, lr_sched)
+
+    def on_training_start(
+        self,
+        state: State,
+        task: TaskT,
+        model: ModelT,
+        optim: Optimizer,
+        lr_sched: SchedulerAdapter,
+    ) -> None:
+        task.on_training_start(state, model, optim, lr_sched)
+        self.add_lock_file("running", exists_ok=True)
+
+    def on_training_end(
+        self,
+        state: State,
+        task: TaskT,
+        model: ModelT,
+        optim: Optimizer,
+        lr_sched: SchedulerAdapter,
+    ) -> None:
+        task.on_training_end(state, model, optim, lr_sched)
+        self.remove_lock_file("running", missing_ok=True)
+        logger.info("Exiting training job for %s", self.exp_dir / "config.yaml")
 
 
 class DummyBaseTrainer(BaseTrainer):

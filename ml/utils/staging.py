@@ -31,7 +31,7 @@ def stage_environment(
         The stage environment path
     """
 
-    with Timer("getting files to stage"):
+    with Timer("getting files to stage", spinner=True):
         fpaths: list[tuple[Path, Path]] = []
         for module in sys.modules.values():
             if (fpath_str := getattr(module, "__file__", None)) is None:
@@ -45,7 +45,7 @@ def stage_environment(
 
     assert fpaths, "Couldn't find any file paths to stage!"
 
-    with Timer("computing hash of current environment"):
+    with Timer("computing hash of current environment", spinner=True):
         hashobj = hashlib.md5()
         for fpath, _ in fpaths:
             with open(fpath, "rb") as f:
@@ -56,7 +56,7 @@ def stage_environment(
     date_str = datetime.datetime.now().strftime(date_format)
     out_dir = stage_dir / f"{date_str}-{hashval[:10]}"
     if not out_dir.exists():
-        with Timer("copying files to staging directory"):
+        with Timer("copying files to staging directory", spinner=True):
             tmp_dir = stage_dir / ".tmp" / str(uuid4())
             if tmp_dir.parent.exists():
                 shutil.rmtree(tmp_dir.parent)
@@ -68,7 +68,7 @@ def stage_environment(
             tmp_dir.rename(out_dir)
             tmp_dir.parent.rmdir()
 
-    with Timer("removing old directories"):
+    with Timer("removing old directories", spinner=True):
         cur_time = datetime.datetime.now()
         for dpath in stage_dir.iterdir():
             dir_age = cur_time - datetime.datetime.fromtimestamp(os.stat(dpath).st_mtime)

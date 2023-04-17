@@ -1,4 +1,3 @@
-import atexit
 import logging
 import multiprocessing as mp
 import os
@@ -75,7 +74,15 @@ class CPUStatsInfo:
         )
 
 
-def worker(ping_interval: float, stats: ValueProxy[CPUStats], event: Event, pid: int) -> None:
+def worker(
+    ping_interval: float,
+    stats: ValueProxy[CPUStats],
+    monitor_event: Event,
+    start_event: Event,
+    pid: int,
+) -> None:
+    start_event.set()
+
     proc, cur_pid = psutil.Process(pid), os.getpid()
     logger.info("Starting CPU stats monitor for PID %d with PID %d", pid, cur_pid)
 
@@ -115,7 +122,7 @@ def worker(ping_interval: float, stats: ValueProxy[CPUStats], event: Event, pid:
                 ),
             )
 
-            event.set()
+            monitor_event.set()
 
         except psutil.NoSuchProcess:
             logger.info("No parent process; probably cleaning up")
@@ -126,7 +133,8 @@ def worker(ping_interval: float, stats: ValueProxy[CPUStats], event: Event, pid:
 class CPUStatsMonitor:
     def __init__(self, ping_interval: float, manager: SyncManager) -> None:
         self._manager = manager
-        self._event = manager.Event()
+        self._monitor_event = manager.Event()
+        self._start_event = manager.Event()
         self._cpu_stats_smem = self._manager.Value(
             CPUStats,
             CPUStats(
@@ -146,15 +154,13 @@ class CPUStatsMonitor:
 
         self._proc = mp.Process(
             target=worker,
-            args=(ping_interval, self._cpu_stats_smem, self._event, os.getpid()),
+            args=(ping_interval, self._cpu_stats_smem, self._monitor_event, self._start_event, os.getpid()),
             daemon=False,
         )
-        self._proc.start()
-        atexit.register(self.stop)
 
     def get_if_set(self) -> CPUStatsInfo | None:
-        if self._event.is_set():
-            self._event.clear()
+        if self._monitor_event.is_set():
+            self._monitor_event.clear()
             return CPUStatsInfo.from_stats(self._cpu_stats_smem.get())
         return None
 
@@ -162,6 +168,11 @@ class CPUStatsMonitor:
         if (stats := self.get_if_set()) is not None:
             self._cpu_stats = stats
         return self._cpu_stats
+
+    def start(self, wait: bool = False) -> None:
+        self._proc.start()
+        if wait:
+            self._start_event.wait()
 
     def stop(self) -> None:
         if self._proc.is_alive():
@@ -177,6 +188,30 @@ class CPUStatsMixin(MonitorProcessMixin[CPUStatsConfigT, ModelT, TaskT]):
         super().__init__(config)
 
         self._cpu_stats_monitor = CPUStatsMonitor(self.config.cpu_stats_ping_interval, self._mp_manager)
+
+    def on_training_start(
+        self,
+        state: State,
+        task: TaskT,
+        model: ModelT,
+        optim: Optimizer,
+        lr_sched: SchedulerAdapter,
+    ) -> None:
+        super().on_training_start(state, task, model, optim, lr_sched)
+
+        self._cpu_stats_monitor.start()
+
+    def on_training_end(
+        self,
+        state: State,
+        task: TaskT,
+        model: ModelT,
+        optim: Optimizer,
+        lr_sched: SchedulerAdapter,
+    ) -> None:
+        super().on_training_end(state, task, model, optim, lr_sched)
+
+        self._cpu_stats_monitor.stop()
 
     def on_step_start(
         self,
