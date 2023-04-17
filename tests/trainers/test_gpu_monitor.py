@@ -15,10 +15,11 @@ def test_gpu_stats_monitor() -> None:
     cuda_tensor = torch.randn(1, 2, 3, device="cuda")
     manager = mp.Manager()
     monitor = GPUStatsMonitor(1, manager)
-    monitor.start(wait=True)
-    while len(stats := monitor.get()) == 0:
-        time.sleep(1)
-    monitor.stop()
+    for _ in range(3):
+        monitor.start(wait=True)
+        while len(stats := monitor.get()) == 0:
+            time.sleep(1)
+        monitor.stop()
+        assert any(v.memory_used > 0 for v in stats.values())
     manager.shutdown()
-    assert any(v.memory_used > 0 for v in stats.values())
     del cuda_tensor

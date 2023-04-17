@@ -132,6 +132,7 @@ def worker(
 
 class CPUStatsMonitor:
     def __init__(self, ping_interval: float, manager: SyncManager) -> None:
+        self._ping_interval = ping_interval
         self._manager = manager
         self._monitor_event = manager.Event()
         self._start_event = manager.Event()
@@ -151,12 +152,7 @@ class CPUStatsMonitor:
             ),
         )
         self._cpu_stats: CPUStatsInfo | None = None
-
-        self._proc = mp.Process(
-            target=worker,
-            args=(ping_interval, self._cpu_stats_smem, self._monitor_event, self._start_event, os.getpid()),
-            daemon=False,
-        )
+        self._proc: mp.Process | None = None
 
     def get_if_set(self) -> CPUStatsInfo | None:
         if self._monitor_event.is_set():
@@ -170,15 +166,31 @@ class CPUStatsMonitor:
         return self._cpu_stats
 
     def start(self, wait: bool = False) -> None:
+        if self._proc is not None:
+            raise RuntimeError("CPU stats monitor already started")
+        if self._monitor_event.is_set():
+            self._monitor_event.clear()
+        if self._start_event.is_set():
+            self._start_event.clear()
+        self._cpu_stats = None
+        self._proc = mp.Process(
+            target=worker,
+            args=(self._ping_interval, self._cpu_stats_smem, self._monitor_event, self._start_event, os.getpid()),
+            daemon=False,
+        )
         self._proc.start()
         if wait:
             self._start_event.wait()
 
     def stop(self) -> None:
+        if self._proc is None:
+            raise RuntimeError("CPU stats monitor not started")
         if self._proc.is_alive():
             self._proc.terminate()
             logger.debug("Terminated CPU stats monitor; joining...")
             self._proc.join()
+        self._proc = None
+        self._cpu_stats = None
 
 
 class CPUStatsMixin(MonitorProcessMixin[CPUStatsConfigT, ModelT, TaskT]):

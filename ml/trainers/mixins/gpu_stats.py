@@ -138,6 +138,7 @@ def worker(
 
 class GPUStatsMonitor:
     def __init__(self, ping_interval: float, manager: SyncManager) -> None:
+        self._ping_interval = ping_interval
         self._manager = manager
 
         num_gpus = get_num_gpus()
@@ -158,12 +159,7 @@ class GPUStatsMonitor:
             for i in range(num_gpus)
         ]
         self._gpu_stats: dict[int, GPUStatsInfo] = {}
-
-        self._proc = mp.Process(
-            target=worker,
-            args=(ping_interval, self._smems, self._main_event, self._events, self._start_event),
-            daemon=False,
-        )
+        self._proc: mp.Process | None = None
 
     def get_if_set(self) -> dict[int, GPUStatsInfo]:
         gpu_stats: dict[int, GPUStatsInfo] = {}
@@ -180,15 +176,33 @@ class GPUStatsMonitor:
         return self._gpu_stats
 
     def start(self, wait: bool = False) -> None:
+        if self._proc is not None:
+            raise RuntimeError("GPUStatsMonitor already started")
+        if self._main_event.is_set():
+            self._main_event.clear()
+        for event in self._events:
+            if event.is_set():
+                event.clear()
+        if self._start_event.is_set():
+            self._start_event.clear()
+        self._gpu_stats.clear()
+        self._proc = mp.Process(
+            target=worker,
+            args=(self._ping_interval, self._smems, self._main_event, self._events, self._start_event),
+            daemon=False,
+        )
         self._proc.start()
         if wait:
             self._start_event.wait()
 
     def stop(self) -> None:
+        if self._proc is None:
+            raise RuntimeError("GPUStatsMonitor not started")
         if self._proc.is_alive():
             self._proc.terminate()
             logger.debug("Terminated GPU stats monitor; joining...")
             self._proc.join()
+        self._proc = None
 
 
 class GPUStatsMixin(MonitorProcessMixin[GPUStatsConfigT, ModelT, TaskT]):

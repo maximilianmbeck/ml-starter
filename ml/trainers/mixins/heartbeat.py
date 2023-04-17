@@ -65,30 +65,41 @@ class HeartbeatMonitor:
         manager: SyncManager,
         on_heartbeat: Callable[[int, Event], None] | None,
     ) -> None:
+        self._heartbeat_interval = heartbeat_interval
+        self._on_heartbeat = on_heartbeat
         self._manager = manager
         self._heartbeat_event = manager.Event()
         self._start_event = manager.Event()
-
-        self._proc = mp.Process(
-            target=worker,
-            args=(heartbeat_interval, self._heartbeat_event, self._start_event, os.getpid(), on_heartbeat),
-            daemon=False,
-        )
+        self._proc: mp.Process | None = None
 
     def beat(self) -> None:
         if self._heartbeat_event.is_set():
             self._heartbeat_event.clear()
 
     def start(self, wait: bool = False) -> None:
+        if self._proc is not None:
+            raise RuntimeError("Heartbeat already started")
+        if self._heartbeat_event.is_set():
+            self._heartbeat_event.clear()
+        if self._start_event.is_set():
+            self._start_event.clear()
+        self._proc = mp.Process(
+            target=worker,
+            args=(self._heartbeat_interval, self._heartbeat_event, self._start_event, os.getpid(), self._on_heartbeat),
+            daemon=False,
+        )
         self._proc.start()
         if wait:
             self._start_event.wait()
 
     def stop(self) -> None:
+        if self._proc is None:
+            raise RuntimeError("Heartbeat not started")
         if self._proc.is_alive():
             self._proc.terminate()
             logger.debug("Terminated heartbeat process; joining...")
             self._proc.join()
+        self._proc = None
 
 
 class HeartbeatMonitorMixin(MonitorProcessMixin[HeartbeatConfigT, ModelT, TaskT]):
