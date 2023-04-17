@@ -289,8 +289,8 @@ class VanillaTrainer(
 
     def _log_prefetcher_stats(self, pf: Prefetcher, phase: Phase) -> None:
         self.logger.log_scalar(f"num_queued_{phase}_samples", pf.num_queued_samples, namespace="trainer")
-        self.logger.log_scalar(f"dt/get_{phase}_batch", pf.get_batch_time, namespace="timers")
-        self.logger.log_scalar(f"dt/get_{phase}_batch", pf.to_device_time, namespace="timers")
+        self.logger.log_scalar("dt/get_batch", pf.get_batch_time, namespace="timers")
+        self.logger.log_scalar("dt/to_device", pf.to_device_time, namespace="timers")
 
     def launch(self) -> None:
         raise NotImplementedError(f"{self.__class__.__name__} doesn't support multiprocess training")
