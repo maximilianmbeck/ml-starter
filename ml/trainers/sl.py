@@ -133,7 +133,7 @@ class SupervisedLearningVanillaTrainer(
                     state.num_epoch_samples = 0
 
                     for train_batch in train_pf:
-                        self._log_prefetcher_stats(train_pf, "train")
+                        self._log_prefetcher_stats(train_pf)
 
                         if task.is_training_over(state):
                             on_finish_training()
@@ -153,7 +153,7 @@ class SupervisedLearningVanillaTrainer(
 
                         valid_every_n_steps = self.config.validation.valid_every_n_steps
                         if valid_every_n_steps is not None and state.num_steps % valid_every_n_steps == 0:
-                            self._log_prefetcher_stats(valid_pf, "valid")
+                            self._log_prefetcher_stats(valid_pf)
 
                             self.val_step(
                                 task_model=task_model,

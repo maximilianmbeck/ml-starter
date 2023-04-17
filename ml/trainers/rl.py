@@ -133,7 +133,7 @@ class ReinforcementLearningVanillaTrainer(
                         train_pf = self._device.get_prefetcher(train_dl)
 
                     for train_batch in train_pf:
-                        self._log_prefetcher_stats(train_pf, "train")
+                        self._log_prefetcher_stats(train_pf)
 
                         if task.is_training_over(state):
                             on_finish_training()
