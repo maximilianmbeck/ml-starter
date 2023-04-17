@@ -1,4 +1,5 @@
 import datetime
+import functools
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
@@ -15,7 +16,9 @@ Number = Union[int, float, Tensor]
 
 @dataclass
 class BaseLoggerConfig(BaseConfig):
-    write_every_n_seconds: int = conf_field(1, help="Only write a log line every N seconds")
+    write_every_n_seconds: float | None = conf_field(None, help="Only write a log line every N seconds")
+    write_train_every_n_seconds: float | None = conf_field(None, help="Only write a train log line every N seconds")
+    write_val_every_n_seconds: float | None = conf_field(None, help="Only write a val log line every N seconds")
 
 
 LoggerConfigT = TypeVar("LoggerConfigT", bound=BaseLoggerConfig)
@@ -129,7 +132,7 @@ class BaseLogger(BaseObjectWithPointers[LoggerConfigT], Generic[LoggerConfigT], 
         """
 
         current_time = datetime.datetime.now()
-        min_write_time_diff = datetime.timedelta(seconds=self.config.write_every_n_seconds)
+        min_write_time_diff = datetime.timedelta(seconds=self.write_every_n_seconds(state.phase))
 
         if state.phase not in self.last_write_time:
             self.last_write_time[state.phase] = current_time
@@ -155,3 +158,37 @@ class BaseLogger(BaseObjectWithPointers[LoggerConfigT], Generic[LoggerConfigT], 
         Args:
             state: The current log state
         """
+
+    @abstractmethod
+    def default_write_every_n_seconds(self, phase: Phase) -> float:
+        """Returns the default write interval in seconds.
+
+        Args:
+            phase: The phase to get the default write interval for
+
+        Returns:
+            The default write interval, in seconds
+        """
+
+    @functools.lru_cache
+    def write_every_n_seconds(self, phase: Phase) -> float:
+        """Returns the write interval in seconds.
+
+        Args:
+            phase: The phase to get the write interval for
+
+        Returns:
+            The write interval, in seconds
+        """
+
+        if phase == "train":
+            if self.config.write_train_every_n_seconds is not None:
+                return self.config.write_train_every_n_seconds
+        else:
+            if self.config.write_val_every_n_seconds is not None:
+                return self.config.write_val_every_n_seconds
+
+        if self.config.write_every_n_seconds is not None:
+            return self.config.write_every_n_seconds
+
+        return self.default_write_every_n_seconds(phase)

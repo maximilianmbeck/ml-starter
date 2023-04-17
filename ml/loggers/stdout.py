@@ -12,6 +12,7 @@ from ml.core.state import Phase, State
 from ml.loggers.base import BaseLogger, BaseLoggerConfig
 from ml.utils.colors import colorize
 from ml.utils.datetime import format_timedelta
+from ml.utils.distributed import is_distributed
 
 
 @dataclass
@@ -100,3 +101,6 @@ class StdoutLogger(BaseLogger[StdoutLoggerConfig]):
     def clear(self, state: State) -> None:
         if state.phase in self.log_values:
             self.log_values[state.phase].clear()
+
+    def default_write_every_n_seconds(self, phase: Phase) -> float:
+        return 10.0 if is_distributed() else 1.0

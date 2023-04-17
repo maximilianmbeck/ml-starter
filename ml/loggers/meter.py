@@ -74,3 +74,6 @@ class MeterLogger(BaseLogger[MeterLoggerConfig]):
 
     def clear(self, state: State) -> None:
         pass
+
+    def default_write_every_n_seconds(self, phase: Phase) -> float:
+        return 0.0

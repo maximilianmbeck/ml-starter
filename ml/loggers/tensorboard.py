@@ -284,3 +284,8 @@ class TensorboardLogger(BaseLogger[TensorboardLoggerConfig]):
         self.videos[state.phase].clear()
         self.histograms[state.phase].clear()
         self.point_clouds[state.phase].clear()
+
+    def default_write_every_n_seconds(self, phase: Phase) -> float:
+        if is_distributed():
+            return 10.0 if phase == "train" else 60.0
+        return 1.0 if phase == "train" else 10.0

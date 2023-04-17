@@ -148,7 +148,7 @@ class VanillaTrainer(
                 self.logger.log_scalar("lr_scale", lr_sched.lr_scale, namespace="optim")
             with self.step_context("zero_grads"):
                 optim.zero_grad(set_to_none=self.config.set_to_none)
-        with self.step_context("write_logs"):
+        with self.step_context("write_logs"), self.autocast_context():
             self.write_logs(task, model, state)
         with self.step_context("update_state"):
             state.num_steps += 1
@@ -168,10 +168,10 @@ class VanillaTrainer(
         task: TaskT,
         model: ModelT,
     ) -> None:
-        with torch.no_grad():
+        with torch.no_grad(), self.autocast_context():
             with self.step_context("change_mode"):
                 task_model, state.phase = set_phase(task_model, "valid")
-            with self.step_context("forward"), self.autocast_context():
+            with self.step_context("forward"):
                 loss = task_model(batch, state)
             with self.step_context("get_single_loss"):
                 single_loss, loss_names = task.get_single_loss(loss)
@@ -193,10 +193,10 @@ class VanillaTrainer(
         task: TaskT,
         model: ModelT,
     ) -> None:
-        with torch.no_grad():
+        with torch.no_grad(), self.autocast_context():
             with self.step_context("change_mode"):
                 task_model, state.phase = set_phase(task_model, "test")
-            with self.step_context("forward"), self.autocast_context():
+            with self.step_context("forward"):
                 loss = task_model(batch, state)
             with self.step_context("get_single_loss"):
                 single_loss, loss_names = task.get_single_loss(loss)
