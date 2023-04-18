@@ -84,7 +84,7 @@ def worker(
     start_event.set()
 
     proc, cur_pid = psutil.Process(pid), os.getpid()
-    logger.info("Starting CPU stats monitor for PID %d with PID %d", pid, cur_pid)
+    logger.debug("Starting CPU stats monitor for PID %d with PID %d", pid, cur_pid)
 
     get_children = lambda: {p.pid: p for p in proc.children(recursive=True) if p.pid != cur_pid}
     child_procs = get_children()

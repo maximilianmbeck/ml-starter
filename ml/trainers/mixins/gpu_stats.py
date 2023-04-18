@@ -127,6 +127,8 @@ def worker(
 ) -> None:
     start_event.set()
 
+    logger.debug("Starting GPU stats monitor with PID %d", os.getpid())
+
     for gpu_stat in gen_gpu_stats(ping_interval):
         if gpu_stat.index >= len(smems):
             logger.warning("GPU index %d is out of range", gpu_stat.index)

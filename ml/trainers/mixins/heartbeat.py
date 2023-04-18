@@ -37,6 +37,8 @@ def worker(
 ) -> None:
     start_event.set()
 
+    logger.debug("Starting heartbeat monitor for PID %d with PID %d", pid, os.getpid())
+
     while True:
         try:
             heartbeat_event.set()
