@@ -195,7 +195,7 @@ class AsyncEnvironmentWorker(BaseEnvironmentWorker[RLState, RLAction], Generic[R
                 else:
                     self._proc.kill()
         except Exception:
-            logger.exception("Exception while cleaning up task")
+            pass
 
     @classmethod
     def _thread(
@@ -352,7 +352,7 @@ class AsyncWorkerPool(WorkerPool[RLState, RLAction], Generic[RLState, RLAction])
             for proc in self._procs:
                 proc.join()
         except Exception:
-            logger.exception("Exception while cleaning up worker pool")
+            pass
 
     def reset(self) -> None:
         clear_queue(self.state_queue)
