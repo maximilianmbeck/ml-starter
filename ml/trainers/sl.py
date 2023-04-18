@@ -116,7 +116,7 @@ class SupervisedLearningVanillaTrainer(
                 if profile is not None:
                     ctx.enter_context(profile)
 
-                with Timer("initial validation step(s)", spinner=True):
+                with Timer("initial validation step(s)"):
                     if (num_init_valid_steps := self.config.validation.num_init_valid_steps) is not None:
                         for _ in range(num_init_valid_steps):
                             self.val_step(

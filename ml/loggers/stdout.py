@@ -76,7 +76,8 @@ class StdoutLogger(BaseLogger[StdoutLoggerConfig]):
         elapsed_time_str = format_timedelta(elapsed_time)
 
         def get_section_string(name: str, section: dict[str, Any]) -> str:
-            get_line = lambda kv: f'"{kv[0]}": {as_str(kv[1](), self.config.precision)}'
+            p1, p2 = colorize('"', "magenta"), colorize('"', "blue")
+            get_line = lambda kv: f"{p1}{kv[0]}{p2}: {as_str(kv[1](), self.config.precision)}"
             inner_str = ", ".join(map(get_line, sorted(section.items())))
             return '"' + colorize(name, "cyan") + '": {' + inner_str + "}"
 
