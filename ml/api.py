@@ -10,6 +10,7 @@ hand quickly.
 
 __all__ = [
     "ActivationType",
+    "add_project_dir",
     "as_cpu_tensor",
     "as_numpy_array",
     "assert_no_nans",
@@ -47,6 +48,7 @@ __all__ = [
     "conf_field",
     "configure_logging",
     "DDPTrainer",
+    "DictIndex",
     "Environment",
     "format_timedelta",
     "from_args",
@@ -93,6 +95,7 @@ __all__ = [
     "pad_all",
     "pad_sequence",
     "Phase",
+    "project_dir_paths",
     "reduce",
     "register_logger",
     "register_lr_scheduler",
@@ -151,6 +154,8 @@ from ml.core.env import (
     is_debugging,
 )
 from ml.core.registry import (
+    add_project_dir,
+    project_dir_paths,
     register_logger,
     register_lr_scheduler,
     register_model,
@@ -222,7 +227,7 @@ from ml.trainers.vanilla import VanillaTrainer, VanillaTrainerConfig
 from ml.utils.argparse import from_args, get_args, get_type_from_string
 from ml.utils.atomic import atomic_save, open_atomic
 from ml.utils.augmentation import get_image_mask
-from ml.utils.caching import cached_object
+from ml.utils.caching import DictIndex, cached_object
 from ml.utils.checks import assert_no_nans
 from ml.utils.colors import colorize
 from ml.utils.data import get_dataset_split_for_phase, get_dataset_splits, get_worker_info

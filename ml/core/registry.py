@@ -13,9 +13,7 @@ from omegaconf import DictConfig, ListConfig, OmegaConf
 from omegaconf.basecontainer import BaseContainer
 
 from ml.core.config import BaseConfig, BaseObject, BaseObjectWithPointers
-from ml.core.env import get_project_root
 from ml.utils.colors import colorize
-from ml.utils.paths import get_relative_path
 from ml.utils.timer import Timer
 
 if TYPE_CHECKING:
@@ -44,13 +42,37 @@ ROOT_DIR: Path = Path(__file__).parent.parent.resolve()
 MAX_STAGING_DAYS = 31
 
 
-@functools.lru_cache
-def base_dirs() -> list[Path]:
-    base_dirs = [ROOT_DIR]
-    project_root_dir = get_project_root()
-    if project_root_dir is not None:
-        base_dirs.append(project_root_dir)
-    return base_dirs
+class _ProjectDirs:
+    def __init__(self) -> None:
+        self.__dir_set: set[Path] = {ROOT_DIR}
+        self.__dir_list: list[Path] = [ROOT_DIR]
+
+    @property
+    def paths(self) -> list[Path]:
+        return self.__dir_list
+
+    def add(self, path: Path) -> None:
+        if path in self.__dir_set:
+            return
+        path = path.resolve()
+        self.__dir_set.add(path)
+        self.__dir_list.append(path)
+
+    def relative_path(self, p: Path, parent: bool = False) -> Path:
+        for d in self.__dir_list:
+            try:
+                return p.relative_to(d.parent if parent else d)
+            except ValueError:
+                pass
+        raise ValueError(f"Path {p} is not relative to any of {self.__dir_list}")
+
+
+# Project directories singleton.
+project_dirs = _ProjectDirs()
+
+# Some aliases for the project directory accessors.
+add_project_dir = project_dirs.add
+project_dir_paths = project_dirs.paths
 
 
 def get_name(key: str, config: BaseContainer) -> str:
@@ -92,7 +114,7 @@ class register_base(ABC, Generic[Entry, Config]):  # pylint: disable=invalid-nam
 
     @classmethod
     def registry_path(cls) -> Path:
-        return (get_project_root() or Path(__file__).parent.resolve()) / ".cache" / f"{cls.config_key()}.json"
+        return project_dirs.paths[-1] / ".cache" / f"{cls.config_key()}.json"
 
     @classmethod
     @functools.lru_cache(None)
@@ -125,7 +147,7 @@ class register_base(ABC, Generic[Entry, Config]):  # pylint: disable=invalid-nam
     def manual_import(cls, path: Path) -> None:
         with Timer(f"importing '{path}'"):
             try:
-                rel_path = get_relative_path(path, base_dirs(), True)
+                rel_path = project_dirs.relative_path(path, parent=True)
                 module_name = ".".join(list(rel_path.parts[:-1]) + [rel_path.stem])
                 if module_name not in sys.modules:
                     spec = importlib.util.spec_from_file_location(module_name, str(path))
@@ -182,7 +204,7 @@ class register_base(ABC, Generic[Entry, Config]):  # pylint: disable=invalid-nam
 
         # Next sweep over the search directory and check for prefix matches.
         search_dir = cls.search_directory()
-        search_dirs = [base_dir / search_dir for base_dir in base_dirs()]
+        search_dirs = [base_dir / search_dir for base_dir in project_dirs.paths]
         search_dirs = [search_dir for search_dir in search_dirs if search_dir.is_dir()]
         for path in iter_directory(*search_dirs):
             if path.stem.lower().startswith(lower_name) or lower_name.startswith(path.stem.lower()):

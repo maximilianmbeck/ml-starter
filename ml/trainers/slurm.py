@@ -22,6 +22,7 @@ import subprocess
 import sys
 from abc import ABC
 from dataclasses import dataclass
+from pathlib import Path
 from types import FrameType
 from typing import Callable, Generic, TypeVar
 
@@ -30,8 +31,8 @@ from torch import nn
 from torch.optim import Optimizer
 
 from ml.core.config import conf_field
-from ml.core.env import ProjectRoot, get_distributed_backend, get_stage_dir
-from ml.core.registry import Objects
+from ml.core.env import get_distributed_backend, get_stage_dir
+from ml.core.registry import Objects, project_dirs
 from ml.core.state import State
 from ml.lr_schedulers.base import SchedulerAdapter
 from ml.scripts.train import train_main
@@ -73,7 +74,7 @@ SBATCH_TEMPLATE: str = """
 {extra_sbatch_lines}
 
 # Sets the environment variables.
-export PROJECT_ROOT={project_root}
+export STAGE_DIR={stage_dir}
 export PYTHONPATH={pythonpath}
 export MASTER_PORT={master_port}
 
@@ -202,11 +203,7 @@ class SlurmTrainer(
         sbatch_path = self.exp_dir / "sbatch.sh"
 
         # Stages all files to a new directory.
-        project_root = ProjectRoot.get()
-        if project_root is None:
-            raise ValueError("Project root not found; cannot stage files")
-        stage_dir = stage_environment(project_root, get_stage_dir())
-        new_project_root = stage_dir / ProjectRoot.get().name
+        stage_dir = stage_environment(project_dirs.paths[1:], get_stage_dir())
 
         # Gets the python path with the new output directory.
         python_path_parts = [str(stage_dir)] + os.environ.get("PYTHONPATH", "").split(":")
@@ -236,7 +233,6 @@ class SlurmTrainer(
             output_path=slurm_log_dir / "slurm_out.txt",
             error_path=slurm_log_dir / "slurm_err.%j.txt",
             extra_sbatch_lines="\n".join(f"#SBATCH {line}" for line in sbatch_lines),
-            project_root=new_project_root,
             pythonpath=python_path,
             master_port=self.config.master_port,
             config_path=self.exp_dir / "config.yaml",
@@ -275,6 +271,12 @@ class SlurmTrainer(
 def slurm_main() -> None:
     args = sys.argv[1:]
     assert len(args) == 1, f"Unexpected arguments to `slurm_main`: {sys.argv}"
+
+    # Adds the stage directories as project directories.
+    stage_dir = Path(os.environ["STAGE_DIR"])
+    for sub_dir in stage_dir.iterdir():
+        if sub_dir.is_dir():
+            project_dirs.add(sub_dir)
 
     # Loads the raw config.
     raw_config = OmegaConf.load(args[0])

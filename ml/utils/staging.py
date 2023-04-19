@@ -5,6 +5,7 @@ import os
 import shutil
 import sys
 from pathlib import Path
+from typing import Sequence
 from uuid import uuid4
 
 from ml.utils.timer import Timer
@@ -16,32 +17,42 @@ DATE_FORMAT = "%Y-%m-%d"
 
 
 def stage_environment(
-    project_root: Path,
+    project_roots: str | Path | Sequence[str | Path],
     stage_dir: Path,
     date_format: str = DATE_FORMAT,
 ) -> Path:
     """Stages the current environment to a root directory.
 
     Args:
-        project_root: The root directory of the project.
+        project_roots: The root directory of the project.
         stage_dir: The root directory for staging environments.
         date_format: The date format to use for the staging directory.
 
     Returns:
         The stage environment path
+
+    Raises:
+        ValueError: If no project root is found.
     """
 
+    if isinstance(project_roots, (str, Path)):
+        project_roots = [Path(project_roots)]
+
+    if not project_roots:
+        raise ValueError("No project root directories")
+
     with Timer("getting files to stage", spinner=True):
-        fpaths: list[tuple[Path, Path]] = []
-        for module in sys.modules.values():
-            if (fpath_str := getattr(module, "__file__", None)) is None:
-                continue
-            fpath = Path(fpath_str).resolve()
-            try:
-                rel_fpath = fpath.relative_to(project_root.parent)
-                fpaths.append((fpath, rel_fpath))
-            except ValueError:
-                pass
+        for project_root in project_roots:
+            fpaths: list[tuple[Path, Path]] = []
+            for module in sys.modules.values():
+                if (fpath_str := getattr(module, "__file__", None)) is None:
+                    continue
+                fpath = Path(fpath_str).resolve()
+                try:
+                    rel_fpath = fpath.relative_to(Path(project_root).parent)
+                    fpaths.append((fpath, rel_fpath))
+                except ValueError:
+                    pass
 
     assert fpaths, "Couldn't find any file paths to stage!"
 

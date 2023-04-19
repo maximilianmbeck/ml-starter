@@ -6,8 +6,8 @@ from typing import Callable
 
 from omegaconf import DictConfig
 
-from ml.core.env import add_global_tag, set_project_root
-from ml.core.registry import Objects
+from ml.core.env import add_global_tag
+from ml.core.registry import Objects, add_project_dir
 from ml.scripts import compiler, mp_train, resolve, stage, train
 from ml.utils.cli import parse_cli
 from ml.utils.colors import colorize
@@ -23,7 +23,7 @@ def cli_main(project_root: Path | str | None = None) -> None:
     logger.info("Command: %s", shlex.join(sys.argv))
 
     if project_root is not None:
-        set_project_root(Path(project_root).resolve())
+        add_project_dir(Path(project_root).resolve())
 
     set_random_seed()
 

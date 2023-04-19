@@ -102,7 +102,7 @@ class cached_object:  # pylint: disable=invalid-name
         return call_function_cached
 
 
-class Index(Generic[Tk, Tv]):
+class DictIndex(Generic[Tk, Tv]):
     def __init__(self, items: Mapping[Tk, Sequence[Tv]]) -> None:
         """Indexes a dictionary with values that are lists.
 
