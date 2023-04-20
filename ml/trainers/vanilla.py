@@ -285,7 +285,6 @@ class VanillaTrainer(
         return State.init_state()
 
     def _log_prefetcher_stats(self, pf: Prefetcher) -> None:
-        self.logger.log_scalar("num_queued_samples", pf.num_queued_samples, namespace="trainer")
         self.logger.log_scalar("dt/get_batch", pf.get_batch_time, namespace="timers")
         self.logger.log_scalar("dt/to_device", pf.to_device_time, namespace="timers")
 

@@ -1,5 +1,6 @@
 import contextlib
 import functools
+import threading
 from abc import ABC, abstractmethod
 from dataclasses import is_dataclass
 from typing import Any, Callable, ContextManager, Iterable, Iterator, Mapping, Sequence
@@ -7,11 +8,7 @@ from typing import Any, Callable, ContextManager, Iterable, Iterator, Mapping, S
 import numpy as np
 import torch
 from torch import Tensor, nn
-from torch.utils.data.dataloader import (
-    DataLoader,
-    _BaseDataLoaderIter,
-    _MultiProcessingDataLoaderIter,
-)
+from torch.utils.data.dataloader import DataLoader, _BaseDataLoaderIter
 
 from ml.core.common_types import Batch
 from ml.utils.timer import Timer
@@ -19,15 +16,6 @@ from ml.utils.timer import Timer
 
 def allow_nonblocking(device_a: torch.device, device_b: torch.device) -> bool:
     return device_a.type in ("cpu", "cuda") and device_b.type in ("cpu", "cuda")
-
-
-def get_tasks_outstanding(dataloader_iter: _BaseDataLoaderIter) -> int:
-    if isinstance(dataloader_iter, _MultiProcessingDataLoaderIter):
-        try:
-            return dataloader_iter._worker_result_queue.qsize()
-        except NotImplementedError:
-            return -2
-    return -1
 
 
 def recursive_apply(item: Any, func: Callable[[Tensor], Tensor]) -> Any:
@@ -70,11 +58,27 @@ class Prefetcher(Iterable[Batch]):
         self.to_device_func = to_device_func
         self.dataloader = dataloader
         self.raise_stop_iter = raise_stop_iter
-        self.dataloader_iter = iter(self.dataloader)
         self.next_sample = None
         self.get_batch_time = 0.0
         self.to_device_time = 0.0
-        self.num_queued_samples = -1
+
+        # Start the dataloader in a separate thread.
+        self._dataloader_iter_ready = threading.Event()
+        self._dataloader_iter: _BaseDataLoaderIter | None = None
+        threading.Thread(target=self.start_dataloader).start()
+
+    def start_dataloader(self) -> None:
+        self._dataloader_iter = iter(self.dataloader)
+        self._dataloader_iter_ready.set()
+        self.prefetch()
+
+    @property
+    def dataloader_iter(self) -> _BaseDataLoaderIter:
+        if self._dataloader_iter is None:
+            with Timer("starting dataloader", spinner=True):
+                self._dataloader_iter_ready.wait()
+                assert self._dataloader_iter is not None
+        return self._dataloader_iter
 
     def prefetch(self) -> None:
         try:
@@ -84,7 +88,6 @@ class Prefetcher(Iterable[Batch]):
             with Timer("moving sample to device") as timer:
                 self.next_sample = self.to_device_func(next_sample)
             self.to_device_time = timer.elapsed_time
-            self.num_queued_samples = get_tasks_outstanding(self.dataloader_iter)
         except StopIteration:
             self.next_sample = None
 
@@ -123,9 +126,12 @@ class Prefetcher(Iterable[Batch]):
         return recursive_apply(item, func)
 
     def __iter__(self) -> Iterator[Batch]:
-        self.prefetch()
+        # Yields one sample quickly.
+        next_sample = next(self.dataloader_iter)
+        yield self.to_device_func(next_sample)
 
         try:
+            self.prefetch()
             while True:
                 if self.next_sample is None:
                     raise StopIteration
@@ -135,7 +141,7 @@ class Prefetcher(Iterable[Batch]):
 
         except StopIteration:
             # Resets the dataloader if the iteration has completed.
-            self.dataloader_iter = iter(self.dataloader)
+            self._dataloader_iter = iter(self.dataloader)
             if self.raise_stop_iter:
                 raise
 

@@ -115,12 +115,12 @@ class StateTimer:
             logs["hours/epoch"] = self.epoch_timer.hours_per_step
 
         # Logs step statistics.
-        logs["steps"] = self.step_timer.steps
+        logs["steps/total"] = self.step_timer.steps
         logs["steps/second"] = self.step_timer.steps_per_second
         logs["steps/hour"] = self.step_timer.steps_per_hour
 
         # Logs sample statistics.
-        logs["samples"] = self.sample_timer.steps
+        logs["samples/total"] = self.sample_timer.steps
         logs["samples/second"] = self.sample_timer.steps_per_second
         logs["samples/hour"] = self.sample_timer.steps_per_hour
 

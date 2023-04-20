@@ -240,13 +240,13 @@ class CPUStatsMixin(MonitorProcessMixin[CPUStatsConfigT, ModelT, TaskT]):
         stats = monitor.get_if_set() if self.config.cpu_stats_only_log_once else monitor.get()
 
         if stats is not None:
+            self.logger.log_scalar("cpu/child_procs", stats.num_child_procs, namespace="trainer")
             self.logger.log_scalar("cpu/percent", stats.cpu_percent, namespace="trainer")
             self.logger.log_scalar("cpu/child_percent", stats.child_cpu_percent, namespace="trainer")
             self.logger.log_scalar("mem/percent", stats.mem_percent, namespace="trainer")
-            self.logger.log_scalar("mem/rss", stats.mem_rss, namespace="trainer")
-            self.logger.log_scalar("mem/vms", stats.mem_vms, namespace="trainer")
             self.logger.log_scalar("mem/shared", stats.mem_shared, namespace="trainer")
-            self.logger.log_scalar("mem/rss/total", stats.mem_rss_total, namespace="trainer")
-            self.logger.log_scalar("mem/vms/total", stats.mem_vms_total, namespace="trainer")
             self.logger.log_scalar("mem/child_percent", stats.child_mem_percent, namespace="trainer")
-            self.logger.log_scalar("child_procs", stats.num_child_procs, namespace="trainer")
+            self.logger.log_scalar("mem/rss/cur", stats.mem_rss, namespace="trainer")
+            self.logger.log_scalar("mem/rss/total", stats.mem_rss_total, namespace="trainer")
+            self.logger.log_scalar("mem/vms/cur", stats.mem_vms, namespace="trainer")
+            self.logger.log_scalar("mem/vms/total", stats.mem_vms_total, namespace="trainer")

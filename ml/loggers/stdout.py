@@ -1,4 +1,5 @@
 import datetime
+import itertools
 import logging
 from dataclasses import dataclass
 from pathlib import Path
@@ -10,9 +11,11 @@ from ml.core.config import conf_field
 from ml.core.registry import register_logger
 from ml.core.state import Phase, State
 from ml.loggers.base import BaseLogger, BaseLoggerConfig
-from ml.utils.colors import colorize
+from ml.utils.colors import Color, colorize
 from ml.utils.datetime import format_timedelta
 from ml.utils.distributed import is_distributed
+
+LEVEL_COLORS: list[Color] = ["light-cyan", "cyan"]
 
 
 @dataclass
@@ -75,11 +78,27 @@ class StdoutLogger(BaseLogger[StdoutLoggerConfig]):
         elapsed_time = datetime.datetime.now() - self.start_time
         elapsed_time_str = format_timedelta(elapsed_time)
 
-        def get_section_string(name: str, section: dict[str, Any]) -> str:
-            p1, p2 = colorize('"', "magenta"), colorize('"', "blue")
-            get_line = lambda kv: f"{p1}{kv[0]}{p2}: {as_str(kv[1](), self.config.precision)}"
-            inner_str = ", ".join(map(get_line, sorted(section.items())))
-            return '"' + colorize(name, "cyan") + '": {' + inner_str + "}"
+        def get_section_string(name: str, section: dict[str, Any], level: int = 0) -> str:
+            sub_sections: dict[str, dict[str, Any]] = {}
+            section_keys = list(section.keys())
+            for k in section_keys:
+                ks = k.split("/", maxsplit=1)
+                if len(ks) == 2:
+                    kk, rest = ks
+                    if kk not in sub_sections:
+                        sub_sections[kk] = {}
+                    sub_sections[kk][rest] = section[k]
+                    section.pop(k)
+
+            get_line = lambda kv: f'"{kv[0]}": {as_str(kv[1](), self.config.precision)}'
+            inner_str = ", ".join(
+                itertools.chain(
+                    map(get_line, sorted(section.items())),
+                    (get_section_string(k, v, level + 1) for k, v in sorted(sub_sections.items())),
+                )
+            )
+            level_color = LEVEL_COLORS[min(level, len(LEVEL_COLORS) - 1)]
+            return '"' + colorize(name, level_color) + '": {' + inner_str + "}"
 
         def colorize_phase(phase: Phase) -> str:
             match phase:
