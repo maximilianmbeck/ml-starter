@@ -6,7 +6,7 @@ from torch import Tensor
 from torch.utils.data.dataset import IterableDataset
 
 from ml.utils.numpy import as_cpu_tensor
-from ml.utils.video import READERS, Reader, VideoProps
+from ml.utils.video import Reader, VideoProps, read_video
 
 
 class VideoFileDataset(IterableDataset[Tensor]):
@@ -26,8 +26,6 @@ class VideoFileDataset(IterableDataset[Tensor]):
 
         super().__init__()
 
-        assert reader in READERS, f"Unsupported {reader=}"
-
         self.file_path = str(file_path)
         self.reader = reader
         self.transform = transform
@@ -37,7 +35,7 @@ class VideoFileDataset(IterableDataset[Tensor]):
 
     def __iter__(self) -> Iterator[Tensor]:
         self.video_props = VideoProps.from_file_ffmpeg(self.file_path)
-        self.video_stream = READERS[self.reader](self.file_path)
+        self.video_stream = read_video(self.reader, self.file_path)
         return self
 
     def __next__(self) -> Tensor:
