@@ -96,6 +96,7 @@ __all__ = [
     "pad_sequence",
     "Phase",
     "project_dir_paths",
+    "read_video",
     "reduce",
     "register_logger",
     "register_lr_scheduler",
@@ -136,10 +137,9 @@ __all__ = [
     "transforms",
     "VanillaTrainer",
     "VanillaTrainerConfig",
-    "VIDEO_READERS",
-    "VIDEO_WRITERS",
     "VideoFileDataset",
     "WorkerPool",
+    "write_video",
 ]
 
 from ml.core.common_types import Batch, Loss, Output
@@ -252,4 +252,4 @@ from ml.utils.numpy import as_cpu_tensor, as_numpy_array
 from ml.utils.random import set_random_seed
 from ml.utils.staging import stage_environment
 from ml.utils.timer import Timer, timeout
-from ml.utils.video import READERS as VIDEO_READERS, WRITERS as VIDEO_WRITERS
+from ml.utils.video import read_video, write_video

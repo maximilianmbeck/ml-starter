@@ -64,3 +64,7 @@ class Environment(ABC, Generic[RLState, RLAction]):
         Returns:
             If the environment has finished
         """
+
+    @property
+    def fps(self) -> int:
+        return 30

@@ -2,10 +2,11 @@ import asyncio
 import math
 import re
 import shutil
+import warnings
 from dataclasses import dataclass
 from fractions import Fraction
 from pathlib import Path
-from typing import AsyncGenerator, Callable, Iterator, Literal
+from typing import AsyncGenerator, Iterator, Literal
 
 import cv2
 import ffmpeg
@@ -146,6 +147,7 @@ def standardize_image(
 
 def read_video_ffmpeg(
     in_file: str | Path,
+    *,
     output_fmt: str = "rgb24",
     channels: int = 3,
 ) -> Iterator[np.ndarray]:
@@ -178,6 +180,7 @@ def read_video_ffmpeg(
 
 async def read_video_with_timestamps_ffmpeg(
     in_file: str | Path,
+    *,
     output_fmt: str = "rgb24",
     channels: int = 3,
     target_dims: tuple[int | None, int | None] | None = None,
@@ -277,6 +280,7 @@ def read_video_opencv(in_file: str | Path) -> Iterator[np.ndarray]:
 def write_video_opencv(
     itr: Iterator[np.ndarray | Tensor],
     out_file: str | Path,
+    *,
     fps: int | Fraction = 30,
     codec: str = "MP4V",
 ) -> None:
@@ -312,6 +316,7 @@ def write_video_opencv(
 def write_video_ffmpeg(
     itr: Iterator[np.ndarray | Tensor],
     out_file: str | Path,
+    *,
     fps: int | Fraction = 30,
     out_fps: int | Fraction = 30,
     vcodec: str = "libx264",
@@ -355,6 +360,7 @@ def write_video_ffmpeg(
 def write_video_matplotlib(
     itr: Iterator[np.ndarray | Tensor],
     out_file: str | Path,
+    *,
     dpi: int = 50,
     fps: int | Fraction = 30,
     title: str = "Video",
@@ -415,19 +421,43 @@ def write_video_matplotlib(
 Reader = Literal["ffmpeg", "opencv"]
 Writer = Literal["ffmpeg", "matplotlib", "opencv"]
 
-READERS: dict[Reader, Callable[[str | Path], Iterator[np.ndarray]]] = {
-    "ffmpeg": read_video_ffmpeg,
-    "opencv": read_video_opencv,
-}
 
-WRITERS: dict[Writer, Callable[[Iterator[np.ndarray | Tensor], str | Path], None]] = {
-    "ffmpeg": write_video_ffmpeg,
-    "matplotlib": write_video_matplotlib,
-    "opencv": write_video_opencv,
-}
+def read_video(reader: Reader, in_file: str | Path) -> Iterator[np.ndarray]:
+    if reader == "ffmpeg":
+        if not shutil.which("ffmpeg"):
+            warnings.warn("FFMPEG is not available in the system. Falling back to OpenCV.")
+            reader = "opencv"
+        else:
+            return read_video_ffmpeg(in_file)
 
-# Remove the FFMPEG reader and writer if FFMPEG is not available in the system.
-if not shutil.which("ffmpeg"):
-    READERS.pop("ffmpeg")
-    WRITERS.pop("ffmpeg")
-    WRITERS.pop("matplotlib")
+    if reader == "opencv":
+        return read_video_opencv(in_file)
+
+    raise ValueError(f"Invalid reader: {reader}")
+
+
+def write_video(
+    writer: Writer,
+    itr: Iterator[np.ndarray | Tensor],
+    out_file: str | Path,
+    *,
+    fps: int | Fraction = 30,
+) -> None:
+    if writer == "ffmpeg":
+        if not shutil.which("ffmpeg"):
+            warnings.warn("FFMPEG is not available in the system. Falling back to OpenCV.")
+            writer = "opencv"
+        else:
+            return write_video_ffmpeg(itr, out_file, fps=fps)
+
+    if writer == "matplotlib":
+        if not shutil.which("ffmpeg"):
+            warnings.warn("FFMPEG is not available in the system. Falling back to OpenCV.")
+            writer = "opencv"
+        else:
+            return write_video_matplotlib(itr, out_file, fps=fps)
+
+    if writer == "opencv":
+        return write_video_opencv(itr, out_file, fps=fps)
+
+    raise ValueError(f"Invalid writer: {writer}")

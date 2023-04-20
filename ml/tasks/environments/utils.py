@@ -9,7 +9,7 @@ from torch import Tensor
 
 from ml.tasks.environments.base import Environment
 from ml.utils.logging import configure_logging
-from ml.utils.video import WRITERS as VIDEO_WRITERS, Writer
+from ml.utils.video import Writer, write_video
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -52,4 +52,4 @@ def test_environment(
     if save_path is None:
         iter_environment()
     else:
-        VIDEO_WRITERS[writer](iter_environment(), save_path)
+        write_video(writer, iter_environment(), save_path)

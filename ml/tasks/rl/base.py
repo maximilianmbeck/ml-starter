@@ -29,7 +29,7 @@ from ml.tasks.environments.worker import (
     get_worker_pool,
 )
 from ml.tasks.rl.replay import MultiReplaySamples, ReplayDataset, ReplaySamples
-from ml.utils.video import WRITERS as VIDEO_WRITERS, Writer, standardize_image
+from ml.utils.video import Writer, standardize_image, write_video
 
 logger = logging.getLogger(__name__)
 
@@ -444,5 +444,5 @@ class ReinforcementLearningTask(
         if return_states:
             raise ValueError("Cannot return states when saving to a file")
 
-        VIDEO_WRITERS[writer](iter_images(), save_path)
+        write_video(writer, iter_images(), save_path, fps=environment.fps)
         return None
