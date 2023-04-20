@@ -20,10 +20,12 @@ class AdamOptimizerConfig(BaseOptimizerConfig):
 @register_optimizer("adam", AdamOptimizerConfig)
 class AdamOptimizer(BaseOptimizer[AdamOptimizerConfig]):
     def get(self, model: nn.Module) -> Adam:
+        b1, b2 = self.config.betas
+
         return Adam(
             model.parameters(),
             lr=self.config.lr,
-            betas=self.config.betas,
+            betas=(b1, b2),
             eps=self.config.eps,
             weight_decay=self.config.weight_decay,
             amsgrad=self.config.amsgrad,

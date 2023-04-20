@@ -10,8 +10,6 @@ import os
 from pathlib import Path
 from typing import Set
 
-import torch.distributed as dist
-
 
 class _StrEnvVar:
     def __init__(self, key: str, *, default: str | None = None) -> None:
@@ -151,10 +149,3 @@ is_metal_disabled = DisableMetal.get
 # Disables using the GPU.
 DisableGPU = _BoolEnvVar("DISABLE_GPU", default=False)
 is_gpu_disabled = DisableGPU.get
-
-
-def get_distributed_backend() -> dist.Backend:
-    # Used to change the distributed backend to something other than NCCL.
-    # For example, if you're on a system with some strange NCCL errors, you
-    # can try changing this environment variable to `gloo`.
-    return dist.Backend(os.environ.get("TORCH_DISTRIBUTED_BACKEND", "nccl"))

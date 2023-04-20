@@ -31,7 +31,7 @@ from torch import nn
 from torch.optim import Optimizer
 
 from ml.core.config import conf_field
-from ml.core.env import get_distributed_backend, get_stage_dir
+from ml.core.env import get_stage_dir
 from ml.core.registry import Objects, project_dirs
 from ml.core.state import State
 from ml.lr_schedulers.base import SchedulerAdapter
@@ -43,7 +43,6 @@ from ml.utils.distributed import (
     get_master_port,
     get_random_port,
     get_world_size,
-    init_process_group,
     is_master,
     set_init_method,
     set_master_addr,
@@ -52,6 +51,7 @@ from ml.utils.distributed import (
 )
 from ml.utils.logging import configure_logging
 from ml.utils.staging import stage_environment
+from ml.utils.torch_distributed import get_distributed_backend, init_process_group
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -233,11 +233,11 @@ class SlurmTrainer(
             output_path=slurm_log_dir / "slurm_out.txt",
             error_path=slurm_log_dir / "slurm_err.%j.txt",
             extra_sbatch_lines="\n".join(f"#SBATCH {line}" for line in sbatch_lines),
+            stage_dir=stage_dir,
             pythonpath=python_path,
             master_port=self.config.master_port,
             config_path=self.exp_dir / "config.yaml",
             lock_file_path=self.exp_dir / ".lock_running",
-            stage_dir=stage_dir,
         )
 
         with open(sbatch_path, "w", encoding="utf-8") as f:

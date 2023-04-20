@@ -139,8 +139,7 @@ class TensorboardLogger(BaseLogger[TensorboardLoggerConfig]):
 
         # If on master, launch TensorBoard subprocess in a separate thread.
         if is_master():
-            thread = threading.Thread(target=self.worker_thread, daemon=False)
-            thread.start()
+            threading.Thread(target=self.worker_thread, daemon=False).start()
 
     def worker_thread(self) -> None:
         if "TENSORBOARD_PORT" in os.environ:

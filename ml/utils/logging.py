@@ -1,10 +1,8 @@
 import logging
 import math
 import sys
-from typing import Any
 
 import tqdm
-from torch import Tensor
 
 from ml.core.env import is_debugging
 from ml.utils.colors import Color, colorize, get_colorize_parts
@@ -127,9 +125,3 @@ def configure_logging(
     # Avoid junk logs from other libraries.
     logging.getLogger("matplotlib").setLevel(logging.WARNING)
     logging.getLogger("PIL").setLevel(logging.WARNING)
-
-
-def get_log_item(item: Any) -> Any:
-    if isinstance(item, Tensor):
-        return item.detach().cpu().item()
-    return item

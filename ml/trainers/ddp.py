@@ -33,14 +33,12 @@ import torch.multiprocessing as mp
 from omegaconf import DictConfig
 from torch import nn
 
-from ml.core.env import get_distributed_backend
 from ml.core.registry import Objects
 from ml.scripts.train import train_main
 from ml.trainers.base import ModelT, MultiprocessConfig, TaskT
 from ml.trainers.vanilla import VanillaTrainer, VanillaTrainerConfigT
 from ml.utils.distributed import (
     get_world_size,
-    init_process_group,
     set_init_method,
     set_master_addr,
     set_master_port,
@@ -49,6 +47,7 @@ from ml.utils.distributed import (
 )
 from ml.utils.logging import configure_logging
 from ml.utils.networking import get_unused_port
+from ml.utils.torch_distributed import get_distributed_backend, init_process_group
 
 logger: logging.Logger = logging.getLogger(__name__)
 

@@ -82,11 +82,12 @@ class AdamWOptimizerConfig(BaseOptimizerConfig):
 class AdamWOptimizer(BaseOptimizer[AdamWOptimizerConfig]):
     def get(self, model: nn.Module) -> AdamW:
         params = model.parameters()
+        b1, b2 = self.config.betas
 
         return AdamW(
             params if self.config.weight_decay_bias else separate_weight_decayable_params(params),
             lr=self.config.lr,
-            betas=self.config.betas,
+            betas=(b1, b2),
             eps=self.config.eps,
             weight_decay=self.config.weight_decay,
             amsgrad=self.config.amsgrad,

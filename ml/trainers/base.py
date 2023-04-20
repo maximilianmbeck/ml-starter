@@ -346,6 +346,7 @@ class BaseTrainer(BaseObjectWithPointers[TrainerConfigT], Generic[TrainerConfigT
                     if weights_only:
                         logger.warning("Failed to load checkpoint using `weights_only` flag, retrying without it")
                         ckpt = cast(dict, torch.load(cast(str | Path, ckpt), weights_only=False))
+                        raise  # TODO: Remove later
                     else:
                         raise
 
@@ -379,10 +380,10 @@ class BaseTrainer(BaseObjectWithPointers[TrainerConfigT], Generic[TrainerConfigT
         model: ModelT,
         optim: Optimizer | None = None,
         lr_sched: SchedulerAdapter | None = None,
-    ) -> None:
+    ) -> Path:
+        ckpt_path = self.get_ckpt_path(state)
         if is_master():
             with Timer("saving checkpoint", spinner=True):
-                ckpt_path = self.get_ckpt_path(state)
                 logger.info("Saving checkpoint to %s", ckpt_path)
                 last_ckpt_path = self.get_ckpt_path()
                 ckpt_path.parent.mkdir(exist_ok=True, parents=True)
@@ -394,7 +395,7 @@ class BaseTrainer(BaseObjectWithPointers[TrainerConfigT], Generic[TrainerConfigT
                     "state": asdict(state),
                 }
                 if self._raw_config is not None:
-                    state_dict["config"] = OmegaConf.to_container(self._raw_config)
+                    state_dict["config"] = OmegaConf.to_container(self._raw_config, enum_to_str=True)
                 self.update_state_dict(state_dict)
                 if last_ckpt_path.exists():
                     if self.checkpoint_config.only_save_most_recent:
@@ -409,6 +410,7 @@ class BaseTrainer(BaseObjectWithPointers[TrainerConfigT], Generic[TrainerConfigT
                     logger.exception("Exception while trying to update %s", ckpt_path)
                 self.add_lock_file("ckpt", exists_ok=True)
                 task.on_after_save_checkpoint(ckpt_path)
+        return ckpt_path
 
     @abstractmethod
     def launch(self) -> None:

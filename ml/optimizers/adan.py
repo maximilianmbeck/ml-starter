@@ -90,10 +90,12 @@ class AdanOptimizerConfig(BaseOptimizerConfig):
 @register_optimizer("adan", AdanOptimizerConfig)
 class AdanOptimizer(BaseOptimizer[AdanOptimizerConfig]):
     def get(self, model: nn.Module) -> Adan:
+        b1, b2, b3 = self.config.betas
+
         return Adan(
             model.parameters(),
             lr=self.config.lr,
-            betas=self.config.betas,
+            betas=(b1, b2, b3),
             eps=self.config.eps,
             weight_decay=self.config.weight_decay,
             **self.common_kwargs,

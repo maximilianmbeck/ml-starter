@@ -268,7 +268,7 @@ class register_base(ABC, Generic[Entry, Config]):  # pylint: disable=invalid-nam
         reg_cfg = raw_config[cls.config_key()]
         reg_name = get_name(cls.config_key(), reg_cfg)
         reg_cls, _ = cls.lookup(reg_name)
-        with Timer(f"building {reg_name} from '{cls.REGISTRY_LOCATIONS[reg_name]}'"):
+        with Timer(f"building {reg_name}"):
             reg_obj = reg_cls(reg_cfg)
         if isinstance(reg_obj, BaseObjectWithPointers):
             reg_obj.set_raw_config(raw_config)
@@ -367,7 +367,7 @@ class multi_register_base(register_base[Entry, Config], Generic[Entry, Config]):
         for reg_cfg in reg_cfgs:
             reg_name = get_name(cls.config_key(), reg_cfg)
             reg_cls, _ = cls.lookup(reg_name)
-            with Timer(f"building {reg_name} from '{cls.REGISTRY_LOCATIONS[reg_name]}'"):
+            with Timer(f"building {reg_name}"):
                 reg_obj = reg_cls(reg_cfg)
             reg_obj.set_raw_config(raw_config)
             reg_objs.append(reg_obj)

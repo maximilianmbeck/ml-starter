@@ -2,18 +2,14 @@ import logging
 import shlex
 import sys
 from pathlib import Path
-from typing import Callable
+from typing import TYPE_CHECKING, Callable
 
-from omegaconf import DictConfig
-
-from ml.core.env import add_global_tag
-from ml.core.registry import Objects, add_project_dir
-from ml.scripts import compiler, mp_train, resolve, stage, train
-from ml.utils.cli import parse_cli
-from ml.utils.colors import colorize
 from ml.utils.distributed import get_rank_optional, get_world_size_optional
 from ml.utils.logging import configure_logging
-from ml.utils.random import set_random_seed
+from ml.utils.timer import Timer
+
+if TYPE_CHECKING:
+    from omegaconf import DictConfig
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -21,6 +17,15 @@ logger: logging.Logger = logging.getLogger(__name__)
 def cli_main(project_root: Path | str | None = None) -> None:
     configure_logging(rank=get_rank_optional(), world_size=get_world_size_optional())
     logger.info("Command: %s", shlex.join(sys.argv))
+
+    # Import here to avoid slow startup time.
+    with Timer("importing", spinner=True):
+        from ml.core.env import add_global_tag
+        from ml.core.registry import Objects, add_project_dir
+        from ml.scripts import compiler, mp_train, resolve, stage, train
+        from ml.utils.cli import parse_cli
+        from ml.utils.colors import colorize
+        from ml.utils.random import set_random_seed
 
     if project_root is not None:
         add_project_dir(Path(project_root).resolve())

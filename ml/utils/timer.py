@@ -70,7 +70,7 @@ class Timer:
     def __init__(
         self,
         description: str,
-        min_seconds_to_print: float = 1.0,
+        min_seconds_to_print: float = 5.0,
         logger: logging.Logger | None = None,
         spinner: bool = False,
     ) -> None:
