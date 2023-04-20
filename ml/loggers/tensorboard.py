@@ -23,6 +23,7 @@ from ml.loggers.base import BaseLogger, BaseLoggerConfig
 from ml.loggers.multi import TARGET_FPS, TARGET_SAMPLE_RATE
 from ml.utils.distributed import is_distributed, is_master
 from ml.utils.networking import get_unused_port
+from ml.utils.timer import Timer
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -171,20 +172,23 @@ class TensorboardLogger(BaseLogger[TensorboardLoggerConfig]):
                 ]
                 logger.info("Tensorboard command: %s", " ".join(command))
 
-                proc = subprocess.Popen(  # pylint: disable=consider-using-with
-                    command,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.STDOUT,
-                )
+                with Timer("starting tensorboard", spinner=True):
+                    proc = subprocess.Popen(  # pylint: disable=consider-using-with
+                        command,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT,
+                    )
 
-                # Gets the output line that shows the running address.
-                assert proc is not None and proc.stdout is not None
-                for line in proc.stdout:
-                    line_str = line.decode("utf-8")
-                    if line_str.startswith("TensorBoard"):
-                        self.line_str = make_localhost(line_str)
-                        logger.info("Running TensorBoard process:\n%s", make_bold([self.line_str]))
-                        break
+                    # Gets the output line that shows the running address.
+                    assert proc is not None and proc.stdout is not None
+                    for line in proc.stdout:
+                        line_str = line.decode("utf-8")
+                        if line_str.startswith("TensorBoard"):
+                            self.line_str = make_localhost(line_str)
+                            break
+
+                if self.line_str is not None:
+                    logger.info("Running TensorBoard process:\n%s", make_bold([self.line_str]))
 
                 # Close the process when the program terminates.
                 atexit.register(proc.kill)
