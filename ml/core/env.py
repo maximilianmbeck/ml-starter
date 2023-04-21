@@ -8,7 +8,6 @@ Instead, add a new accessor function to this file.
 
 import os
 from pathlib import Path
-from typing import Set
 
 
 class _StrEnvVar:
@@ -33,10 +32,10 @@ class _StrSetEnvVar:
         self.key = key
         self.sep = sep
 
-    def get(self) -> Set[str]:
+    def get(self) -> set[str]:
         return {v for v in os.environ.get(self.key, "").split(self.key) if v}
 
-    def set(self, values: Set[str]) -> None:
+    def set(self, values: set[str]) -> None:
         os.environ[self.key] = self.sep.join(v for v in sorted(values) if v)
 
     def add(self, value: str) -> None:

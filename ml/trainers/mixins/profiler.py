@@ -3,7 +3,7 @@ import datetime
 import logging
 import time
 from dataclasses import dataclass
-from typing import Any, ContextManager, Iterator, Set, TypeVar
+from typing import Any, ContextManager, Iterator, TypeVar
 
 import torch
 
@@ -31,7 +31,7 @@ class Profiler:
     table_size: int = conf_field(10, help="Number of profiling ops to print")
 
 
-STEPS_TO_TIME: Set[StepType] = {
+STEPS_TO_TIME: set[StepType] = {
     "backward",
     "clip_grads",
     "forward",
