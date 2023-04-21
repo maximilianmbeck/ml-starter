@@ -96,6 +96,7 @@ __all__ = [
     "pad_sequence",
     "Phase",
     "project_dir_paths",
+    "read_gif",
     "read_video",
     "reduce",
     "register_logger",
@@ -139,6 +140,7 @@ __all__ = [
     "VanillaTrainerConfig",
     "VideoFileDataset",
     "WorkerPool",
+    "write_gif",
     "write_video",
 ]
 
@@ -245,6 +247,7 @@ from ml.utils.distributed import (
     is_distributed,
     is_master,
 )
+from ml.utils.image import read_gif, write_gif
 from ml.utils.io import instantiate_config, load_model_and_task
 from ml.utils.large_models import init_empty_weights, meta_to_empty_func
 from ml.utils.logging import configure_logging

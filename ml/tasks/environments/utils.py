@@ -16,6 +16,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 def test_environment(
     env: Environment,
+    *,
     max_steps: int = 100,
     save_path: str | Path | None = None,
     writer: Writer = "ffmpeg",
@@ -52,4 +53,4 @@ def test_environment(
     if save_path is None:
         iter_environment()
     else:
-        write_video(writer, iter_environment(), save_path)
+        write_video(iter_environment(), save_path, writer=writer)

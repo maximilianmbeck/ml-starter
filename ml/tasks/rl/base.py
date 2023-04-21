@@ -444,5 +444,5 @@ class ReinforcementLearningTask(
         if return_states:
             raise ValueError("Cannot return states when saving to a file")
 
-        write_video(writer, iter_images(), save_path, fps=environment.fps)
+        write_video(iter_images(), save_path, fps=environment.fps, writer=writer)
         return None

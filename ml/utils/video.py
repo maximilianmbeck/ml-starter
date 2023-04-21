@@ -1,5 +1,4 @@
 import asyncio
-import math
 import re
 import shutil
 import warnings
@@ -13,20 +12,9 @@ import ffmpeg
 import matplotlib.animation as ani
 import matplotlib.pyplot as plt
 import numpy as np
-import torch
-import torchvision.transforms.functional as V
 from torch import Tensor
-from torchvision.transforms import InterpolationMode
 
-VALID_CHANNEL_COUNTS = {1, 3}
-
-
-def as_uint8(arr: np.ndarray) -> np.ndarray:
-    if np.issubdtype(arr.dtype, np.integer):
-        return arr.astype(np.uint8)
-    if np.issubdtype(arr.dtype, np.floating):
-        return (arr * 255).round().astype(np.uint8)
-    raise NotImplementedError(f"Unsupported dtype: {arr.dtype}")
+from ml.utils.image import as_uint8, standardize_image
 
 
 @dataclass
@@ -63,86 +51,6 @@ class VideoProps:
                 )
 
         raise ValueError(f"Could not parse video properties from video in {fpath}")
-
-
-def _aminmax(t: Tensor) -> tuple[Tensor, Tensor]:
-    # `aminmax` isn't supported for MPS tensors, fall back to separate calls.
-    minv, maxv = (t.min(), t.max()) if t.is_mps else tuple(t.aminmax())
-    return minv, maxv
-
-
-def make_human_viewable_resolution(
-    image: Tensor,
-    interpolation: InterpolationMode = InterpolationMode.BILINEAR,
-    trg_res: tuple[int, int] = (250, 250),
-) -> Tensor:
-    """Resizes image to human-viewable resolution.
-
-    Args:
-        image: The image to resize, with shape (C, H, W)
-        interpolation: Interpolation mode to use for image resizing
-        trg_res: The target image resolution; the image will be reshaped to
-            have approximately the same area as an image with this resolution
-
-    Returns:
-        The resized image
-    """
-
-    width, height = V.get_image_size(image)
-    trg_height, trg_width = trg_res
-    factor = math.sqrt((trg_height * trg_width) / (height * width))
-    new_height, new_width = int(height * factor), int(width * factor)
-    return V.resize(image, [new_height, new_width], interpolation)
-
-
-def standardize_image(
-    image: np.ndarray | Tensor,
-    *,
-    log_key: str | None = None,
-    normalize: bool = True,
-    keep_resolution: bool = False,
-) -> np.ndarray:
-    """Converts an arbitrary image to shape (C, H, W).
-
-    Args:
-        image: The image tensor to log
-        log_key: An optional logging key to use in the exception message
-        normalize: Normalize images to (0, 1)
-        keep_resolution: If set, preserve original image resolution, otherwise
-            change image resolution to human-viewable
-
-    Returns:
-        The normalized image, with shape (H, W, C)
-
-    Raises:
-        ValueError: If the image shape is invalid
-    """
-
-    if isinstance(image, np.ndarray):
-        image = torch.from_numpy(image)
-
-    if normalize and image.is_floating_point():
-        minv, maxv = _aminmax(image)
-        maxv.clamp_min_(1.0)
-        minv.clamp_max_(0.0)
-        image = torch.clamp((image.detach() - minv) / (maxv - minv), 0.0, 1.0)
-
-    if image.ndim == 2:
-        image = image.unsqueeze(0)
-    elif image.ndim == 3:
-        if image.shape[0] in VALID_CHANNEL_COUNTS:
-            pass
-        elif image.shape[2] in VALID_CHANNEL_COUNTS:
-            image = image.permute(2, 0, 1)
-        else:
-            raise ValueError(f"Invalid channel count{'' if log_key is None else f' for {log_key}'}: {image.shape}")
-    else:
-        raise ValueError(f"Invalid image shape{'' if log_key is None else f' for {log_key}'}: {image.shape}")
-
-    if not keep_resolution:
-        image = make_human_viewable_resolution(image)
-
-    return image.permute(1, 2, 0).detach().cpu().numpy()
 
 
 def read_video_ffmpeg(
@@ -281,6 +189,7 @@ def write_video_opencv(
     itr: Iterator[np.ndarray | Tensor],
     out_file: str | Path,
     *,
+    keep_resolution: bool = False,
     fps: int | Fraction = 30,
     codec: str = "MP4V",
 ) -> None:
@@ -289,6 +198,8 @@ def write_video_opencv(
     Args:
         itr: The image iterator, yielding images with shape (H, W, C).
         out_file: The path to the output file.
+        keep_resolution: If set, don't change the image resolution, otherwise
+            resize to a human-friendly resolution.
         fps: Frames per second for the video.
         codec: FourCC code specifying OpenCV video codec type. Examples are
             MPEG, MP4V, DIVX, AVC1, H236.
@@ -296,7 +207,7 @@ def write_video_opencv(
 
     Path(out_file).parent.mkdir(exist_ok=True, parents=True)
 
-    first_img = standardize_image(next(itr))
+    first_img = standardize_image(next(itr), keep_resolution=keep_resolution)
     height, width, _ = first_img.shape
 
     fourcc = cv2.VideoWriter_fourcc(*codec)
@@ -307,7 +218,7 @@ def write_video_opencv(
 
     write_frame(first_img)
     for img in itr:
-        write_frame(standardize_image(img))
+        write_frame(standardize_image(img, keep_resolution=keep_resolution))
 
     stream.release()
     cv2.destroyAllWindows()
@@ -317,6 +228,7 @@ def write_video_ffmpeg(
     itr: Iterator[np.ndarray | Tensor],
     out_file: str | Path,
     *,
+    keep_resolution: bool = False,
     fps: int | Fraction = 30,
     out_fps: int | Fraction = 30,
     vcodec: str = "libx264",
@@ -328,6 +240,8 @@ def write_video_ffmpeg(
     Args:
         itr: The image iterator, yielding images with shape (H, W, C).
         out_file: The path to the output file.
+        keep_resolution: If set, don't change the image resolution, otherwise
+            resize to a human-friendly resolution.
         fps: Frames per second for the video.
         out_fps: Frames per second for the saved video.
         vcodec: The video codec to use for the output video
@@ -337,7 +251,7 @@ def write_video_ffmpeg(
 
     Path(out_file).parent.mkdir(exist_ok=True, parents=True)
 
-    first_img = standardize_image(next(itr))
+    first_img = standardize_image(next(itr), keep_resolution=keep_resolution)
     height, width, _ = first_img.shape
 
     stream = ffmpeg.input("pipe:", format="rawvideo", pix_fmt=input_fmt, s=f"{width}x{height}", r=float(fps))
@@ -351,7 +265,7 @@ def write_video_ffmpeg(
     # Writes all the video frames to the file.
     write_frame(first_img)
     for img in itr:
-        write_frame(standardize_image(img))
+        write_frame(standardize_image(img, keep_resolution=keep_resolution))
 
     stream.stdin.close()
     stream.wait()
@@ -361,6 +275,7 @@ def write_video_matplotlib(
     itr: Iterator[np.ndarray | Tensor],
     out_file: str | Path,
     *,
+    keep_resolution: bool = False,
     dpi: int = 50,
     fps: int | Fraction = 30,
     title: str = "Video",
@@ -372,6 +287,8 @@ def write_video_matplotlib(
     Args:
         itr: The image iterator, yielding images with shape (H, W, C).
         out_file: The path to the output file.
+        keep_resolution: If set, don't change the image resolution, otherwise
+            resize to a human-friendly resolution.
         dpi: Dots per inch for output image.
         fps: Frames per second for the video.
         title: Title for the video metadata.
@@ -383,7 +300,7 @@ def write_video_matplotlib(
 
     Path(out_file).parent.mkdir(exist_ok=True, parents=True)
 
-    first_img = standardize_image(next(itr))
+    first_img = standardize_image(next(itr), keep_resolution=keep_resolution)
     height, width, _ = first_img.shape
     fig, ax = plt.subplots(figsize=(width / dpi, height / dpi))
 
@@ -414,7 +331,7 @@ def write_video_matplotlib(
         mpl_writer.grab_frame()
 
         for img in itr:
-            im.set_data(as_uint8(standardize_image(img)))
+            im.set_data(as_uint8(standardize_image(img, keep_resolution=keep_resolution)))
             mpl_writer.grab_frame()
 
 
@@ -437,27 +354,45 @@ def read_video(reader: Reader, in_file: str | Path) -> Iterator[np.ndarray]:
 
 
 def write_video(
-    writer: Writer,
     itr: Iterator[np.ndarray | Tensor],
     out_file: str | Path,
     *,
     fps: int | Fraction = 30,
+    keep_resolution: bool = False,
+    writer: Writer = "ffmpeg",
 ) -> None:
+    """Function that writes an video from a stream of input tensors.
+
+    Args:
+        itr: The image iterator, yielding images with shape (H, W, C).
+        out_file: The path to the output file.
+        fps: Frames per second for the video.
+        keep_resolution: If set, don't change the image resolution, otherwise
+            resize to a human-friendly resolution.
+        writer: The video writer to use.
+
+    Raises:
+        ValueError: If the writer is invalid.
+    """
+
     if writer == "ffmpeg":
         if not shutil.which("ffmpeg"):
             warnings.warn("FFMPEG is not available in the system. Falling back to OpenCV.")
             writer = "opencv"
         else:
-            return write_video_ffmpeg(itr, out_file, fps=fps)
+            write_video_ffmpeg(itr, out_file, fps=fps, keep_resolution=keep_resolution)
+            return
 
     if writer == "matplotlib":
         if not shutil.which("ffmpeg"):
             warnings.warn("FFMPEG is not available in the system. Falling back to OpenCV.")
             writer = "opencv"
         else:
-            return write_video_matplotlib(itr, out_file, fps=fps)
+            write_video_matplotlib(itr, out_file, fps=fps, keep_resolution=keep_resolution)
+            return
 
     if writer == "opencv":
-        return write_video_opencv(itr, out_file, fps=fps)
+        write_video_opencv(itr, out_file, fps=fps, keep_resolution=keep_resolution)
+        return
 
     raise ValueError(f"Invalid writer: {writer}")
