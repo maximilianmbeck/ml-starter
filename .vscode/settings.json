@@ -1,25 +1,5 @@
 {
   /* Development languages */
-  "[c]": {
-    "editor.defaultFormatter": "xaver.clang-format",
-    "editor.formatOnSave": true
-  },
-  "[cu]": {
-    "editor.defaultFormatter": "xaver.clang-format",
-    "editor.formatOnSave": true
-  },
-  "[cpp]": {
-    "editor.defaultFormatter": "xaver.clang-format",
-    "editor.formatOnSave": true
-  },
-  "[cuda-cpp]": {
-    "editor.defaultFormatter": "xaver.clang-format",
-    "editor.formatOnSave": true
-  },
-  "[cmake]": {
-    "editor.defaultFormatter": "cheshirekow.cmake-format",
-    "editor.formatOnSave": true
-  },
   "[python]": {
     "editor.defaultFormatter": "ms-python.python",
     "editor.formatOnSave": true,
@@ -58,8 +38,5 @@
   "python.linting.flake8Enabled": false,
   "python.analysis.exclude": ["setup.py"],
   "ruff.fixAll": false,
-  "ruff.organizeImports": true,
-
-  /* CMake variables */
-  "cmake.sourceDirectory": "${workspaceFolder}/ml/cpp"
+  "ruff.organizeImports": true
 }

@@ -28,6 +28,8 @@ def pytest_runtest_setup(item: Function) -> None:
     for mark in item.iter_markers():
         if mark.name == "has_gpu" and not has_gpu():
             pytest.skip("Skipping because this test requires a GPU and none is available")
+        if mark.name == "has_mps" and not has_mps():
+            pytest.skip("Skipping because this test requires an MPS device and none is available")
 
 
 def pytest_collection_modifyitems(items: list[Function]) -> None:
