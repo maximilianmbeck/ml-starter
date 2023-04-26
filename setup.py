@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+import re
+
 from setuptools import setup
 
 with open("README.md", "r", encoding="utf-8") as f:
@@ -14,8 +16,10 @@ with open("requirements-dev.txt", "r", encoding="utf-8") as f:
     requirements_dev: list[str] = f.read().splitlines()
 
 
-with open("ml/__version__.txt", "r", encoding="utf-8") as fh:
-    version = fh.read().strip()
+with open("ml/api.py", "r", encoding="utf-8") as fh:
+    version_re = re.search(r"^__version__ = \"([^\"]*)\"", fh.read(), re.MULTILINE)
+assert version_re is not None, "Could not find version in ml/api.py"
+version: str = version_re.group(1)
 
 
 setup(
