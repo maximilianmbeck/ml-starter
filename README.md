@@ -1,69 +1,23 @@
+<div align="center">
+
 # ML Starter
 
-This is the core code for my ML project template over [here](https://github.com/codekansas/ml-project-template).
+[![python](https://img.shields.io/badge/-Python_3.10-blue?logo=python&logoColor=white)](https://github.com/pre-commit/pre-commit)
+[![pytorch](https://img.shields.io/badge/PyTorch_2.0+-ee4c2c?logo=pytorch&logoColor=white)](https://pytorch.org/get-started/locally/)
+<br />
+[![black](https://img.shields.io/badge/Code%20Style-Black-black.svg?labelColor=gray)](https://black.readthedocs.io/en/stable/)
+[![ruff](https://img.shields.io/badge/Linter-Ruff-red.svg?labelColor=gray)](https://github.com/charliermarsh/ruff)
+<br />
+[![license](https://img.shields.io/badge/License-MIT-green.svg?labelColor=gray)](https://github.com/codekansas/ml-starter/blob/master/LICENSE)
 
-## Installation
+[<kbd>Click Here</kbd>](https://github.com/codekansas/ml-project-template/generate) to initialize a new repository from [this template](https://github.com/codekansas/ml-project-template).
 
-```bash
-pip install ml-starter
-```
+</div>
 
-Alternatively, the latest bleeding edge version can be installed from GitHub:
+<br />
 
-```bash
-pip install git+https://github.com/codekansas/ml-starter.git
-```
+## What is this?
 
-This expects a project structure like this:
+This is a framework for quickly trying out ML ideas, similar to PyTorch Lightning or Fairseq.
 
-```bash
-.
-├── configs
-│   └── my_config.yaml
-└── project
-    ├── loggers
-    ├── lr_schedulers
-    ├── models
-    │   └── my_model.py
-    ├── optimizers
-    ├── scripts
-    │   └── cli.py
-    ├── tasks
-    │   └── my_task.py
-    └── trainers
-```
-
-The `cli.py` file should look something like this:
-
-```python
-from pathlib import Path
-
-from ml.scripts.cli import cli_main as ml_cli_main
-
-PROJECT_ROOT = Path(__file__).parent.parent
-
-
-def cli_main() -> None:
-    ml_cli_main(PROJECT_ROOT)
-
-
-if __name__ == "__main__":
-    cli_main()
-```
-
-You can then train a model for your config using this command:
-
-```bash
-python -m project.scripts.cli train configs/my_config.yaml
-```
-
-This can be made more wieldy by adding it as an entry point to your `setup.cfg` file:
-
-```
-[options.entry_points]
-
-console_scripts =
-    runml = project.scripts.cli:cli_main
-```
-
-The template repository above already does this.
+Check out the docs for more. 😊
