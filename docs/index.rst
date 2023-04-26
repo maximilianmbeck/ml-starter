@@ -3,6 +3,8 @@ ml-starter
 
 Welcome to the documentation for the `ml-starter` package!
 
+This is the documentation for the Github project `here <https://github.com/codekansas/ml-starter>`_.
+
 .. toctree::
    :maxdepth: 3
    :caption: Contents
