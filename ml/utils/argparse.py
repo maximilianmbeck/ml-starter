@@ -1,3 +1,5 @@
+"""Utilities for using argparse with dataclasses."""
+
 import argparse
 from dataclasses import MISSING, fields
 from typing import Any, Type, TypeVar, Union, cast, get_args, get_origin
@@ -10,6 +12,18 @@ Config = TypeVar("Config", bound=BaseConfig)
 
 
 def get_type_from_string(type_name: str) -> Type:
+    """Parses a type name to a string.
+
+    Args:
+        type_name: The type name to parse.
+
+    Returns:
+        The type corresponding to the type name.
+
+    Raises:
+        ValueError: If the type name is not supported.
+    """
+
     if type_name == "str":
         return str
     if type_name == "float":
@@ -20,6 +34,16 @@ def get_type_from_string(type_name: str) -> Type:
 
 
 def add_args(parser: argparse.ArgumentParser, dc: Type[Config]) -> None:
+    """Adds arguments to an argument parser from a dataclass.
+
+    Args:
+        parser: The argument parser to add arguments to.
+        dc: The dataclass to add arguments from.
+
+    Raises:
+        NotImplementedError: If the dataclass has a field with an unsupported type.
+    """
+
     for field in fields(dc):
         args: list[str] = []
         if field.metadata.get("short") is not None:
@@ -62,6 +86,16 @@ def add_args(parser: argparse.ArgumentParser, dc: Type[Config]) -> None:
 
 
 def from_args(args: argparse.Namespace, dc: Type[Config]) -> Config:
+    """Creates a dataclass from an argument parser namespace.
+
+    Args:
+        args: The argument parser namespace to create the dataclass from.
+        dc: The dataclass to create.
+
+    Returns:
+        The dataclass created from the argument parser namespace.
+    """
+
     values: dict[str, Any] = {}
     for field in fields(dc):
         values[field.name] = getattr(args, field.name)

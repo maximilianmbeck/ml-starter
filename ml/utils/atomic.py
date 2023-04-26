@@ -1,7 +1,6 @@
 # pylint: disable=redefined-builtin
 """Defines some utility functions for atomic file operations."""
 
-
 import os
 import tempfile as tmp
 from contextlib import contextmanager
@@ -22,6 +21,12 @@ from typing import (
 
 
 def fsync_directory(path: Path) -> None:
+    """Performs an fsync on a directory.
+
+    Args:
+        path: The path to fsync.
+    """
+
     fid = os.open(str(path), os.O_RDONLY)
     try:
         os.fsync(fid)
@@ -59,6 +64,19 @@ def atomic_save(
 
 @contextmanager
 def tempfile(suffix: str = "", dir: str | Path | None = None) -> Iterator[str]:
+    """Creates a temporary file and yields its path.
+
+    Args:
+        suffix: The suffix to use for the temporary file
+        dir: The directory to create the temporary file in
+
+    Yields:
+        The path to the temporary file
+
+    Raises:
+        OSError: If the temporary file could not be created
+    """
+
     tf = tmp.NamedTemporaryFile(delete=False, suffix=suffix, dir=dir)
     tf.file.close()
     try:
@@ -105,6 +123,18 @@ def open_atomic(
     encoding: str = "utf-8",
     fsync: bool = False,
 ) -> Iterator[IO[Any]]:
+    """Opens a file for writing, atomically.
+
+    Args:
+        filepath: The path to the file to open
+        mode: The mode to open the file in
+        encoding: The encoding to use
+        fsync: If set, make the write durable
+
+    Yields:
+        A context manager that yields the opened file
+    """
+
     with tempfile(dir=os.path.dirname(os.path.abspath(filepath))) as tmppath:
         with open(tmppath, mode=mode, encoding=encoding) as file:
             try:

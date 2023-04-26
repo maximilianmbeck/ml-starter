@@ -2,14 +2,6 @@
 
 This trainer expects the task to handle all the relevant movement of data and
 models to their associated devices.
-
-Summary table:
-
-|         | device 1 - N |
-|---------|--------------|
-| data    | data[:]      |
-| step    | model(x)     |
-| loss    | E(x, o)      |
 """
 
 import logging

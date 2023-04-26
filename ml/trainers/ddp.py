@@ -7,18 +7,6 @@ For multiple devices, data is split along the batch dimension, passed to each
 device, which computes losses independently. The loss tensors are gathered to
 the master device to compute a single loss. In other words, each device
 belongs to exactly one process.
-
-Currently this trainer doesn't do anything different from the vanilla trainer
-besides warning when there is more than one GPU. It will be implemented once
-we have a cluster that necessitates it.
-
-Summary table:
-
-|         | device 1    | device 2    | ... | device N       |
-|---------|-------------|-------------|-----|----------------|
-| data    | data[0::N]  | data[1::N]  | ... | data[N - 1::N] |
-| step    | model(x_1)  | model(x_2)  | ... | model(x_N)     |
-| loss    | E(x_1, o_1) | E(x_2, o_2) | ... | E(x_N, o_N)    |
 """
 
 import functools

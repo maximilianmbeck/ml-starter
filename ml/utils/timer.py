@@ -106,14 +106,6 @@ def timeout(seconds: int, error_message: str = os.strerror(errno.ETIME)) -> Call
 
     Note that this function won't work on Windows.
 
-    Usage:
-        try:
-            @timeout(5)
-            def long_running_function():
-                ...
-        except TimeoutError:
-            handle_timeout()
-
     Args:
         seconds: Timeout after this many seconds
         error_message: Error message to pass to TimeoutError

@@ -1,3 +1,5 @@
+"""Command-line interface utilities."""
+
 import logging
 import sys
 from functools import partial

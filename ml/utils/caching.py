@@ -1,3 +1,5 @@
+"""Defines a wrapper for caching function calls to a file location."""
+
 import functools
 import json
 import logging
@@ -23,15 +25,6 @@ class cached_object:  # pylint: disable=invalid-name
 
         This is just a convenient way of caching heavy operations to disk,
         using a specific key.
-
-        Usage:
-
-            ```
-            @cached_object("video-dataset-clips")
-            def get_clip_paths(dataset_name: str) -> list[str]:
-                root_path = dataset_root / dataset_name
-                return [str(path.resolve()) for path in root_path.glob("**/*.mov")]
-            ```
 
         Args:
             cache_key: The key to use for caching the file

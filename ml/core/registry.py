@@ -87,17 +87,7 @@ def get_name(key: str, config: BaseContainer) -> str:
 
 
 class register_base(ABC, Generic[Entry, Config]):  # pylint: disable=invalid-name
-    """Defines the base registry type.
-
-    Usage:
-
-    ```
-    @register("my_thing", dataclass=MyThingConfig)
-    class MyThing(BaseThing):
-        def __init__(self, config: MyThingConfig):
-            super().__init__(config)
-    ```
-    """
+    """Defines the base registry type."""
 
     REGISTRY: dict[str, tuple[type[Entry], type[Config]]] = {}
     REGISTRY_LOCATIONS: dict[str, Path] = {}

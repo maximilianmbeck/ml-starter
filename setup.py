@@ -16,9 +16,13 @@ with open("requirements-dev.txt", "r", encoding="utf-8") as f:
     requirements_dev: list[str] = f.read().splitlines()
 
 
-with open("ml/api.py", "r", encoding="utf-8") as fh:
+with open("requirements-docs.txt", "r", encoding="utf-8") as f:
+    requirements_docs: list[str] = f.read().splitlines()
+
+
+with open("ml/__init__.py", "r", encoding="utf-8") as fh:
     version_re = re.search(r"^__version__ = \"([^\"]*)\"", fh.read(), re.MULTILINE)
-assert version_re is not None, "Could not find version in ml/api.py"
+assert version_re is not None, "Could not find version in ml/__init__.py"
 version: str = version_re.group(1)
 
 
@@ -40,6 +44,6 @@ setup(
     python_requires=">=3.10",
     install_requires=requirements,
     tests_require=requirements_dev,
-    extras_require={"dev": requirements_dev},
+    extras_require={"dev": requirements_dev, "docs": requirements_docs},
     package_data={"ml": ["py.typed"]},
 )

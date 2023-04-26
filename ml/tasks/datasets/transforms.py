@@ -169,7 +169,7 @@ class UpperLeftCrop(nn.Module):
         return upper_left_crop(img, self.height, self.width)
 
 
-class Rescale(nn.Module):
+class RescaleImage(nn.Module):
     __constants__ = ["min_val", "scale", "do_checks"]
 
     def __init__(self, min_val: float, max_val: float, do_checks: bool = True) -> None:

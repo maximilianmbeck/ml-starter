@@ -1,3 +1,5 @@
+"""Augmentation utilities for image data."""
+
 import torch
 from torch import Tensor
 

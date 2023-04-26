@@ -9,7 +9,6 @@ hand quickly.
 """
 
 __all__ = [
-    "__version__",
     "ActivationType",
     "add_project_dir",
     "as_cpu_tensor",
@@ -144,8 +143,6 @@ __all__ = [
     "write_gif",
     "write_video",
 ]
-
-__version__ = "0.0.24"
 
 from ml.core.common_types import Batch, Loss, Output
 from ml.core.config import conf_field
