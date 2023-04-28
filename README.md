@@ -18,6 +18,4 @@
 
 ## What is this?
 
-This is a framework for quickly trying out ML ideas, similar to PyTorch Lightning or Fairseq.
-
-Check out the docs for more. 😊
+This is a framework for quickly trying out ML ideas, similar to PyTorch Lightning or Fairseq. Check out the docs for more. 😊

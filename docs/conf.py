@@ -13,6 +13,7 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.autodoc.typehints",
     "sphinx.ext.viewcode",
+    "sphinxcontrib.jquery",
     "myst_parser",
 ]
 

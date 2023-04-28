@@ -3,7 +3,10 @@ ml-starter
 
 Welcome to the documentation for the `ml-starter` package!
 
-This is the documentation for the Github project `here <https://github.com/codekansas/ml-starter>`_.
+This is the documentation for the project `here <https://github.com/codekansas/ml-starter>`_.
+
+.. image:: /_static/github.png
+   :target: https://github.com/codekansas/ml-project-template/generate
 
 .. toctree::
    :maxdepth: 3
@@ -20,9 +23,3 @@ This is the documentation for the Github project `here <https://github.com/codek
 
    ml
 
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
