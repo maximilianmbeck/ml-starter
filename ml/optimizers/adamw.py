@@ -68,6 +68,10 @@ class AdamWOptimizerConfig(BaseOptimizerConfig):
     weight_decay: float = conf_field(1e-5, help="Weight decay regularization to use")
     amsgrad: bool = conf_field(False, help="Whether to use the AMSGrad variant of the algorithm")
     default_decay: bool = conf_field(True, help="Whether to decay module params which aren't explicitly specified")
+    foreach: bool = conf_field(False, help="Whether to use the foreach variant of the optimizer")
+    capturable: bool = conf_field(False, help="Whether to use capturable AdamW pathway")
+    differentiable: bool = conf_field(False, help="Whether to use differentiable AdamW")
+    fused: bool = conf_field(False, help="Whether to use the fused optimizer")
 
     @classmethod
     def get_defaults(cls) -> dict[str, "AdamWOptimizerConfig"]:
@@ -117,5 +121,9 @@ class AdamWOptimizer(BaseOptimizer[AdamWOptimizerConfig]):
             eps=self.config.eps,
             weight_decay=self.config.weight_decay,
             amsgrad=self.config.amsgrad,
+            foreach=self.config.foreach,
+            capturable=self.config.capturable,
+            differentiable=self.config.differentiable,
+            fused=self.config.fused,
             **self.common_kwargs,
         )

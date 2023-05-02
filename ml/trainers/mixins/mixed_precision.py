@@ -39,7 +39,7 @@ class MixedPrecisionTrainerMixin(BaseTrainer[MixedPrecisionConfigT, ModelT, Task
                 growth_factor=self.config.fp16.growth_factor,
                 backoff_factor=self.config.fp16.backoff_factor,
                 growth_interval=self.config.fp16.growth_interval,
-                enabled=self.config.fp16.enabled,
+                enabled=self.config.fp16.enabled and self._device.supports_grad_scaler(),
             )
         else:
             self.grad_scaler = None

@@ -243,3 +243,7 @@ class BaseDevice(ABC):
         if device_type not in ("cpu", "cuda"):
             return contextlib.nullcontext()
         return torch.autocast(device_type, enabled=enabled)
+
+    @classmethod
+    def supports_grad_scaler(cls) -> bool:
+        return False

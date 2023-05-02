@@ -81,7 +81,8 @@ class ProfilerTrainerMixin(
                 with ctx as a:
                     yield a
 
-            self.step_times[step] = time.time() - start_time
+            step_time = time.time() - start_time
+            self.step_times[step] = step_time + self.step_times.get(step, 0.0)
 
         return wrapped_ctx()
 

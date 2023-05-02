@@ -29,6 +29,7 @@ class GPUDevice(BaseDevice):
 
     @classmethod
     def get_floating_point_type(cls) -> torch.dtype:
+        use_bf16 = get_env_bool("USE_BF16")
         use_fp32 = get_env_bool("USE_FP32")
         use_fp64 = get_env_bool("USE_FP64")
         if use_fp64:
@@ -37,9 +38,11 @@ class GPUDevice(BaseDevice):
         elif use_fp32:
             logger.info("Using FP32")
             return torch.float32
+        elif use_bf16:
+            logger.info("Using BF16")
+            return torch.bfloat16
         else:
             return torch.float16
-            # return torch.bfloat16
 
     @classmethod
     def get_torch_compile_backend(cls) -> str | Callable:
@@ -47,3 +50,7 @@ class GPUDevice(BaseDevice):
         if capability >= (7, 0):
             return "inductor"
         return "aot_ts_nvfuser"
+
+    @classmethod
+    def supports_grad_scaler(cls) -> bool:
+        return cls.get_floating_point_type() == torch.float16

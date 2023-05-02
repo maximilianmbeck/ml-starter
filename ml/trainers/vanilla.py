@@ -77,7 +77,6 @@ class VanillaTrainerConfig(
     set_to_none: bool = conf_field(True, help="Mode for clearing optimizer gradients")
     deterministic: bool = conf_field(False, help="If set, use determinstic algorithms")
     use_tf32: bool = conf_field(True, help="If set, use TensorFloat32")
-    update_interval: int = conf_field(1, help="How often to update model parameters")
     torch_compile: TorchCompileConfig = conf_field(TorchCompileConfig(), help="Torch compile config")
     detect_anomaly: bool = conf_field(False, help="Whether to detect anomalies")
     detect_anomaly_check_nan: bool = conf_field(False, help="Whether to check for NaNs when detecting anomalies")
@@ -117,36 +116,41 @@ class VanillaTrainer(
     ) -> dict[str, Tensor]:
         with self.step_context("change_mode"):
             task_model, state.phase = set_phase(task_model, "train")
+        total_bsz: int | None = None
+        first_batch = True
         for batch in batches:
+            bsz = task.get_batch_size(batch)
+            if bsz is not None:
+                total_bsz = bsz if total_bsz is None else total_bsz + bsz
             with self.step_context("forward"), self.autocast_context():
                 loss = task_model(batch, state)
             with self.step_context("get_single_loss"):
                 single_loss, loss_names = task.get_single_loss(loss)
             with self.step_context("backward"):
                 self.scale_mixed_precision(single_loss.sum()).backward()
-        with self.step_context("log_losses"):
-            self.log_mp_scale()
-            single_loss_detached = single_loss.detach()
-            loss_dict = {name: single_loss_detached[i] for i, name in enumerate(loss_names)}
-            task.log_loss_dict(loss_dict, state)
-        if state.num_steps % self.config.update_interval == 0:
-            with self.step_context("clip_grads"):
-                self.clip_grads(model=task_model, optim=optim)
-            with self.step_context("step"):
-                self.step_optimizer(optim=optim)
-                lr_sched.step(state)
-                self.logger.log_scalar("lr_scale", lr_sched.lr_scale, namespace="optim")
-            with self.step_context("zero_grads"):
-                optim.zero_grad(set_to_none=self.config.set_to_none)
+            if first_batch:
+                with self.step_context("log_losses"):
+                    self.log_mp_scale()
+                    single_loss_detached = single_loss.detach()
+                    loss_dict = {name: single_loss_detached[i] for i, name in enumerate(loss_names)}
+                    task.log_loss_dict(loss_dict, state)
+                first_batch = False
+        with self.step_context("clip_grads"):
+            self.clip_grads(model=task_model, optim=optim)
+        with self.step_context("step"):
+            self.step_optimizer(optim=optim)
+            lr_sched.step(state)
+            self.logger.log_scalar("lr_scale", lr_sched.lr_scale, namespace="optim")
+        with self.step_context("zero_grads"):
+            optim.zero_grad(set_to_none=self.config.set_to_none)
         with self.step_context("write_logs"), self.autocast_context():
             self.write_logs(task, model, state)
         with self.step_context("update_state"):
             state.num_steps += 1
             state.num_epoch_steps += 1
-            bsz = task.get_batch_size(batch)
-            if bsz is not None:
-                state.num_samples += bsz
-                state.num_epoch_samples += bsz
+            if total_bsz is not None:
+                state.num_samples += total_bsz
+                state.num_epoch_samples += total_bsz
         return loss_dict
 
     def val_step(
