@@ -178,8 +178,9 @@ class SlurmTrainer(
     def set_signal_handler(self, handler: Callable[[int, FrameType | None], None]) -> None:
         super().set_signal_handler(handler)
 
-        signal.signal(signal.SIGUSR1, handler)
-        signal.signal(signal.SIGTERM, ignore_signal)
+        if "SLURM_NODEID" in os.environ:
+            signal.signal(signal.SIGUSR1, handler)
+            signal.signal(signal.SIGTERM, ignore_signal)
 
     def launch(self) -> None:
         # Gets some configuration options.
