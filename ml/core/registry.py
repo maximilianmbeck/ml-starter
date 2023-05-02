@@ -17,6 +17,7 @@ from ml.utils.colors import colorize
 from ml.utils.timer import Timer
 
 if TYPE_CHECKING:
+    from ml.launchers.base import BaseLauncher, BaseLauncherConfig
     from ml.loggers.base import BaseLogger, BaseLoggerConfig
     from ml.lr_schedulers.base import BaseLRScheduler, BaseLRSchedulerConfig
     from ml.models.base import BaseModel, BaseModelConfig
@@ -454,6 +455,19 @@ class register_logger(multi_register_base["BaseLogger", "BaseLoggerConfig"]):  #
         return "logger"
 
 
+class register_launcher(register_base["BaseLauncher", "BaseLauncherConfig"]):  # pylint: disable=invalid-name
+    REGISTRY: dict[str, tuple[type["BaseLauncher"], type["BaseLauncherConfig"]]] = {}
+    REGISTRY_LOCATIONS: dict[str, Path] = {}
+
+    @classmethod
+    def search_directory(cls) -> Path:
+        return Path("launchers")
+
+    @classmethod
+    def config_key(cls) -> str:
+        return "launcher"
+
+
 @dataclass(frozen=True)
 class Objects:
     raw_config: DictConfig
@@ -463,6 +477,7 @@ class Objects:
     optimizer: "BaseOptimizer | None" = None
     lr_scheduler: "BaseLRScheduler | None" = None
     logger: "list[BaseLogger] | None" = None
+    launcher: "BaseLauncher | None" = None
 
     def __post_init__(self) -> None:
         # After initializing the object container, we add a pointer to the
@@ -480,6 +495,8 @@ class Objects:
         if self.logger is not None:
             for sublogger in self.logger:
                 sublogger.set_objects(self)
+        if self.launcher is not None:
+            self.launcher.set_objects(self)
 
     def summarize(self) -> str:
         parts: dict[str, tuple[str, str]] = {}
@@ -508,6 +525,11 @@ class Objects:
                 inspect.getfile(self.lr_scheduler.__class__),
                 f"{self.lr_scheduler.__class__.__module__}.{self.lr_scheduler.__class__.__name__}",
             )
+        if self.launcher is not None:
+            parts["Launcher"] = (
+                inspect.getfile(self.launcher.__class__),
+                f"{self.launcher.__class__.__module__}.{self.launcher.__class__.__name__}",
+            )
         return "Components:" + "".join(
             f"\n ↪ {colorize(k, 'green')}: {colorize(v[1], 'cyan')} ({colorize(v[0], 'blue')})"
             for k, v in parts.items()
@@ -529,6 +551,7 @@ class Objects:
             register_optimizer.update_config(config)
             register_lr_scheduler.update_config(config)
             register_logger.update_config(config)
+            register_launcher.update_config(config)
 
         with Timer("resolving configs", spinner=True):
             # Resolves the final config once all structured configs have been merged.
@@ -541,6 +564,7 @@ class Objects:
             register_optimizer.resolve_config(config)
             register_lr_scheduler.resolve_config(config)
             register_logger.resolve_config(config)
+            register_launcher.resolve_config(config)
 
     @classmethod
     def parse_raw_config(cls, config: DictConfig) -> "Objects":
@@ -565,6 +589,8 @@ class Objects:
             lr_scheduler = register_lr_scheduler.build_entry(config)
         with Timer("building loggers", spinner=True):
             loggers = register_logger.build_entry(config)
+        with Timer("building launcher", spinner=True):
+            launcher = register_launcher.build_entry(config)
 
         objs = Objects(
             raw_config=config,
@@ -574,6 +600,7 @@ class Objects:
             optimizer=optimizer,
             lr_scheduler=lr_scheduler,
             logger=loggers,
+            launcher=launcher,
         )
 
         logger.info("%s", objs.summarize())

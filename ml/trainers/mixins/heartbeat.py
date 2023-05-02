@@ -10,7 +10,6 @@ from typing import Callable, TypeVar
 import psutil
 from torch.optim.optimizer import Optimizer
 
-from ml.core.common_types import Batch
 from ml.core.config import conf_field
 from ml.core.state import State
 from ml.lr_schedulers.base import SchedulerAdapter
@@ -139,12 +138,11 @@ class HeartbeatMonitorMixin(MonitorProcessMixin[HeartbeatConfigT, ModelT, TaskT]
     def on_step_start(
         self,
         state: State,
-        train_batch: Batch,
         task: TaskT,
         model: ModelT,
         optim: Optimizer,
         lr_sched: SchedulerAdapter,
     ) -> None:
-        super().on_step_start(state, train_batch, task, model, optim, lr_sched)
+        super().on_step_start(state, task, model, optim, lr_sched)
 
         self._heartbeat_monitor.beat()

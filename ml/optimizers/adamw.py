@@ -9,13 +9,15 @@ from ml.core.registry import register_optimizer
 from ml.optimizers.base import BaseOptimizer, BaseOptimizerConfig
 
 
-def separate_weight_decayable_params(params: Iterable[nn.Parameter]) -> Iterable[dict[str, Any]]:
+def separate_decayable_params(model: nn.Module, default_decay: bool) -> Iterable[dict[str, Any]]:
     """Don't weight decay biases.
 
     This was something that `lucidrains` does.
 
     Args:
-        params: The full parameter list
+        model: The model to get the parameters for
+        default_decay: Whether to decay by default (for modules which aren't
+            explicitly specified)
 
     Returns:
         The dictionary to pass to the optimizer
@@ -23,9 +25,34 @@ def separate_weight_decayable_params(params: Iterable[nn.Parameter]) -> Iterable
 
     wd_params: list[nn.Parameter] = []
     no_wd_params: list[nn.Parameter] = []
-    for param in params:
-        param_list = no_wd_params if param.ndim < 2 else wd_params
-        param_list.append(param)
+
+    always_decay = (
+        nn.Linear,
+        nn.Conv1d,
+        nn.Conv2d,
+        nn.Conv3d,
+        nn.ConvTranspose1d,
+        nn.ConvTranspose2d,
+        nn.ConvTranspose3d,
+        nn.MultiheadAttention,
+    )
+
+    never_decay = (
+        nn.LayerNorm,
+        nn.Embedding,
+        nn.EmbeddingBag,
+    )
+
+    for _, m in model.named_modules():
+        for _, p in m.named_parameters():
+            if p.ndim < 2:
+                no_wd_params.append(p)
+            elif isinstance(m, never_decay):
+                no_wd_params.append(p)
+            elif isinstance(m, always_decay):
+                wd_params.append(p)
+            else:
+                (wd_params if default_decay else no_wd_params).append(p)
 
     return [
         {"params": wd_params},
@@ -40,7 +67,7 @@ class AdamWOptimizerConfig(BaseOptimizerConfig):
     eps: float = conf_field(1e-4, help="Epsilon term to add to the denominator for stability")
     weight_decay: float = conf_field(1e-5, help="Weight decay regularization to use")
     amsgrad: bool = conf_field(False, help="Whether to use the AMSGrad variant of the algorithm")
-    weight_decay_bias: bool = conf_field(False, help="If set, apply weight decay to biases")
+    default_decay: bool = conf_field(True, help="Whether to decay module params which aren't explicitly specified")
 
     @classmethod
     def get_defaults(cls) -> dict[str, "AdamWOptimizerConfig"]:
@@ -81,11 +108,10 @@ class AdamWOptimizerConfig(BaseOptimizerConfig):
 @register_optimizer("adamw", AdamWOptimizerConfig)
 class AdamWOptimizer(BaseOptimizer[AdamWOptimizerConfig]):
     def get(self, model: nn.Module) -> AdamW:
-        params = model.parameters()
         b1, b2 = self.config.betas
 
         return AdamW(
-            params if self.config.weight_decay_bias else separate_weight_decayable_params(params),
+            separate_decayable_params(model, self.config.default_decay),
             lr=self.config.lr,
             betas=(b1, b2),
             eps=self.config.eps,

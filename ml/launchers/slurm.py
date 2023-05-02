@@ -20,29 +20,21 @@ import re
 import signal
 import subprocess
 import sys
-from abc import ABC
 from dataclasses import dataclass
 from pathlib import Path
 from types import FrameType
-from typing import Callable, Generic, TypeVar
 
 from omegaconf import II, MISSING, OmegaConf
-from torch import nn
-from torch.optim import Optimizer
 
 from ml.core.config import conf_field
 from ml.core.env import get_stage_dir
-from ml.core.registry import Objects, project_dirs
-from ml.core.state import State
-from ml.lr_schedulers.base import SchedulerAdapter
+from ml.core.registry import Objects, project_dirs, register_launcher
+from ml.launchers.base import BaseLauncher, BaseLauncherConfig
 from ml.scripts.train import train_main
-from ml.trainers.base import ModelT, TaskT
-from ml.trainers.vanilla import VanillaTrainer, VanillaTrainerConfig
 from ml.utils.distributed import (
     get_master_addr,
     get_master_port,
     get_random_port,
-    get_world_size,
     is_master,
     set_init_method,
     set_master_addr,
@@ -124,8 +116,18 @@ def set_slurm_master_addr() -> str:
     return host
 
 
+def requeue_job() -> None:
+    if is_master():
+        if "SLURM_JOB_ID" in os.environ:
+            cmd = ["scontrol", "requeue", os.environ["SLURM_JOB_ID"]]
+            logger.info("Running %s", " ".join(cmd))
+            subprocess.check_call(cmd)
+        else:
+            logger.info("SLURM_JOB_ID environment variable not found; not requeueing")
+
+
 @dataclass
-class SlurmTrainerConfig(VanillaTrainerConfig):
+class SlurmLauncherConfig(BaseLauncherConfig):
     partition: str = conf_field(II("oc.env:SLURM_PARTITION,none"), help="Which partition to launch")
     time_limit: str = conf_field(II("oc.env:SLURM_TIME_LIMIT,3-00:00:00"), help="Time limit string")
     num_nodes: int = conf_field(MISSING, help="Total number of nodes to use")
@@ -137,51 +139,13 @@ class SlurmTrainerConfig(VanillaTrainerConfig):
     master_port: int = conf_field(get_random_port, help="The master port to use")
 
 
-SlurmTrainerConfigT = TypeVar("SlurmTrainerConfigT", bound=SlurmTrainerConfig)
-
-
 def ignore_signal(signum: int, _: FrameType | None) -> None:
     sig = signal.Signals(signum)
     logger.info("Ignoring signal %s", sig.name)
 
 
-class SlurmTrainer(
-    VanillaTrainer[SlurmTrainerConfigT, ModelT, TaskT],
-    Generic[SlurmTrainerConfigT, ModelT, TaskT],
-    ABC,
-):
-    def get_task_model(self, task: TaskT, model: ModelT) -> nn.Module:
-        task_model = super().get_task_model(task, model)
-        if get_world_size() > 1:
-            task_model = nn.parallel.DistributedDataParallel(task_model)
-        return task_model
-
-    def on_exit(
-        self,
-        sig: signal.Signals,
-        state: State,
-        task: TaskT,
-        model: ModelT,
-        optim: Optimizer,
-        lr_scheduler: SchedulerAdapter,
-    ) -> None:
-        super().on_exit(sig, state, task, model, optim, lr_scheduler)
-
-        if is_master():
-            if "SLURM_JOB_ID" in os.environ:
-                cmd = ["scontrol", "requeue", os.environ["SLURM_JOB_ID"]]
-                logger.info("Running %s", " ".join(cmd))
-                subprocess.check_call(cmd)
-            else:
-                logger.info("SLURM_JOB_ID environment variable not found; not requeueing")
-
-    def set_signal_handler(self, handler: Callable[[int, FrameType | None], None]) -> None:
-        super().set_signal_handler(handler)
-
-        if "SLURM_NODEID" in os.environ:
-            signal.signal(signal.SIGUSR1, handler)
-            signal.signal(signal.SIGTERM, ignore_signal)
-
+@register_launcher("slurm", SlurmLauncherConfig)
+class SlurmLauncher(BaseLauncher[SlurmLauncherConfig]):
     def launch(self) -> None:
         # Gets some configuration options.
         gpus_per_node = self.config.gpus_per_node
@@ -292,9 +256,14 @@ def slurm_main() -> None:
     init_process_group(backend=get_distributed_backend())
 
     objs = Objects.parse_raw_config(raw_config)  # type: ignore
+
     assert (trainer := objs.trainer) is not None
     trainer.add_lock_file("running", exists_ok=True)
     trainer.remove_lock_file("scheduled", missing_ok=True)
+
+    signal.signal(signal.SIGTERM, ignore_signal)
+    trainer.add_signal_handler(signal.SIGUSR1, requeue_job)
+
     train_main(objs)
 
 

@@ -10,21 +10,24 @@ import logging
 import signal
 from dataclasses import dataclass
 from types import FrameType
-from typing import Generic, TypeVar
+from typing import Generic, Iterator, TypeVar
 
+from ml.core.common_types import Batch
 from ml.core.config import conf_field
 from ml.core.registry import register_trainer
 from ml.lr_schedulers.base import BaseLRScheduler
 from ml.optimizers.base import BaseOptimizer
 from ml.tasks.sl.base import SupervisedLearningTask
 from ml.trainers.base import ModelT
-from ml.trainers.ddp import DDPTrainer
-from ml.trainers.slurm import SlurmTrainer, SlurmTrainerConfig
 from ml.trainers.vanilla import TrainingFinishedException, VanillaTrainer, VanillaTrainerConfig
 from ml.utils.device.base import InfinitePrefetcher
 from ml.utils.timer import Timer
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+
+class EpochDoneException(Exception):
+    """Raised when an epoch is done."""
 
 
 @dataclass
@@ -36,14 +39,15 @@ class ValidationConfig:
 @dataclass
 class SupervisedLearningTrainerConfig(VanillaTrainerConfig):
     validation: ValidationConfig = conf_field(ValidationConfig())
+    batches_per_step: int = conf_field(1, help="Batches per training step, to simulate larger effective batch sizes")
 
 
 SupervisedLearningTrainerConfigT = TypeVar("SupervisedLearningTrainerConfigT", bound=SupervisedLearningTrainerConfig)
 SupervisedLearningTaskT = TypeVar("SupervisedLearningTaskT", bound=SupervisedLearningTask)
 
 
-@register_trainer("vanilla_sl", SupervisedLearningTrainerConfig)
-class SupervisedLearningVanillaTrainer(
+@register_trainer("sl", SupervisedLearningTrainerConfig)
+class SupervisedLearningTrainer(
     VanillaTrainer[SupervisedLearningTrainerConfigT, ModelT, SupervisedLearningTaskT],
     Generic[SupervisedLearningTrainerConfigT, ModelT, SupervisedLearningTaskT],
 ):
@@ -82,8 +86,6 @@ class SupervisedLearningVanillaTrainer(
         def on_exit(signum: int, _: FrameType | None) -> None:
             sig = signal.Signals(signum)
             self.on_exit(sig, state, task, model, optim, lr_sched)
-
-        self.set_signal_handler(on_exit)
 
         def on_finish_training() -> None:
             self.save_checkpoint(state, task, model, optim, lr_sched)
@@ -134,24 +136,43 @@ class SupervisedLearningVanillaTrainer(
                     state.num_epoch_steps = 0
                     state.num_epoch_samples = 0
 
-                    for train_batch in train_pf:
+                    train_pf_iter = iter(train_pf)
+
+                    while True:
                         self._log_prefetcher_stats(train_pf)
 
                         if task.is_training_over(state):
                             on_finish_training()
 
                         with self.step_context("on_step_start"):
-                            self.on_step_start(state, train_batch, task, model, optim, lr_sched)
+                            self.on_step_start(state, task, model, optim, lr_sched)
 
-                        loss_dict = self.train_step(
-                            task_model=task_model,
-                            batch=train_batch,
-                            state=state,
-                            task=task,
-                            model=model,
-                            optim=optim,
-                            lr_sched=lr_sched,
-                        )
+                        try:
+
+                            def batch_iterator() -> Iterator[Batch]:
+                                try:
+                                    yield next(train_pf_iter)
+                                except StopIteration:
+                                    raise EpochDoneException
+
+                                for _ in range(self.config.batches_per_step - 1):
+                                    try:
+                                        yield next(train_pf_iter)
+                                    except StopIteration:
+                                        pass
+
+                            loss_dict = self.train_step(
+                                task_model=task_model,
+                                batches=batch_iterator(),
+                                state=state,
+                                task=task,
+                                model=model,
+                                optim=optim,
+                                lr_sched=lr_sched,
+                            )
+
+                        except EpochDoneException:
+                            break
 
                         valid_every_n_steps = self.config.validation.valid_every_n_steps
                         if valid_every_n_steps is not None and state.num_steps % valid_every_n_steps == 0:
@@ -172,7 +193,7 @@ class SupervisedLearningVanillaTrainer(
                             profile.step()
 
                         with self.step_context("on_step_end"):
-                            self.on_step_end(state, train_batch, loss_dict, task, model, optim, lr_sched)
+                            self.on_step_end(state, loss_dict, task, model, optim, lr_sched)
 
                     with self.step_context("on_epoch_end"):
                         self.on_epoch_end(state, task, model, optim, lr_sched)
@@ -192,27 +213,3 @@ class SupervisedLearningVanillaTrainer(
 
         finally:
             self.on_training_end(state, task, model, optim, lr_sched)
-
-
-@register_trainer("ddp_sl", SupervisedLearningTrainerConfig)
-class SupervisedLearningDDPTrainer(
-    SupervisedLearningVanillaTrainer[SupervisedLearningTrainerConfig, ModelT, SupervisedLearningTaskT],
-    DDPTrainer[SupervisedLearningTrainerConfig, ModelT, SupervisedLearningTaskT],
-):
-    pass
-
-
-@dataclass
-class SupervisedLearningSlurmTrainerConfig(
-    SupervisedLearningTrainerConfig,
-    SlurmTrainerConfig,
-):
-    pass
-
-
-@register_trainer("slurm_sl", SupervisedLearningSlurmTrainerConfig)
-class SupervisedLearningSlurmTrainer(
-    SupervisedLearningVanillaTrainer[SupervisedLearningSlurmTrainerConfig, ModelT, SupervisedLearningTaskT],
-    SlurmTrainer[SupervisedLearningSlurmTrainerConfig, ModelT, SupervisedLearningTaskT],
-):
-    pass

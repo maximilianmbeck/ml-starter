@@ -5,10 +5,8 @@ models to their associated devices.
 """
 
 import logging
-import signal
 from dataclasses import dataclass
-from types import FrameType
-from typing import Callable, Generic, TypeVar, cast
+from typing import Callable, Generic, Iterator, TypeVar, cast
 
 import torch
 from omegaconf import II
@@ -32,7 +30,7 @@ from ml.trainers.mixins.mixed_precision import (
     MixedPrecisionTrainerMixin,
 )
 from ml.trainers.mixins.profiler import ProfilerTrainerConfig, ProfilerTrainerMixin
-from ml.utils.device.base import Prefetcher
+from ml.utils.distributed import get_world_size
 from ml.utils.timer import Timer
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -97,21 +95,20 @@ class VanillaTrainer(
     BaseTrainer[VanillaTrainerConfigT, ModelT, TaskT],
     Generic[VanillaTrainerConfigT, ModelT, TaskT],
 ):
-    def get_task_model_impl(self, task: TaskT, model: ModelT) -> nn.Module:
+    def get_task_model(self, task: TaskT, model: ModelT) -> nn.Module:
         device, dtype = self._device.get_device(), self._weight_precision
         model.init(device, dtype)
         task.to(device, dtype)
         task_model: nn.Module = TaskModel(task=task, model=model)
+        if get_world_size() > 1:
+            task_model = nn.parallel.DistributedDataParallel(task_model)
         return task_model
-
-    def get_task_model(self, task: TaskT, model: ModelT) -> nn.Module:
-        return self.get_task_model_impl(task, model)
 
     def train_step(
         self,
         *,
         task_model: nn.Module,
-        batch: Batch,
+        batches: Iterator[Batch],
         state: State,
         task: TaskT,
         model: ModelT,
@@ -120,12 +117,13 @@ class VanillaTrainer(
     ) -> dict[str, Tensor]:
         with self.step_context("change_mode"):
             task_model, state.phase = set_phase(task_model, "train")
-        with self.step_context("forward"), self.autocast_context():
-            loss = task_model(batch, state)
-        with self.step_context("get_single_loss"):
-            single_loss, loss_names = task.get_single_loss(loss)
-        with self.step_context("backward"):
-            self.scale_mixed_precision(single_loss.sum()).backward()
+        for batch in batches:
+            with self.step_context("forward"), self.autocast_context():
+                loss = task_model(batch, state)
+            with self.step_context("get_single_loss"):
+                single_loss, loss_names = task.get_single_loss(loss)
+            with self.step_context("backward"):
+                self.scale_mixed_precision(single_loss.sum()).backward()
         with self.step_context("log_losses"):
             self.log_mp_scale()
             single_loss_detached = single_loss.detach()
@@ -201,21 +199,6 @@ class VanillaTrainer(
             with self.step_context("update_state"):
                 state.num_test_steps += 1
 
-    def on_exit(
-        self,
-        sig: signal.Signals,
-        state: State,
-        task: TaskT,
-        model: ModelT,
-        optim: Optimizer,
-        lr_scheduler: SchedulerAdapter,
-    ) -> None:
-        logger.info("Handling interrupt %s", sig.name)
-        self.save_checkpoint(state, task, model, optim, lr_scheduler)
-
-    def set_signal_handler(self, handler: Callable[[int, FrameType | None], None]) -> None:
-        pass
-
     def _init_environment(self) -> None:
         # Sets up environment.
         if self.config.deterministic:
@@ -275,10 +258,3 @@ class VanillaTrainer(
         if (ckpt_path := self.get_ckpt_path()).exists():
             return self.load_checkpoint(ckpt_path, task, model, optim, lr_sched)
         return State.init_state()
-
-    def _log_prefetcher_stats(self, pf: Prefetcher) -> None:
-        self.logger.log_scalar("dt/get_batch", pf.get_batch_time, namespace="timers")
-        self.logger.log_scalar("dt/to_device", pf.to_device_time, namespace="timers")
-
-    def launch(self) -> None:
-        raise NotImplementedError(f"{self.__class__.__name__} doesn't support multiprocess training")

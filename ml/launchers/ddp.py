@@ -14,19 +14,18 @@ import logging
 import os
 import sys
 import traceback
-from abc import ABC
-from typing import Callable, Generic
+from dataclasses import dataclass
+from typing import Callable
 
+import torch
 import torch.multiprocessing as mp
 from omegaconf import DictConfig
-from torch import nn
 
-from ml.core.registry import Objects
+from ml.core.registry import Objects, register_launcher
+from ml.launchers.base import BaseLauncher, BaseLauncherConfig
 from ml.scripts.train import train_main
-from ml.trainers.base import ModelT, MultiprocessConfig, TaskT
-from ml.trainers.vanilla import VanillaTrainer, VanillaTrainerConfigT
+from ml.trainers.base import MultiprocessConfig
 from ml.utils.distributed import (
-    get_world_size,
     set_init_method,
     set_master_addr,
     set_master_port,
@@ -68,19 +67,18 @@ def func_wrapped(
         sys.exit(1)
 
 
-class DDPTrainer(
-    VanillaTrainer[VanillaTrainerConfigT, ModelT, TaskT],
-    Generic[VanillaTrainerConfigT, ModelT, TaskT],
-    ABC,
-):
-    def get_task_model(self, task: TaskT, model: ModelT) -> nn.Module:
-        task_model = super().get_task_model(task, model)
-        if get_world_size() > 1:
-            task_model = nn.parallel.DistributedDataParallel(task_model)
-        return task_model
+@dataclass
+class DDPLauncherConfig(BaseLauncherConfig):
+    pass
 
+
+@register_launcher("ddp", DDPLauncherConfig)
+class DDPLauncher(BaseLauncher[DDPLauncherConfig]):
     def launch(self) -> None:
-        device_count = self._device.device_count()
+        if not torch.cuda.is_available():
+            raise RuntimeError("DDPLauncher requires CUDA")
+        device_count = torch.cuda.device_count()
+
         func = functools.partial(process_main, raw_config=self.raw_config)
 
         cfg = MultiprocessConfig(

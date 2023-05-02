@@ -8,7 +8,7 @@ from omegaconf import DictConfig, OmegaConf
 from ml.core.registry import Objects, register_model, register_task
 from ml.models.base import BaseModel
 from ml.tasks.base import BaseTask
-from ml.trainers.base import DummyBaseTrainer
+from ml.trainers.base import BaseTrainer
 from ml.utils.device.auto import AutoDevice
 from ml.utils.timer import Timer
 
@@ -36,11 +36,7 @@ def instantiate_config(config: str | Path | DictConfig | dict) -> Objects:
     return Objects.parse_raw_config(config)
 
 
-def get_checkpoint_path(
-    trainer: DummyBaseTrainer,
-    config_path: str | Path,
-    ckpt_path: str | Path | None,
-) -> Path:
+def get_checkpoint_path(trainer: BaseTrainer, config_path: str | Path, ckpt_path: str | Path | None) -> Path:
     if ckpt_path is not None:
         ckpt_path = Path(ckpt_path)
         if ckpt_path.exists():
@@ -104,6 +100,8 @@ def load_model_and_task(
     with Timer("loading checkpoint"):
         ckpt: str | Path | dict | None = None
 
+        trainer: BaseTrainer
+
         if config_path is None:
             if ckpt_path is None:
                 raise ValueError("Must provide either a config path or a checkpoint path")
@@ -112,11 +110,11 @@ def load_model_and_task(
             if "config" not in ckpt:
                 raise ValueError("Could not find a config in the checkpoint")
             config = OmegaConf.create(ckpt["config"])
-            trainer = DummyBaseTrainer(config.trainer)
+            trainer = BaseTrainer(config.trainer)
 
         else:
             config = cast(DictConfig, OmegaConf.load(config_path))
-            trainer = DummyBaseTrainer(config.trainer)
+            trainer = BaseTrainer(config.trainer)
 
             # Uses the dummy trainer to load the checkpoint.
             try:

@@ -467,7 +467,6 @@ class BaseTask(
     def on_step_start(
         self,
         state: State,
-        train_batch: Batch,
         model: ModelT,
         optim: Optimizer,
         lr_sched: SchedulerAdapter,
@@ -477,7 +476,6 @@ class BaseTask(
     def on_step_end(
         self,
         state: State,
-        train_batch: Batch,
         loss_dict: dict[str, Tensor],
         model: ModelT,
         optim: Optimizer,

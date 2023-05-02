@@ -11,7 +11,6 @@ from typing import TypeVar
 import psutil
 from torch.optim.optimizer import Optimizer
 
-from ml.core.common_types import Batch
 from ml.core.config import conf_field
 from ml.core.state import State
 from ml.lr_schedulers.base import SchedulerAdapter
@@ -228,13 +227,12 @@ class CPUStatsMixin(MonitorProcessMixin[CPUStatsConfigT, ModelT, TaskT]):
     def on_step_start(
         self,
         state: State,
-        train_batch: Batch,
         task: TaskT,
         model: ModelT,
         optim: Optimizer,
         lr_sched: SchedulerAdapter,
     ) -> None:
-        super().on_step_start(state, train_batch, task, model, optim, lr_sched)
+        super().on_step_start(state, task, model, optim, lr_sched)
 
         monitor = self._cpu_stats_monitor
         stats = monitor.get_if_set() if self.config.cpu_stats_only_log_once else monitor.get()

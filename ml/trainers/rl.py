@@ -21,8 +21,6 @@ from ml.lr_schedulers.base import BaseLRScheduler
 from ml.optimizers.base import BaseOptimizer
 from ml.tasks.rl.base import ReinforcementLearningTask
 from ml.trainers.base import ModelT
-from ml.trainers.ddp import DDPTrainer
-from ml.trainers.slurm import SlurmTrainer, SlurmTrainerConfig
 from ml.trainers.vanilla import TrainingFinishedException, VanillaTrainer, VanillaTrainerConfig
 from ml.utils.timer import Timer
 
@@ -53,8 +51,8 @@ ReinforcementLearningTrainerConfigT = TypeVar(
 ReinforcementLearningTaskT = TypeVar("ReinforcementLearningTaskT", bound=ReinforcementLearningTask)
 
 
-@register_trainer("vanilla_rl", ReinforcementLearningTrainerConfig)
-class ReinforcementLearningVanillaTrainer(
+@register_trainer("rl", ReinforcementLearningTrainerConfig)
+class ReinforcementLearningTrainer(
     VanillaTrainer[ReinforcementLearningTrainerConfigT, ModelT, ReinforcementLearningTaskT],
     Generic[ReinforcementLearningTrainerConfigT, ModelT, ReinforcementLearningTaskT],
 ):
@@ -89,8 +87,6 @@ class ReinforcementLearningVanillaTrainer(
         def on_exit(signum: int, _: FrameType | None) -> None:
             sig = signal.Signals(signum)
             self.on_exit(sig, state, task, model, optim, lr_sched)
-
-        self.set_signal_handler(on_exit)
 
         def on_finish_training() -> None:
             self.save_checkpoint(state, task, model, optim, lr_sched)
@@ -145,11 +141,11 @@ class ReinforcementLearningVanillaTrainer(
                             on_finish_training()
 
                         with self.step_context("on_step_start"):
-                            self.on_step_start(state, train_batch, task, model, optim, lr_sched)
+                            self.on_step_start(state, task, model, optim, lr_sched)
 
                         loss_dict = self.train_step(
                             task_model=task_model,
-                            batch=train_batch,
+                            batches=iter([train_batch]),
                             state=state,
                             task=task,
                             model=model,
@@ -164,7 +160,7 @@ class ReinforcementLearningVanillaTrainer(
                             profile.step()
 
                         with self.step_context("on_step_end"):
-                            self.on_step_end(state, train_batch, loss_dict, task, model, optim, lr_sched)
+                            self.on_step_end(state, loss_dict, task, model, optim, lr_sched)
 
                         if task.epoch_is_over(state):
                             break
@@ -187,27 +183,3 @@ class ReinforcementLearningVanillaTrainer(
 
         finally:
             self.on_training_end(state, task, model, optim, lr_sched)
-
-
-@register_trainer("ddp_rl", ReinforcementLearningTrainerConfig)
-class ReinforcementLearningDDPTrainer(
-    ReinforcementLearningVanillaTrainer[ReinforcementLearningTrainerConfig, ModelT, ReinforcementLearningTaskT],
-    DDPTrainer[ReinforcementLearningTrainerConfig, ModelT, ReinforcementLearningTaskT],
-):
-    pass
-
-
-@dataclass
-class ReinforcementLearningSlurmTrainerConfig(
-    ReinforcementLearningTrainerConfig,
-    SlurmTrainerConfig,
-):
-    pass
-
-
-@register_trainer("slurm_rl", ReinforcementLearningSlurmTrainerConfig)
-class ReinforcementLearningSlurmTrainer(
-    ReinforcementLearningVanillaTrainer[ReinforcementLearningSlurmTrainerConfig, ModelT, ReinforcementLearningTaskT],
-    SlurmTrainer[ReinforcementLearningSlurmTrainerConfig, ModelT, ReinforcementLearningTaskT],
-):
-    pass

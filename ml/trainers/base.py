@@ -2,18 +2,17 @@ import enum
 import functools
 import logging
 import os
-from abc import ABC, abstractmethod
+import signal
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from pickle import UnpicklingError
-from typing import Any, Generic, Literal, TypeVar, cast, get_args
+from typing import Any, Callable, Generic, Literal, TypeVar, cast, get_args
 
 import torch
 from omegaconf import II, MISSING, DictConfig, ListConfig, OmegaConf
 from torch import Tensor
 from torch.optim.optimizer import Optimizer
 
-from ml.core.common_types import Batch
 from ml.core.config import BaseConfig, BaseObjectWithPointers, conf_field
 from ml.core.state import State
 from ml.loggers.base import BaseLogger
@@ -24,7 +23,7 @@ from ml.optimizers.base import BaseOptimizer
 from ml.tasks.base import BaseTask
 from ml.utils.colors import colorize
 from ml.utils.device.auto import AutoDevice
-from ml.utils.device.base import BaseDevice
+from ml.utils.device.base import BaseDevice, Prefetcher
 from ml.utils.distributed import is_master
 from ml.utils.timer import Timer
 
@@ -241,7 +240,7 @@ ModelT = TypeVar("ModelT", bound=BaseModel)
 TaskT = TypeVar("TaskT", bound=BaseTask)
 
 
-class BaseTrainer(BaseObjectWithPointers[TrainerConfigT], Generic[TrainerConfigT, ModelT, TaskT], ABC):
+class BaseTrainer(BaseObjectWithPointers[TrainerConfigT], Generic[TrainerConfigT, ModelT, TaskT]):
     """Defines the base trainer type."""
 
     logger: MultiLogger
@@ -255,6 +254,7 @@ class BaseTrainer(BaseObjectWithPointers[TrainerConfigT], Generic[TrainerConfigT
         self.checkpoint_config = config.checkpoint
         self.loggers = []
         self.logger = MultiLogger(default_namespace="trainer")
+        self.signal_handlers: dict[signal.Signals, list[Callable[[], None]]] = {}
 
         logger.info("Experiment directory: %s", self.exp_dir)
 
@@ -412,11 +412,6 @@ class BaseTrainer(BaseObjectWithPointers[TrainerConfigT], Generic[TrainerConfigT
                 task.on_after_save_checkpoint(ckpt_path)
         return ckpt_path
 
-    @abstractmethod
-    def launch(self) -> None:
-        """Launches a multiprocess command."""
-
-    @abstractmethod
     def train(self, model: ModelT, task: TaskT, optimizer: BaseOptimizer, lr_scheduler: BaseLRScheduler) -> None:
         """Runs the training loop.
 
@@ -425,7 +420,12 @@ class BaseTrainer(BaseObjectWithPointers[TrainerConfigT], Generic[TrainerConfigT
             task: The current task
             optimizer: The current optimizer
             lr_scheduler: The current learning rate scheduler
+
+        Raises:
+            NotImplementedError: If the subclass does not implement this method
         """
+
+        raise NotImplementedError
 
     def write_logs(self, task: TaskT, model: ModelT, state: State) -> None:
         model.logger.write(self.loggers, state)
@@ -450,6 +450,27 @@ class BaseTrainer(BaseObjectWithPointers[TrainerConfigT], Generic[TrainerConfigT
             ckpt: The checkpoint being saved (overriders should mutate inplace)
         """
 
+    def on_exit(
+        self,
+        sig: signal.Signals,
+        state: State,
+        task: TaskT,
+        model: ModelT,
+        optim: Optimizer,
+        lr_scheduler: SchedulerAdapter,
+    ) -> None:
+        logger.info("Handling interrupt %s", sig.name)
+        self.save_checkpoint(state, task, model, optim, lr_scheduler)
+        for signal_handler in self.signal_handlers.get(sig, []):
+            signal_handler()
+
+    def add_signal_handler(self, sig: signal.Signals, handler: Callable[[], None]) -> None:
+        self.signal_handlers[sig].append(handler)
+
+    def _log_prefetcher_stats(self, pf: Prefetcher) -> None:
+        self.logger.log_scalar("dt/get_batch", pf.get_batch_time, namespace="timers")
+        self.logger.log_scalar("dt/to_device", pf.to_device_time, namespace="timers")
+
     # -----
     # Hooks
     # -----
@@ -457,25 +478,23 @@ class BaseTrainer(BaseObjectWithPointers[TrainerConfigT], Generic[TrainerConfigT
     def on_step_start(
         self,
         state: State,
-        train_batch: Batch,
         task: TaskT,
         model: ModelT,
         optim: Optimizer,
         lr_sched: SchedulerAdapter,
     ) -> None:
-        task.on_step_start(state, train_batch, model, optim, lr_sched)
+        task.on_step_start(state, model, optim, lr_sched)
 
     def on_step_end(
         self,
         state: State,
-        train_batch: Batch,
         loss_dict: dict[str, Tensor],
         task: TaskT,
         model: ModelT,
         optim: Optimizer,
         lr_sched: SchedulerAdapter,
     ) -> None:
-        task.on_step_end(state, train_batch, loss_dict, model, optim, lr_sched)
+        task.on_step_end(state, loss_dict, model, optim, lr_sched)
 
     def on_epoch_start(
         self,
@@ -519,17 +538,3 @@ class BaseTrainer(BaseObjectWithPointers[TrainerConfigT], Generic[TrainerConfigT
         task.on_training_end(state, model, optim, lr_sched)
         self.remove_lock_file("running", missing_ok=True)
         logger.info("Exiting training job for %s", self.exp_dir / "config.yaml")
-
-
-class DummyBaseTrainer(BaseTrainer):
-    """Defines a dummy trainer that does nothing.
-
-    This trainer can be used to access the base trainer's utility functions,
-    such as saving and loading checkpoints.
-    """
-
-    def launch(self) -> None:
-        raise NotImplementedError
-
-    def train(self, model: ModelT, task: TaskT, optimizer: BaseOptimizer, lr_scheduler: BaseLRScheduler) -> None:
-        raise NotImplementedError

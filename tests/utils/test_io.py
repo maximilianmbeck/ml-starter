@@ -45,7 +45,7 @@ def test_load_model_and_test(tmpdir: Path) -> None:
             "model": BaseModelConfig(name="dummy"),
             "task": BaseTaskConfig(name="dummy"),
             "trainer": VanillaTrainerConfig(
-                name="vanilla_sl",
+                name="sl",
                 exp_name="test",
                 log_dir_name="test",
                 base_run_dir=str(tmpdir),

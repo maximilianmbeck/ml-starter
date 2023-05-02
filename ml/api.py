@@ -47,7 +47,8 @@ __all__ = [
     "colorize",
     "conf_field",
     "configure_logging",
-    "DDPTrainer",
+    "DDPLauncher",
+    "DDPLauncherConfig",
     "DictIndex",
     "Environment",
     "format_timedelta",
@@ -105,31 +106,25 @@ __all__ = [
     "register_optimizer",
     "register_task",
     "register_trainer",
-    "ReinforcementLearningDDPTrainer",
-    "ReinforcementLearningSlurmTrainer",
-    "ReinforcementLearningSlurmTrainerConfig",
     "ReinforcementLearningTask",
     "ReinforcementLearningTaskConfig",
+    "ReinforcementLearningTrainer",
     "ReinforcementLearningTrainerConfig",
-    "ReinforcementLearningVanillaTrainer",
     "RotaryEmbeddings",
     "set_random_seed",
     "set_slurm_master_addr",
     "set_slurm_rank_and_world_size",
     "SinusoidalEmbeddings",
-    "SlurmTrainer",
-    "SlurmTrainerConfig",
+    "SlurmLauncher",
+    "SlurmLauncherConfig",
     "stage_environment",
     "State",
     "StreamingDataset",
     "StreamingDatasetNoIndex",
-    "SupervisedLearningDDPTrainer",
-    "SupervisedLearningSlurmTrainer",
-    "SupervisedLearningSlurmTrainerConfig",
     "SupervisedLearningTask",
     "SupervisedLearningTaskConfig",
+    "SupervisedLearningTrainer",
     "SupervisedLearningTrainerConfig",
-    "SupervisedLearningVanillaTrainer",
     "SyncEnvironmentWorker",
     "SyncWorkerPool",
     "test_dataset",
@@ -166,6 +161,8 @@ from ml.core.registry import (
     register_trainer,
 )
 from ml.core.state import Phase, State
+from ml.launchers.ddp import DDPLauncher, DDPLauncherConfig
+from ml.launchers.slurm import SlurmLauncher, SlurmLauncherConfig, set_slurm_master_addr, set_slurm_rank_and_world_size
 from ml.lr_schedulers.base import BaseLRScheduler, BaseLRSchedulerConfig
 from ml.models.activations import ActivationType, Clamp, cast_activation_type, get_activation
 from ml.models.base import BaseModel, BaseModelConfig
@@ -209,22 +206,8 @@ from ml.tasks.losses.reduce import cast_reduce_type, reduce
 from ml.tasks.rl.base import ReinforcementLearningTask, ReinforcementLearningTaskConfig
 from ml.tasks.sl.base import SupervisedLearningTask, SupervisedLearningTaskConfig
 from ml.trainers.base import BaseTrainer, BaseTrainerConfig
-from ml.trainers.ddp import DDPTrainer
-from ml.trainers.rl import (
-    ReinforcementLearningDDPTrainer,
-    ReinforcementLearningSlurmTrainer,
-    ReinforcementLearningSlurmTrainerConfig,
-    ReinforcementLearningTrainerConfig,
-    ReinforcementLearningVanillaTrainer,
-)
-from ml.trainers.sl import (
-    SupervisedLearningDDPTrainer,
-    SupervisedLearningSlurmTrainer,
-    SupervisedLearningSlurmTrainerConfig,
-    SupervisedLearningTrainerConfig,
-    SupervisedLearningVanillaTrainer,
-)
-from ml.trainers.slurm import SlurmTrainer, SlurmTrainerConfig, set_slurm_master_addr, set_slurm_rank_and_world_size
+from ml.trainers.rl import ReinforcementLearningTrainer, ReinforcementLearningTrainerConfig
+from ml.trainers.sl import SupervisedLearningTrainer, SupervisedLearningTrainerConfig
 from ml.trainers.vanilla import VanillaTrainer, VanillaTrainerConfig
 from ml.utils.argparse import from_args, get_args, get_type_from_string
 from ml.utils.atomic import atomic_save, open_atomic
