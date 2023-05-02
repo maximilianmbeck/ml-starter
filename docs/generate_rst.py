@@ -1,7 +1,7 @@
 import os
 
 source_dir = "../ml"
-subdirs = ["core", "loggers", "lr_schedulers", "models", "optimizers", "tasks", "trainers", "utils"]
+subdirs = ["core", "loggers", "lr_schedulers", "models", "optimizers", "tasks", "trainers", "launchers", "utils"]
 
 
 def create_rst(module_name: str) -> None:

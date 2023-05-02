@@ -60,7 +60,8 @@ This expects a project structure like this:
       │   └── cli.py
       ├── tasks
       │   └── my_task.py
-      └── trainers
+      ├── trainers
+      └── launchers
 
 The `cli.py` file should look something like this:
 
