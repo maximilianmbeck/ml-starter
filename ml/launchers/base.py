@@ -4,6 +4,8 @@ from typing import Generic, TypeVar
 from ml.core.config import BaseConfig, BaseObjectWithPointers
 from ml.trainers.base import BaseTrainer
 
+T = TypeVar("T", bound="BaseLauncher")
+
 
 @dataclass
 class BaseLauncherConfig(BaseConfig):
@@ -11,12 +13,14 @@ class BaseLauncherConfig(BaseConfig):
 
 
 LauncherConfigT = TypeVar("LauncherConfigT", bound=BaseLauncherConfig)
-TrainerT = TypeVar("TrainerT", bound=BaseTrainer)
 
 
 class BaseLauncher(BaseObjectWithPointers[LauncherConfigT], Generic[LauncherConfigT]):
-    def launch(self) -> None:
+    def launch(self, trainer: BaseTrainer) -> None:
         """Launches the training process.
+
+        Args:
+            trainer: The trainer being launched
 
         Raises:
             NotImplementedError: If the subclass does not implement this method

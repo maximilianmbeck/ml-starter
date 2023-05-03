@@ -23,6 +23,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 from types import FrameType
+from typing import TypeVar
 
 from omegaconf import II, MISSING, OmegaConf
 
@@ -31,6 +32,7 @@ from ml.core.env import get_stage_dir
 from ml.core.registry import Objects, project_dirs, register_launcher
 from ml.launchers.base import BaseLauncher, BaseLauncherConfig
 from ml.scripts.train import train_main
+from ml.trainers.base import BaseTrainer
 from ml.utils.distributed import (
     get_master_addr,
     get_master_port,
@@ -46,6 +48,8 @@ from ml.utils.staging import stage_environment
 from ml.utils.torch_distributed import get_distributed_backend, init_process_group
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+T = TypeVar("T", bound="SlurmLauncher")
 
 SBATCH_TEMPLATE: str = """
 #!/bin/bash
@@ -146,7 +150,7 @@ def ignore_signal(signum: int, _: FrameType | None) -> None:
 
 @register_launcher("slurm", SlurmLauncherConfig)
 class SlurmLauncher(BaseLauncher[SlurmLauncherConfig]):
-    def launch(self) -> None:
+    def write_sbatch_file(self, trainer: BaseTrainer) -> Path:
         # Gets some configuration options.
         gpus_per_node = self.config.gpus_per_node
         gpu_type = self.config.gpu_type
@@ -163,9 +167,9 @@ class SlurmLauncher(BaseLauncher[SlurmLauncherConfig]):
             sbatch_lines += [f"--mail-user={os.environ['EMAIL']}", "--mail-type=ALL"]
 
         # Writes all Slurm stuff (including logs) to this folder.
-        slurm_log_dir = self.exp_dir / "logs"
+        slurm_log_dir = trainer.exp_dir / "logs"
         slurm_log_dir.mkdir(exist_ok=True, parents=True)
-        sbatch_path = self.exp_dir / "sbatch.sh"
+        sbatch_path = trainer.exp_dir / "sbatch.sh"
 
         # Stages all files to a new directory.
         stage_dir = stage_environment(project_dirs.paths[1:], get_stage_dir())
@@ -178,15 +182,15 @@ class SlurmLauncher(BaseLauncher[SlurmLauncherConfig]):
         comments: list[str] = []
         if self.config.comment is not None:
             comments += [self.config.comment]
-        comments += [f"Log directory: {self.exp_dir}"]
+        comments += [f"Log directory: {trainer.exp_dir}"]
         comments += [f"Code location: {stage_dir}"]
 
         # Saves the config that is used to launch the Slurm job.
-        self.save_config()
+        trainer.save_config()
 
         # Builds the SBatch file.
         sbatch_file = SBATCH_TEMPLATE.format(
-            job_name=self.config.exp_name,
+            job_name=trainer.exp_name,
             partition=self.config.partition,
             time_limit=self.config.time_limit,
             comment="; ".join(comments),
@@ -201,13 +205,18 @@ class SlurmLauncher(BaseLauncher[SlurmLauncherConfig]):
             stage_dir=stage_dir,
             pythonpath=python_path,
             master_port=self.config.master_port,
-            config_path=self.exp_dir / "config.yaml",
-            lock_file_path=self.exp_dir / ".lock_running",
+            config_path=trainer.exp_dir / "config.yaml",
+            lock_file_path=trainer.exp_dir / ".lock_running",
         )
 
         with open(sbatch_path, "w", encoding="utf-8") as f:
             f.write(sbatch_file)
         logger.info("Wrote sbatch file to %s", sbatch_path)
+
+        return sbatch_path
+
+    def launch(self, trainer: BaseTrainer) -> None:
+        sbatch_path = self.write_sbatch_file(trainer)
 
         # Call `sbatch` on the given file.
         all_run_ids: list[str] = []
@@ -230,7 +239,7 @@ class SlurmLauncher(BaseLauncher[SlurmLauncherConfig]):
         run_ids_str = "".join(f"\n - {run_id}" for run_id in all_run_ids)
         logger.info("Launched %d job(s):%s", len(all_run_ids), run_ids_str)
 
-        self.add_lock_file("scheduled", exists_ok=False)
+        trainer.add_lock_file("scheduled", exists_ok=False)
 
 
 def slurm_main() -> None:

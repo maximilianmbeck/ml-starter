@@ -35,9 +35,9 @@ def cli_main(project_root: Path | str | None = None) -> None:
 
     without_objects_scripts: dict[str, Callable[[DictConfig], None]] = {
         "compile": compiler.compile_main,
-        "launch": launch.launch_main,
         "stage": stage.stage_main,
         "resolve": resolve.resolve_main,
+        "launch": launch.launch_main,
     }
 
     with_objects_scripts: dict[str, Callable[[Objects], None]] = {

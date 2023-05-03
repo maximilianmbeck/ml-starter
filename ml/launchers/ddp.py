@@ -24,7 +24,7 @@ from omegaconf import DictConfig
 from ml.core.registry import Objects, register_launcher
 from ml.launchers.base import BaseLauncher, BaseLauncherConfig
 from ml.scripts.train import train_main
-from ml.trainers.base import MultiprocessConfig
+from ml.trainers.base import BaseTrainer, MultiprocessConfig
 from ml.utils.distributed import (
     set_init_method,
     set_master_addr,
@@ -74,7 +74,7 @@ class DDPLauncherConfig(BaseLauncherConfig):
 
 @register_launcher("ddp", DDPLauncherConfig)
 class DDPLauncher(BaseLauncher[DDPLauncherConfig]):
-    def launch(self) -> None:
+    def launch(self, trainer: BaseTrainer) -> None:
         if not torch.cuda.is_available():
             raise RuntimeError("DDPLauncher requires CUDA")
         device_count = torch.cuda.device_count()

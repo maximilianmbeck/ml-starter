@@ -249,7 +249,9 @@ class BaseTrainer(BaseObjectWithPointers[TrainerConfigT], Generic[TrainerConfigT
     def __init__(self, config: TrainerConfigT) -> None:
         super().__init__(config)
 
-        self.exp_dir = get_exp_dir(Path(config.base_run_dir), config.exp_name, config.run_id)
+        self.exp_name = config.exp_name
+        self.run_id = config.run_id
+        self.exp_dir = get_exp_dir(Path(config.base_run_dir), self.exp_name, self.run_id)
         self.log_dir = self.exp_dir / config.log_dir_name
         self.checkpoint_config = config.checkpoint
         self.loggers = []
