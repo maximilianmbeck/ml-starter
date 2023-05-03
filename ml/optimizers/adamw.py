@@ -9,22 +9,24 @@ from ml.core.registry import register_optimizer
 from ml.optimizers.base import BaseOptimizer, BaseOptimizerConfig
 
 
-def separate_decayable_params(model: nn.Module, default_decay: bool) -> Iterable[dict[str, Any]]:
+def separate_decayable_params(model: nn.Module, default_decay: bool, weight_decay: float) -> Iterable[dict[str, Any]]:
     """Don't weight decay biases.
 
-    This was something that `lucidrains` does.
+    This is mostly taken from nanoGPT.
 
     Args:
         model: The model to get the parameters for
         default_decay: Whether to decay by default (for modules which aren't
             explicitly specified)
+        weight_decay: The weight decay to use
 
     Returns:
         The dictionary to pass to the optimizer
     """
 
-    wd_params: list[nn.Parameter] = []
-    no_wd_params: list[nn.Parameter] = []
+    wd_params: set[str] = set()
+    no_wd_params: set[str] = set()
+    seen: set[str] = set()
 
     always_decay = (
         nn.Linear,
@@ -43,20 +45,30 @@ def separate_decayable_params(model: nn.Module, default_decay: bool) -> Iterable
         nn.EmbeddingBag,
     )
 
-    for _, m in model.named_modules():
-        for _, p in m.named_parameters():
+    for mn, m in model.named_modules():
+        for pn, p in m.named_parameters():
+            fpn = f"{mn}.{pn}" if mn else pn
+            if fpn in seen:
+                continue
+            seen.add(fpn)
             if p.ndim < 2:
-                no_wd_params.append(p)
+                no_wd_params.add(fpn)
             elif isinstance(m, never_decay):
-                no_wd_params.append(p)
+                no_wd_params.add(fpn)
             elif isinstance(m, always_decay):
-                wd_params.append(p)
+                wd_params.add(fpn)
             else:
-                (wd_params if default_decay else no_wd_params).append(p)
+                (wd_params if default_decay else no_wd_params).add(fpn)
+
+    param_dict = {pn: p for pn, p in model.named_parameters()}
+    inter_params = wd_params & no_wd_params
+    union_params = wd_params | no_wd_params
+    assert len(inter_params) == 0, "Parameters made it into both decay and no-decay sets!"
+    assert len(param_dict.keys() - union_params) == 0, "Parameters were not separated into decay or no-decay set!"
 
     return [
-        {"params": wd_params},
-        {"params": no_wd_params, "weight_decay": 0.0},
+        {"params": [param_dict[pn] for pn in sorted(list(wd_params))], "weight_decay": weight_decay},
+        {"params": [param_dict[pn] for pn in sorted(list(no_wd_params))], "weight_decay": 0.0},
     ]
 
 
@@ -115,11 +127,10 @@ class AdamWOptimizer(BaseOptimizer[AdamWOptimizerConfig]):
         b1, b2 = self.config.betas
 
         return AdamW(
-            separate_decayable_params(model, self.config.default_decay),
+            separate_decayable_params(model, self.config.default_decay, self.config.weight_decay),
             lr=self.config.lr,
             betas=(b1, b2),
             eps=self.config.eps,
-            weight_decay=self.config.weight_decay,
             amsgrad=self.config.amsgrad,
             foreach=self.config.foreach,
             capturable=self.config.capturable,

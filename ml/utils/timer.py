@@ -5,6 +5,7 @@ import os
 import signal
 import sys
 import time
+import warnings
 from threading import Thread
 from typing import Any, Callable, TypeVar
 
@@ -29,7 +30,6 @@ class Spinner:
     def __init__(self, text: str) -> None:
         self._text = colorize(text, "grey")
         self._spinner_thread: Thread | None = None
-        self._spinner_running = False
         self._spinner_stop = False
 
     def start(self) -> None:
@@ -39,16 +39,25 @@ class Spinner:
         self._spinner_thread = Thread(target=self._spinner)
         self._spinner_thread.start()
 
+        self._original_breakpointhook = sys.breakpointhook
+        sys.breakpointhook = self._breakpointhook
+
+    def _breakpointhook(self, *args: Any, **kwargs: Any) -> None:
+        self.stop()
+
+        warnings.warn("Breakpoint hit inside spinner; run `up 1` to see where it was hit")
+        sys.breakpointhook = self._original_breakpointhook
+        sys.breakpointhook(*args, **kwargs)
+
     def stop(self) -> None:
         if self._spinner_thread is None:
-            raise RuntimeError("Spinner not started")
+            return
 
         self._spinner_stop = True
         self._spinner_thread.join()
         self._spinner_thread = None
 
     def _spinner(self) -> None:
-        self._spinner_running = True
         chars = [colorize(c, "light-yellow") for c in ("|", "/", "-", "\\")]
         start_time = time.time()
         max_line_len = 0
@@ -59,9 +68,10 @@ class Spinner:
                 max_line_len = max(max_line_len, len(line))
                 sys.stderr.write(line)
                 sys.stderr.flush()
+                if not self._spinner_stop:
+                    break
                 time.sleep(0.1)
         sys.stderr.write(" " * max_line_len + "\r")
-        self._spinner_running = False
 
 
 class Timer:
