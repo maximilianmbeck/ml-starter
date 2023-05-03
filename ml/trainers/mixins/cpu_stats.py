@@ -175,7 +175,7 @@ class CPUStatsMonitor:
         self._proc = mp.Process(
             target=worker,
             args=(self._ping_interval, self._cpu_stats_smem, self._monitor_event, self._start_event, os.getpid()),
-            daemon=False,
+            daemon=True,
         )
         self._proc.start()
         if wait:

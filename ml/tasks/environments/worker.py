@@ -134,6 +134,7 @@ class AsyncEnvironmentWorker(BaseEnvironmentWorker[RLState, RLAction], Generic[R
         seed: int = 1337,
         cleanup_time: float = 5.0,
         mode: Mode = "process",
+        daemon: bool = True,
     ) -> None:
         """Defines an asynchronous environment worker.
 
@@ -149,6 +150,7 @@ class AsyncEnvironmentWorker(BaseEnvironmentWorker[RLState, RLAction], Generic[R
             seed: The random seed to use.
             cleanup_time: The time to wait for the worker to finish before killing it.
             mode: The mode to use for the worker.
+            daemon: Whether to run the worker as a daemon.
 
         Raises:
             ValueError: If the mode is invalid.
@@ -166,10 +168,10 @@ class AsyncEnvironmentWorker(BaseEnvironmentWorker[RLState, RLAction], Generic[R
 
         self._proc: threading.Thread | mp.Process
         if mode == "thread":
-            self._proc = threading.Thread(target=self._thread, args=args)
+            self._proc = threading.Thread(target=self._thread, args=args, daemon=daemon)
             self._proc.start()
         elif mode == "process":
-            self._proc = mp.Process(target=self._thread, args=args)
+            self._proc = mp.Process(target=self._thread, args=args, daemon=daemon)
             self._proc.start()
         else:
             raise ValueError(f"Invalid mode: {mode}")
@@ -321,7 +323,7 @@ class SyncWorkerPool(WorkerPool[RLState, RLAction], Generic[RLState, RLAction]):
 
 
 class AsyncWorkerPool(WorkerPool[RLState, RLAction], Generic[RLState, RLAction]):
-    def __init__(self, workers: Sequence[BaseEnvironmentWorker[RLState, RLAction]]) -> None:
+    def __init__(self, workers: Sequence[BaseEnvironmentWorker[RLState, RLAction]], daemon: bool = True) -> None:
         super().__init__()
 
         self.workers = workers
@@ -336,6 +338,7 @@ class AsyncWorkerPool(WorkerPool[RLState, RLAction], Generic[RLState, RLAction])
             threading.Thread(
                 target=self._thread,
                 args=(env_id, worker, self.state_queue, action_queue),
+                daemon=daemon,
             )
             for env_id, (worker, action_queue) in enumerate(zip(workers, self.action_queues))
         ]

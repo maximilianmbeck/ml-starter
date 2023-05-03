@@ -87,7 +87,7 @@ class HeartbeatMonitor:
         self._proc = mp.Process(
             target=worker,
             args=(self._heartbeat_interval, self._heartbeat_event, self._start_event, os.getpid(), self._on_heartbeat),
-            daemon=False,
+            daemon=True,
         )
         self._proc.start()
         if wait:

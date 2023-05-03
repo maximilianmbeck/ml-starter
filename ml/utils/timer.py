@@ -4,6 +4,7 @@ import logging
 import os
 import signal
 import sys
+import threading
 import time
 import warnings
 from threading import Thread
@@ -27,51 +28,62 @@ def allow_spinners() -> bool:
 
 
 class Spinner:
-    def __init__(self, text: str) -> None:
-        self._text = colorize(text, "grey")
-        self._spinner_thread: Thread | None = None
+    def __init__(self, text: str | None = None) -> None:
+        self._text = "" if text is None else text
         self._spinner_stop = False
+        self._spinner_close = False
+        self._flag = threading.Event()
+        self._thread = Thread(target=self._spinner, daemon=True)
+        self._thread.start()
 
-    def start(self) -> None:
-        if self._spinner_thread is not None:
-            raise RuntimeError("Spinner already started")
-
-        self._spinner_thread = Thread(target=self._spinner)
-        self._spinner_thread.start()
-
+        # If we're in a breakpoint, we want to close the spinner when we exit
+        # the breakpoint.
         self._original_breakpointhook = sys.breakpointhook
-        sys.breakpointhook = self._breakpointhook
 
     def _breakpointhook(self, *args: Any, **kwargs: Any) -> None:
-        self.stop()
-
         warnings.warn("Breakpoint hit inside spinner; run `up 1` to see where it was hit")
-        sys.breakpointhook = self._original_breakpointhook
+        self.stop()
         sys.breakpointhook(*args, **kwargs)
 
-    def stop(self) -> None:
-        if self._spinner_thread is None:
-            return
+    def set_text(self, text: str) -> "Spinner":
+        self._text = colorize(text, "grey")
+        return self
 
+    def start(self) -> None:
+        self._spinner_stop = False
+        self._flag.set()
+        sys.breakpointhook = self._breakpointhook
+
+    def stop(self) -> None:
         self._spinner_stop = True
-        self._spinner_thread.join()
-        self._spinner_thread = None
+        sys.breakpointhook = self._original_breakpointhook
+
+    def close(self) -> None:
+        self.stop()
+        self._spinner_close = True
+        self._thread.join()
 
     def _spinner(self) -> None:
         chars = [colorize(c, "light-yellow") for c in ("|", "/", "-", "\\")]
-        start_time = time.time()
-        max_line_len = 0
-        while not self._spinner_stop:
-            for char in chars:
-                elapsed_secs = time.time() - start_time
-                line = f"[ {char} {elapsed_secs:.1f} ] {self._text}\r"
-                max_line_len = max(max_line_len, len(line))
-                sys.stderr.write(line)
-                sys.stderr.flush()
-                if not self._spinner_stop:
-                    break
-                time.sleep(0.1)
-        sys.stderr.write(" " * max_line_len + "\r")
+        while not self._spinner_close:
+            self._flag.wait()
+            max_line_len = 0
+            start_time = time.time()
+            while not self._spinner_stop:
+                for char in chars:
+                    elapsed_secs = time.time() - start_time
+                    line = f"[ {char} {elapsed_secs:.1f} ] {self._text}\r"
+                    max_line_len = max(max_line_len, len(line))
+                    sys.stderr.write(line)
+                    sys.stderr.flush()
+                    time.sleep(0.05)
+            sys.stderr.write(" " * max_line_len + "\r")
+            self._flag.clear()
+
+
+@functools.lru_cache
+def spinner() -> Spinner:
+    return Spinner()
 
 
 class Timer:
@@ -89,7 +101,7 @@ class Timer:
         self._start_time: float | None = None
         self._elapsed_time: float | None = None
         self._logger = timer_logger if logger is None else logger
-        self._spinner = Spinner(description) if spinner and allow_spinners() else None
+        self._use_spinner = spinner and allow_spinners()
 
     @property
     def elapsed_time(self) -> float:
@@ -98,8 +110,8 @@ class Timer:
 
     def __enter__(self) -> "Timer":
         self._start_time = time.time()
-        if self._spinner is not None:
-            self._spinner.start()
+        if self._use_spinner:
+            spinner().set_text(self.description).start()
         return self
 
     def __exit__(self, *args: Any, **kwargs: Any) -> None:
@@ -107,8 +119,7 @@ class Timer:
         self._elapsed_time = time.time() - self._start_time
         if self._elapsed_time > self.min_seconds_to_print:
             self._logger.warning("Finished %s in %.3g seconds", self.description, self._elapsed_time)
-        if self._spinner is not None:
-            self._spinner.stop()
+        spinner().stop()
 
 
 def timeout(seconds: int, error_message: str = os.strerror(errno.ETIME)) -> Callable[[TimeoutFunc], TimeoutFunc]:

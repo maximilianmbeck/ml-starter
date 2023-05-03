@@ -108,11 +108,7 @@ class DDPLauncher(BaseLauncher[DDPLauncherConfig]):
             error_queue = ctx.SimpleQueue()
             cfg.rank = rank
             set_env(rank)
-            proc = ctx.Process(
-                target=func_wrapped,
-                args=(func, cfg, error_queue),
-                daemon=False,
-            )
+            proc = ctx.Process(target=func_wrapped, args=(func, cfg, error_queue), daemon=False)
             logger.debug("Started process %d", rank)
             proc.start()
             error_queues.append(error_queue)

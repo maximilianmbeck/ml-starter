@@ -190,7 +190,7 @@ class GPUStatsMonitor:
         self._proc = mp.Process(
             target=worker,
             args=(self._ping_interval, self._smems, self._main_event, self._events, self._start_event),
-            daemon=False,
+            daemon=True,
         )
         self._proc.start()
         if wait:
