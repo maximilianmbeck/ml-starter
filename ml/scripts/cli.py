@@ -4,7 +4,6 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
-from ml.scripts import launch
 from ml.utils.distributed import get_rank_optional, get_world_size_optional
 from ml.utils.logging import configure_logging
 from ml.utils.timer import Timer
@@ -23,7 +22,7 @@ def cli_main(project_root: Path | str | None = None) -> None:
     with Timer("importing", spinner=True):
         from ml.core.env import add_global_tag
         from ml.core.registry import Objects, add_project_dir
-        from ml.scripts import compiler, resolve, stage, train
+        from ml.scripts import compiler, launch, resolve, stage, train
         from ml.utils.cli import parse_cli
         from ml.utils.colors import colorize
         from ml.utils.random import set_random_seed

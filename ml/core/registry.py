@@ -1,9 +1,7 @@
 import functools
-import importlib.util
 import inspect
 import json
 import logging
-import sys
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
@@ -140,14 +138,8 @@ class register_base(ABC, Generic[Entry, Config]):  # pylint: disable=invalid-nam
             try:
                 rel_path = project_dirs.relative_path(path, parent=True)
                 module_name = ".".join(list(rel_path.parts[:-1]) + [rel_path.stem])
-                if module_name not in sys.modules:
-                    spec = importlib.util.spec_from_file_location(module_name, str(path))
-                    assert spec is not None
-                    module = importlib.util.module_from_spec(spec)
-                    sys.modules[module_name] = module
-                    loader = spec.loader
-                    assert loader is not None
-                    loader.exec_module(module)
+                __import__(module_name)
+
             except Exception:
                 logger.exception("Caught exception while importing %s", path)
 
