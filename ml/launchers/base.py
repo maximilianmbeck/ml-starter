@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Generic, TypeVar
 
-from ml.core.config import BaseConfig, BaseObjectWithPointers
+from ml.core.config import BaseConfig, BaseObject
 from ml.trainers.base import BaseTrainer
 
 T = TypeVar("T", bound="BaseLauncher")
@@ -15,7 +15,7 @@ class BaseLauncherConfig(BaseConfig):
 LauncherConfigT = TypeVar("LauncherConfigT", bound=BaseLauncherConfig)
 
 
-class BaseLauncher(BaseObjectWithPointers[LauncherConfigT], Generic[LauncherConfigT]):
+class BaseLauncher(BaseObject[LauncherConfigT], Generic[LauncherConfigT]):
     def launch(self, trainer: BaseTrainer) -> None:
         """Launches the training process.
 

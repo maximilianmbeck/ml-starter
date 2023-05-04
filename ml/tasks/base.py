@@ -18,7 +18,7 @@ from torch.utils.data.dataset import Dataset
 from torch.utils.data.sampler import Sampler
 
 from ml.core.common_types import Batch, Loss, Output
-from ml.core.config import BaseConfig, BaseObjectWithPointers, conf_field
+from ml.core.config import BaseConfig, BaseObject, conf_field
 from ml.core.env import is_debugging
 from ml.core.state import Phase, State, cast_phase
 from ml.loggers.multi import MultiLogger
@@ -196,7 +196,7 @@ ModelT = TypeVar("ModelT", bound=BaseModel)
 
 class BaseTask(
     nn.Module,
-    BaseObjectWithPointers[BaseTaskConfigT],
+    BaseObject[BaseTaskConfigT],
     Generic[BaseTaskConfigT, ModelT, Batch, Output, Loss],
     ABC,
 ):
@@ -204,7 +204,7 @@ class BaseTask(
 
     def __init__(self, config: BaseTaskConfigT) -> None:
         nn.Module.__init__(self)
-        BaseObjectWithPointers.__init__(self, config)
+        BaseObject.__init__(self, config)
 
         self.dataloader_configs: dict[Phase, DataLoaderConfig] = {
             cast_phase(k): v for k, v in config.dataloader.items()

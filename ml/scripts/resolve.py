@@ -1,8 +1,4 @@
-import logging
-
 from omegaconf import DictConfig, OmegaConf
-
-logger: logging.Logger = logging.getLogger(__name__)
 
 
 def resolve_main(config: DictConfig) -> None:

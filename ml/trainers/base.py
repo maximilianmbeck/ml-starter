@@ -13,7 +13,7 @@ from omegaconf import II, MISSING, DictConfig, ListConfig, OmegaConf
 from torch import Tensor
 from torch.optim.optimizer import Optimizer
 
-from ml.core.config import BaseConfig, BaseObjectWithPointers, conf_field
+from ml.core.config import BaseConfig, BaseObject, conf_field
 from ml.core.state import State
 from ml.loggers.base import BaseLogger
 from ml.loggers.multi import MultiLogger
@@ -240,7 +240,7 @@ ModelT = TypeVar("ModelT", bound=BaseModel)
 TaskT = TypeVar("TaskT", bound=BaseTask)
 
 
-class BaseTrainer(BaseObjectWithPointers[TrainerConfigT], Generic[TrainerConfigT, ModelT, TaskT]):
+class BaseTrainer(BaseObject[TrainerConfigT], Generic[TrainerConfigT, ModelT, TaskT]):
     """Defines the base trainer type."""
 
     logger: MultiLogger

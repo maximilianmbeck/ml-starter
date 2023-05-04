@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, Generic, Iterator, TypeVar, cast
 from omegaconf import DictConfig, ListConfig, OmegaConf
 from omegaconf.basecontainer import BaseContainer
 
-from ml.core.config import BaseConfig, BaseObject, BaseObjectWithPointers
+from ml.core.config import BaseConfig, BaseObject
 from ml.utils.colors import colorize
 from ml.utils.timer import Timer
 
@@ -83,6 +83,22 @@ def get_name(key: str, config: BaseContainer) -> str:
     if not isinstance(name, str):
         raise ValueError(f"Expected {key} name to be a string, got {name}")
     return name
+
+
+def get_names(key: str, config: BaseContainer) -> list[str]:
+    if not isinstance(config, ListConfig):
+        raise ValueError(f"Expected {key} config to be a list, got {type(config)}")
+    names = []
+    for i, subconfig in enumerate(config):
+        if not isinstance(subconfig, DictConfig):
+            raise ValueError(f"Expected {key} config item {i} to be a dictionary, got {type(subconfig)}")
+        if NAME_KEY not in subconfig:
+            raise ValueError(f"Malformed {key} config item {i}; missing expected key {NAME_KEY}")
+        name = subconfig[NAME_KEY]
+        if not isinstance(name, str):
+            raise ValueError(f"Expected {key} name to be a string, got {name}")
+        names.append(name)
+    return names
 
 
 class register_base(ABC, Generic[Entry, Config]):  # pylint: disable=invalid-name
@@ -245,22 +261,28 @@ class register_base(ABC, Generic[Entry, Config]):  # pylint: disable=invalid-nam
         raise KeyError(f"Couldn't locate {cls.config_key()} '{name}' from {len(cls.REGISTRY_LOCATIONS)} options")
 
     @classmethod
-    def build_entry(cls, raw_config: DictConfig) -> Entry | None:
-        if cls.config_key() not in raw_config:
-            return None
-        reg_cfg = raw_config[cls.config_key()]
-        reg_name = get_name(cls.config_key(), reg_cfg)
-        reg_cls, _ = cls.lookup(reg_name)
-        with Timer(f"building {reg_name}"):
+    def _build_entry_from_name(cls, reg_name: str, reg_cfg: DictConfig, raw_config: DictConfig) -> Entry:
+        with Timer(f"building {cls.config_key()}", spinner=True):
+            reg_cls, _ = cls.lookup(reg_name)
+
+        with Timer(f"building {reg_name}", spinner=True):
             reg_obj = reg_cls(reg_cfg)
-        if isinstance(reg_obj, BaseObjectWithPointers):
-            reg_obj.set_raw_config(raw_config)
+            if isinstance(reg_obj, BaseObject):
+                reg_obj.set_raw_config(raw_config)
+
         return reg_obj
 
     @classmethod
+    def build_entry(cls, raw_config: DictConfig) -> Entry | None:
+        if cls.config_key() not in raw_config:
+            return None
+        with Timer(f"getting {cls.config_key()} name", spinner=True):
+            reg_name = get_name(cls.config_key(), raw_config[cls.config_key()])
+        return cls._build_entry_from_name(reg_name, raw_config[cls.config_key()], raw_config)
+
+    @classmethod
     def build_entry_non_null(cls, raw_config: DictConfig) -> Entry:
-        entry = cls.build_entry(raw_config)
-        if entry is None:
+        if (entry := cls.build_entry(raw_config)) is None:
             raise ValueError(f"Missing {cls.config_key()} in config")
         return entry
 
@@ -268,21 +290,25 @@ class register_base(ABC, Generic[Entry, Config]):  # pylint: disable=invalid-nam
     def update_config(cls, raw_config: DictConfig) -> None:
         if cls.config_key() not in raw_config:
             return
-        reg_cfg = raw_config[cls.config_key()]
-        reg_name = get_name(cls.config_key(), reg_cfg)
-        _, reg_cfg_cls = cls.lookup(reg_name)
-        reg_cfg = OmegaConf.merge(OmegaConf.structured(reg_cfg_cls), reg_cfg)
-        raw_config[cls.config_key()] = reg_cfg
+
+        with Timer(f"updating {cls.config_key()} config", spinner=True):
+            reg_cfg = raw_config[cls.config_key()]
+            reg_name = get_name(cls.config_key(), reg_cfg)
+            _, reg_cfg_cls = cls.lookup(reg_name)
+            reg_cfg = OmegaConf.merge(OmegaConf.structured(reg_cfg_cls), reg_cfg)
+            raw_config[cls.config_key()] = reg_cfg
 
     @classmethod
     def resolve_config(cls, raw_config: DictConfig) -> None:
         if cls.config_key() not in raw_config:
             return
-        reg_cfg = raw_config[cls.config_key()]
-        reg_name = get_name(cls.config_key(), reg_cfg)
-        _, reg_cfg_cls = cls.lookup(reg_name)
-        reg_cfg_cls.resolve(reg_cfg)
-        raw_config[cls.config_key()] = reg_cfg
+
+        with Timer(f"resolving {cls.config_key()} config", spinner=True):
+            reg_cfg = raw_config[cls.config_key()]
+            reg_name = get_name(cls.config_key(), reg_cfg)
+            _, reg_cfg_cls = cls.lookup(reg_name)
+            reg_cfg_cls.resolve(reg_cfg)
+            raw_config[cls.config_key()] = reg_cfg
 
     def __init__(self, name: str, config: type[Config]) -> None:
         self.name = name
@@ -313,48 +339,88 @@ class multi_register_base(register_base[Entry, Config], Generic[Entry, Config]):
     """Defines a registry which produces multiple objects."""
 
     @classmethod
+    def build_entry(cls, raw_config: DictConfig) -> Entry | None:
+        raise NotImplementedError("`build_entry` not implemented; use `build_entries` instead")
+
+    @classmethod
+    def build_entry_non_null(cls, raw_config: DictConfig) -> Entry:
+        raise NotImplementedError("`build_entry_non_null` not implemented; use `build_entries_non_null` instead")
+
+    @classmethod
     def update_config(cls, raw_config: DictConfig) -> None:
-        if cls.config_key() not in raw_config:
-            return
-        reg_cfg = raw_config[cls.config_key()]
-        if isinstance(reg_cfg, DictConfig):
-            reg_cfgs = ListConfig([reg_cfg])
-        elif isinstance(reg_cfg, ListConfig):
-            reg_cfgs = reg_cfg
-        else:
-            raise NotImplementedError(f"Invalid logger config type: {type(reg_cfg)}")
-        for i, reg_cfg in enumerate(reg_cfgs):
-            reg_name = get_name(cls.config_key(), reg_cfg)
-            _, reg_cfg_cls = cls.lookup(reg_name)
-            reg_cfgs[i] = OmegaConf.merge(OmegaConf.structured(reg_cfg_cls), reg_cfg)
-        raw_config[cls.config_key()] = reg_cfgs
+        raise NotImplementedError("`update_config` not implemented; use `update_configs` instead")
 
     @classmethod
     def resolve_config(cls, raw_config: DictConfig) -> None:
-        if cls.config_key() not in raw_config:
-            return
-        reg_cfgs = cast(ListConfig, raw_config[cls.config_key()])
-        for i, reg_cfg in enumerate(reg_cfgs):
-            reg_name = get_name(cls.config_key(), reg_cfg)
-            _, reg_cfg_cls = cls.lookup(reg_name)
-            reg_cfg_cls.resolve(reg_cfg)
-            reg_cfgs[i] = reg_cfg
-        raw_config[cls.config_key()] = reg_cfgs
+        raise NotImplementedError("`resolve_config` not implemented; use `resolve_configs` instead")
 
     @classmethod
-    def build_entry(cls, raw_config: DictConfig) -> list[Entry] | None:  # type: ignore
+    def build_entries(cls, raw_config: DictConfig) -> list[Entry] | None:
         if cls.config_key() not in raw_config:
             return None
-        reg_cfgs = cast(ListConfig, raw_config[cls.config_key()])
-        reg_objs = []
-        for reg_cfg in reg_cfgs:
-            reg_name = get_name(cls.config_key(), reg_cfg)
-            reg_cls, _ = cls.lookup(reg_name)
-            with Timer(f"building {reg_name}"):
-                reg_obj = reg_cls(reg_cfg)
-            reg_obj.set_raw_config(raw_config)
-            reg_objs.append(reg_obj)
-        return reg_objs
+
+        # Attempts to build a single entry first.
+        try:
+            entry = super().build_entry(raw_config)
+            return [entry] if entry is not None else None
+        except ValueError:
+            pass
+
+        entries: list[Entry] = []
+        reg_names = get_names(cls.config_key(), raw_config[cls.config_key()])
+        for i, reg_name in enumerate(reg_names):
+            entries.append(cls._build_entry_from_name(reg_name, raw_config[cls.config_key()][i], raw_config))
+
+        return entries
+
+    @classmethod
+    def build_entries_non_null(cls, raw_config: DictConfig) -> list[Entry]:
+        entries = cls.build_entries(raw_config)
+        if entries is None:
+            raise ValueError(f"Missing {cls.config_key()} in config")
+        return entries
+
+    @classmethod
+    def update_configs(cls, raw_config: DictConfig) -> None:
+        if cls.config_key() not in raw_config:
+            return
+
+        # Treat as a single entry first.
+        try:
+            super().update_config(raw_config)
+            return
+        except ValueError:
+            pass
+
+        with Timer(f"updating {cls.config_key()} config", spinner=True):
+            reg_cfgs = raw_config[cls.config_key()]
+            reg_names = get_names(cls.config_key(), reg_cfgs)
+            for i, (reg_name, reg_cfg) in enumerate(zip(reg_names, reg_cfgs)):
+                _, reg_cfg_cls = cls.lookup(reg_name)
+                reg_cfg = OmegaConf.merge(OmegaConf.structured(reg_cfg_cls), reg_cfg)
+                reg_cfgs[i] = reg_cfg
+            raw_config[cls.config_key()] = reg_cfgs
+
+    @classmethod
+    def resolve_configs(cls, raw_config: DictConfig) -> None:
+        if cls.config_key() not in raw_config:
+            return
+
+        # Treat as a single entry first.
+        try:
+            super().resolve_config(raw_config)
+            return
+        except ValueError:
+            pass
+
+        with Timer(f"resolving {cls.config_key()} config", spinner=True):
+            reg_cfgs = raw_config[cls.config_key()]
+            reg_names = get_names(cls.config_key(), reg_cfgs)
+            for i, (reg_name, reg_cfg) in enumerate(zip(reg_names, reg_cfgs)):
+                _, reg_cfg_cls = cls.lookup(reg_name)
+                reg_cfg_cls.resolve(reg_cfg)
+                reg_cfgs[i] = reg_cfg
+            raw_config[cls.config_key()] = reg_cfgs
 
 
 class register_model(register_base["BaseModel", "BaseModelConfig"]):  # pylint: disable=invalid-name
@@ -472,23 +538,9 @@ class Objects:
     launcher: "BaseLauncher | None" = None
 
     def __post_init__(self) -> None:
-        # After initializing the object container, we add a pointer to the
-        # current container to each of the constructed objects.
-        if self.task is not None:
-            self.task.set_objects(self)
         if self.trainer is not None:
-            self.trainer.set_objects(self)
             if self.logger is not None:
                 self.trainer.add_loggers(self.logger)
-        if self.optimizer is not None:
-            self.optimizer.set_objects(self)
-        if self.lr_scheduler is not None:
-            self.lr_scheduler.set_objects(self)
-        if self.logger is not None:
-            for sublogger in self.logger:
-                sublogger.set_objects(self)
-        if self.launcher is not None:
-            self.launcher.set_objects(self)
 
     def summarize(self) -> str:
         parts: dict[str, tuple[str, str]] = {}
@@ -528,6 +580,23 @@ class Objects:
         )
 
     @classmethod
+    def update_config(cls, config: DictConfig) -> None:
+        """Updates the config in-place.
+
+        Args:
+            config: The config to update
+        """
+
+        # Pre-builds the config using the structured configs.
+        register_model.update_config(config)
+        register_task.update_config(config)
+        register_trainer.update_config(config)
+        register_optimizer.update_config(config)
+        register_lr_scheduler.update_config(config)
+        register_logger.update_configs(config)
+        register_launcher.update_config(config)
+
+    @classmethod
     def resolve_config(cls, config: DictConfig) -> None:
         """Resolves the config in-place.
 
@@ -535,28 +604,17 @@ class Objects:
             config: The config to resolve
         """
 
-        with Timer("building config", spinner=True):
-            # Pre-builds the config using the structured configs.
-            register_model.update_config(config)
-            register_task.update_config(config)
-            register_trainer.update_config(config)
-            register_optimizer.update_config(config)
-            register_lr_scheduler.update_config(config)
-            register_logger.update_config(config)
-            register_launcher.update_config(config)
+        # Resolves the final config once all structured configs have been merged.
+        OmegaConf.resolve(config)
 
-        with Timer("resolving configs", spinner=True):
-            # Resolves the final config once all structured configs have been merged.
-            OmegaConf.resolve(config)
-
-            # Runs object-specific resolutions.
-            register_model.resolve_config(config)
-            register_task.resolve_config(config)
-            register_trainer.resolve_config(config)
-            register_optimizer.resolve_config(config)
-            register_lr_scheduler.resolve_config(config)
-            register_logger.resolve_config(config)
-            register_launcher.resolve_config(config)
+        # Runs object-specific resolutions.
+        register_model.resolve_config(config)
+        register_task.resolve_config(config)
+        register_trainer.resolve_config(config)
+        register_optimizer.resolve_config(config)
+        register_lr_scheduler.resolve_config(config)
+        register_logger.resolve_configs(config)
+        register_launcher.resolve_config(config)
 
     @classmethod
     def parse_raw_config(cls, config: DictConfig) -> "Objects":
@@ -569,20 +627,13 @@ class Objects:
             The parsed Objects dataclass
         """
 
-        with Timer("building model", spinner=True):
-            model = register_model.build_entry(config)
-        with Timer("building task", spinner=True):
-            task = register_task.build_entry(config)
-        with Timer("building trainer", spinner=True):
-            trainer = register_trainer.build_entry(config)
-        with Timer("building optimizer", spinner=True):
-            optimizer = register_optimizer.build_entry(config)
-        with Timer("building lr scheduler", spinner=True):
-            lr_scheduler = register_lr_scheduler.build_entry(config)
-        with Timer("building loggers", spinner=True):
-            loggers = register_logger.build_entry(config)
-        with Timer("building launcher", spinner=True):
-            launcher = register_launcher.build_entry(config)
+        model = register_model.build_entry(config)
+        task = register_task.build_entry(config)
+        trainer = register_trainer.build_entry(config)
+        optimizer = register_optimizer.build_entry(config)
+        lr_scheduler = register_lr_scheduler.build_entry(config)
+        loggers = register_logger.build_entries(config)
+        launcher = register_launcher.build_entry(config)
 
         objs = Objects(
             raw_config=config,

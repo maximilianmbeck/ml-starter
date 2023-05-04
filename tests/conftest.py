@@ -1,17 +1,15 @@
 import functools
-import random
 
-import numpy as np
 import pytest
 import torch
 from _pytest.python import Function, Metafunc
 
+from ml.utils.random import set_random_seed as set_random_seed_ml
+
 
 @pytest.fixture(autouse=True)
 def set_random_seed() -> None:
-    random.seed(1337)
-    np.random.seed(1337)
-    torch.manual_seed(1337)
+    set_random_seed_ml(1337)
 
 
 @functools.lru_cache()

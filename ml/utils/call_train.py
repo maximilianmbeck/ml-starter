@@ -25,11 +25,11 @@ def call_train() -> None:
 
     # Resolves the config to the correct objects.
     config = parse_cli(args)
+    Objects.update_config(config)
     Objects.resolve_config(config)
-    objs = Objects.parse_raw_config(config)
 
     # Calls main training loop.
-    train_main(objs)
+    train_main(config)
 
 
 if __name__ == "__main__":

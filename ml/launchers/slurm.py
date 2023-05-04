@@ -31,7 +31,7 @@ from ml.core.config import conf_field
 from ml.core.env import get_stage_dir
 from ml.core.registry import Objects, project_dirs, register_launcher
 from ml.launchers.base import BaseLauncher, BaseLauncherConfig
-from ml.scripts.train import train_main
+from ml.scripts.train import train_main_with_objects
 from ml.trainers.base import BaseTrainer
 from ml.utils.distributed import (
     get_master_addr,
@@ -273,7 +273,7 @@ def slurm_main() -> None:
     signal.signal(signal.SIGTERM, ignore_signal)
     trainer.add_signal_handler(signal.SIGUSR1, requeue_job)
 
-    train_main(objs)
+    train_main_with_objects(objs)
 
 
 if __name__ == "__main__":

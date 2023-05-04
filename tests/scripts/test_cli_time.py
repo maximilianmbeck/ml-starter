@@ -15,10 +15,12 @@ def test_cli_import_time() -> None:
     """
 
     DISALLOWED_IMPORTS = {
-        "torch",
-        "torchvision",
-        "torchaudio",
         "numpy",
+        "omegaconf",
+        "torch",
+        "torchaudio",
+        "torchvision",
+        "tqdm",
     }
 
     visited: set[str] = set()
@@ -44,7 +46,3 @@ def test_cli_import_time() -> None:
 
         if module_name in DISALLOWED_IMPORTS:
             raise ValueError(f"Module {module_name} was imported by ml.scripts.cli")
-
-
-if __name__ == "__main__":
-    test_cli_import_time()

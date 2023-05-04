@@ -4,7 +4,7 @@ from typing import Any, Generic, TypeVar
 
 from torch.optim.optimizer import Optimizer
 
-from ml.core.config import BaseConfig, BaseObjectWithPointers
+from ml.core.config import BaseConfig, BaseObject
 from ml.core.state import State
 
 
@@ -44,7 +44,7 @@ class BaseLRSchedulerConfig(BaseConfig):
 LRSchedulerConfigT = TypeVar("LRSchedulerConfigT", bound=BaseLRSchedulerConfig)
 
 
-class BaseLRScheduler(BaseObjectWithPointers[LRSchedulerConfigT], Generic[LRSchedulerConfigT], ABC):
+class BaseLRScheduler(BaseObject[LRSchedulerConfigT], Generic[LRSchedulerConfigT], ABC):
     """Defines the base learning rate scheduler."""
 
     @abstractmethod

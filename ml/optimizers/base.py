@@ -5,7 +5,7 @@ from typing import Any, Generic, TypeVar
 from torch import nn
 from torch.optim.optimizer import Optimizer
 
-from ml.core.config import BaseConfig, BaseObjectWithPointers
+from ml.core.config import BaseConfig, BaseObject
 
 
 @dataclass
@@ -16,7 +16,7 @@ class BaseOptimizerConfig(BaseConfig):
 OptimizerConfigT = TypeVar("OptimizerConfigT", bound=BaseOptimizerConfig)
 
 
-class BaseOptimizer(BaseObjectWithPointers[OptimizerConfigT], Generic[OptimizerConfigT], ABC):
+class BaseOptimizer(BaseObject[OptimizerConfigT], Generic[OptimizerConfigT], ABC):
     """Defines the base optimizer type."""
 
     @property

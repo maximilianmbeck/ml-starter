@@ -8,7 +8,7 @@ from typing import Callable, Generic, TypeVar, Union
 from omegaconf import DictConfig
 from torch import Tensor
 
-from ml.core.config import BaseConfig, BaseObjectWithPointers, conf_field
+from ml.core.config import BaseConfig, BaseObject, conf_field
 from ml.core.state import Phase, State
 
 Number = Union[int, float, Tensor]
@@ -24,7 +24,7 @@ class BaseLoggerConfig(BaseConfig):
 LoggerConfigT = TypeVar("LoggerConfigT", bound=BaseLoggerConfig)
 
 
-class BaseLogger(BaseObjectWithPointers[LoggerConfigT], Generic[LoggerConfigT], ABC):
+class BaseLogger(BaseObject[LoggerConfigT], Generic[LoggerConfigT], ABC):
     """Defines the base logger."""
 
     log_directory: Path

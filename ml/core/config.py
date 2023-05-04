@@ -1,11 +1,7 @@
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Generic, TypeVar
+from typing import Any, Generic, TypeVar
 
-import torch
 from omegaconf import MISSING, DictConfig
-
-if TYPE_CHECKING:
-    from ml.core.registry import Objects
 
 FieldType = Any
 
@@ -78,18 +74,9 @@ class BaseObject(Generic[BaseConfigT]):
     def __init__(self, config: BaseConfigT) -> None:
         self.config: BaseConfigT = config
 
-
-class BaseObjectWithPointers(BaseObject[BaseConfigT], Generic[BaseConfigT]):
-    """Defines the base class for all objects with pointers to other objects."""
-
-    def __init__(self, config: BaseConfigT) -> None:
-        super().__init__(config)
-
         self._raw_config: DictConfig | None = None
-        self._objects: "Objects" | None = None
 
     @property
-    @torch.jit.unused
     def raw_config(self) -> DictConfig:
         if self._raw_config is None:
             raise RuntimeError("Cannot access raw config yet; it has yet to be assigned")
@@ -99,15 +86,3 @@ class BaseObjectWithPointers(BaseObject[BaseConfigT], Generic[BaseConfigT]):
         if self._raw_config is not None:
             raise RuntimeError("The raw config object was already written")
         self._raw_config = raw_config
-
-    @property
-    @torch.jit.unused
-    def objects(self) -> "Objects":
-        if self._objects is None:
-            raise RuntimeError("Cannot access objects yet; it has yet to be assigned")
-        return self._objects
-
-    def set_objects(self, objects: "Objects") -> None:
-        if self._objects is not None:
-            raise RuntimeError("The objects field has already been written")
-        self._objects = objects

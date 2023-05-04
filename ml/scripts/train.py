@@ -1,12 +1,27 @@
-import logging
+from omegaconf import DictConfig
 
 from ml.core.registry import Objects
 from ml.utils.timer import Timer
 
-logger: logging.Logger = logging.getLogger(__name__)
+
+def train_main(config: DictConfig) -> None:
+    """Runs the training loop.
+
+    Args:
+        config: The configuration object.
+    """
+
+    with Timer("setting random seed", spinner=True):
+        from ml.utils.random import set_random_seed
+
+        set_random_seed()
+
+    objs = Objects.parse_raw_config(config)
+
+    train_main_with_objects(objs)
 
 
-def train_main(objs: Objects) -> None:
+def train_main_with_objects(objs: Objects) -> None:
     """Runs the training loop.
 
     Args:

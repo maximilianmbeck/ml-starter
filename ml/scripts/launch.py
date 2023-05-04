@@ -1,10 +1,6 @@
-import logging
-
 from omegaconf import DictConfig
 
 from ml.core.registry import register_launcher, register_trainer
-
-logger: logging.Logger = logging.getLogger(__name__)
 
 
 def launch_main(config: DictConfig) -> None:

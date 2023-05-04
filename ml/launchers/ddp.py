@@ -23,7 +23,7 @@ from omegaconf import DictConfig
 
 from ml.core.registry import Objects, register_launcher
 from ml.launchers.base import BaseLauncher, BaseLauncherConfig
-from ml.scripts.train import train_main
+from ml.scripts.train import train_main_with_objects
 from ml.trainers.base import BaseTrainer, MultiprocessConfig
 from ml.utils.distributed import (
     set_init_method,
@@ -50,7 +50,7 @@ def process_main(cfg: MultiprocessConfig, raw_config: DictConfig) -> None:
     init_process_group(backend=get_distributed_backend())
 
     objs = Objects.parse_raw_config(raw_config)
-    train_main(objs)
+    train_main_with_objects(objs)
 
 
 def func_wrapped(

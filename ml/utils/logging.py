@@ -2,8 +2,6 @@ import logging
 import math
 import sys
 
-import tqdm
-
 from ml.core.env import is_debugging
 from ml.utils.colors import Color, colorize, get_colorize_parts
 
@@ -87,6 +85,8 @@ class ColoredFormatter(logging.Formatter):
 
 class TqdmHandler(logging.Handler):
     def emit(self, record: logging.LogRecord) -> None:
+        import tqdm
+
         try:
             msg = self.format(record)
             tqdm.tqdm.write(msg)
