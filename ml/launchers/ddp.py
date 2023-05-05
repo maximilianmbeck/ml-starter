@@ -1,4 +1,4 @@
-"""Defines a Distributed Data Parallel trainer.
+"""Defines a Distributed Data Parallel launcher.
 
 This is a light-weight wrapper around PyTorch's built-in Distributed Data
 Parallel class.
@@ -19,12 +19,12 @@ from typing import Callable
 
 import torch
 import torch.multiprocessing as mp
-from omegaconf import DictConfig
+from omegaconf import MISSING, DictConfig, OmegaConf
 
+from ml.core.config import conf_field
 from ml.core.registry import Objects, register_launcher
 from ml.launchers.base import BaseLauncher, BaseLauncherConfig
 from ml.scripts.train import train_main_with_objects
-from ml.trainers.base import BaseTrainer, MultiprocessConfig
 from ml.utils.distributed import (
     set_init_method,
     set_master_addr,
@@ -37,6 +37,15 @@ from ml.utils.networking import get_unused_port
 from ml.utils.torch_distributed import get_distributed_backend, init_process_group
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+
+@dataclass
+class MultiprocessConfig:
+    rank: int = conf_field(-1, help="The rank of the process")
+    world_size: int = conf_field(MISSING, help="The total number of processes")
+    devices_per_rank: int = conf_field(1, help="The number of devices per rank")
+    master_addr: str = conf_field("localhost", help="The address of the master process")
+    master_port: int = conf_field(MISSING, help="The port of the master process")
 
 
 def process_main(cfg: MultiprocessConfig, raw_config: DictConfig) -> None:
@@ -69,27 +78,36 @@ def func_wrapped(
 
 @dataclass
 class DDPLauncherConfig(BaseLauncherConfig):
-    pass
+    multiprocess: MultiprocessConfig = conf_field(MultiprocessConfig())
+
+    @classmethod
+    def resolve(cls: type["DDPLauncherConfig"], config: "DDPLauncherConfig") -> None:
+        super().resolve(config)
+
+        device_count = torch.cuda.device_count()
+        if config.multiprocess.devices_per_rank > device_count:
+            raise ValueError(
+                f"Requested {config.multiprocess.devices_per_rank} devices per rank, "
+                f"but only {device_count} are available"
+            )
+        if OmegaConf.is_missing(config.multiprocess, "world_size"):
+            config.multiprocess.world_size = device_count // config.multiprocess.devices_per_rank
+        if OmegaConf.is_missing(config.multiprocess, "master_port"):
+            config.multiprocess.master_port = get_unused_port()
 
 
 @register_launcher("ddp", DDPLauncherConfig)
 class DDPLauncher(BaseLauncher[DDPLauncherConfig]):
-    def launch(self, trainer: BaseTrainer) -> None:
+    def launch(self) -> None:
         if not torch.cuda.is_available():
             raise RuntimeError("DDPLauncher requires CUDA")
-        device_count = torch.cuda.device_count()
 
         func = functools.partial(process_main, raw_config=self.raw_config)
 
-        cfg = MultiprocessConfig(
-            rank=-1,
-            world_size=device_count,
-            devices_per_rank=1,
-            master_addr="localhost",
-            master_port=get_unused_port(),
-        )
+        # Config should have valid values at this point, post-resolution.
+        cfg = self.config.multiprocess
 
-        if device_count <= 1:
+        if cfg.world_size <= 1:
             logger.warning("Multi-process DDPTrainer expects more than one device")
             cfg.rank = 0
             func(cfg)

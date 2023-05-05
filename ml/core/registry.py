@@ -11,6 +11,7 @@ from omegaconf import DictConfig, ListConfig, OmegaConf
 from omegaconf.basecontainer import BaseContainer
 
 from ml.core.config import BaseConfig, BaseObject
+from ml.core.env import ShowFullImportError
 from ml.utils.colors import colorize
 from ml.utils.timer import Timer
 
@@ -157,7 +158,14 @@ class register_base(ABC, Generic[Entry, Config]):  # pylint: disable=invalid-nam
                 __import__(module_name)
 
             except Exception:
-                logger.exception("Caught exception while importing %s", path)
+                if ShowFullImportError.get():
+                    logger.exception("Caught exception while importing %s", path)
+                else:
+                    logger.error(
+                        "Caught exception while importing %s (set %s to show the full exception)",
+                        path,
+                        ShowFullImportError.key,
+                    )
 
     @classmethod
     def populate_registry(cls, name: str) -> None:

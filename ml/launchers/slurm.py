@@ -29,7 +29,7 @@ from omegaconf import II, MISSING, OmegaConf
 
 from ml.core.config import conf_field
 from ml.core.env import get_stage_dir
-from ml.core.registry import Objects, project_dirs, register_launcher
+from ml.core.registry import Objects, project_dirs, register_launcher, register_trainer
 from ml.launchers.base import BaseLauncher, BaseLauncherConfig
 from ml.scripts.train import train_main_with_objects
 from ml.trainers.base import BaseTrainer
@@ -215,7 +215,9 @@ class SlurmLauncher(BaseLauncher[SlurmLauncherConfig]):
 
         return sbatch_path
 
-    def launch(self, trainer: BaseTrainer) -> None:
+    def launch(self) -> None:
+        trainer = register_trainer.build_entry_non_null(self.raw_config)
+
         sbatch_path = self.write_sbatch_file(trainer)
 
         # Call `sbatch` on the given file.

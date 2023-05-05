@@ -148,3 +148,7 @@ is_metal_disabled = DisableMetal.get
 # Disables using the GPU.
 DisableGPU = _BoolEnvVar("DISABLE_GPU", default=False)
 is_gpu_disabled = DisableGPU.get
+
+# Show full error message when trying to import a file.
+ShowFullImportError = _BoolEnvVar("SHOW_FULL_IMPORT_ERROR", default=False)
+should_show_full_import_error = ShowFullImportError.get

@@ -30,15 +30,6 @@ from ml.utils.timer import Timer
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-@dataclass
-class MultiprocessConfig:
-    rank: int
-    world_size: int
-    devices_per_rank: int
-    master_addr: str
-    master_port: int
-
-
 def resolve(path: str) -> str:
     return str(Path(path).resolve())
 
