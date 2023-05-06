@@ -18,6 +18,7 @@ from torch import Tensor
 from torch.utils.tensorboard import SummaryWriter
 
 from ml.core.config import conf_field
+from ml.core.env import is_tensorboard_disabled
 from ml.core.registry import register_logger
 from ml.core.state import Phase, State
 from ml.loggers.base import BaseLogger, BaseLoggerConfig
@@ -152,7 +153,7 @@ class TensorboardLogger(BaseLogger[TensorboardLoggerConfig]):
                 s = re.sub(rf"://(.+?):{port}", f"://localhost:{port}", s)
             return s
 
-        if not self.config.start_in_subprocess or is_distributed():
+        if not self.config.start_in_subprocess or is_tensorboard_disabled():
             tensorboard_command_strs = [
                 "tensorboard serve \\",
                 f"  --logdir {self.tensorboard_log_directory} \\",

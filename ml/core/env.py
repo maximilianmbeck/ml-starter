@@ -149,6 +149,10 @@ is_metal_disabled = DisableMetal.get
 DisableGPU = _BoolEnvVar("DISABLE_GPU", default=False)
 is_gpu_disabled = DisableGPU.get
 
+# Disables Tensorboard subprocess.
+DisableTensorboard = _BoolEnvVar("DISABLE_TENSORBOARD", default=False)
+is_tensorboard_disabled = DisableTensorboard.get
+
 # Show full error message when trying to import a file.
 ShowFullImportError = _BoolEnvVar("SHOW_FULL_IMPORT_ERROR", default=False)
 should_show_full_import_error = ShowFullImportError.get

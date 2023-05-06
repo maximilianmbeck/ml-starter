@@ -79,6 +79,9 @@ export TORCH_DISTRIBUTED_DEBUG=DETAIL
 export TORCH_SHOW_CPP_STACKTRACES=1
 export NCCL_DEBUG=1
 
+# Disables Tensorboard subprocess.
+export DISABLE_TENSORBOARD=1
+
 echo "***"
 echo "Job ID: ${{SLURM_JOBID}}"
 echo "***"
