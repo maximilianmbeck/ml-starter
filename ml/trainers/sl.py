@@ -33,7 +33,7 @@ class EpochDoneException(Exception):
 @dataclass
 class ValidationConfig:
     valid_every_n_steps: int | None = conf_field(100, help="Number of training steps to run per test step")
-    num_init_valid_steps: int | None = conf_field(2, help="Number of initial validation steps")
+    num_init_valid_steps: int | None = conf_field(1, help="Number of initial validation steps")
 
 
 @dataclass
