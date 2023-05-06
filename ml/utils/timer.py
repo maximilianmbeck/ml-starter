@@ -11,6 +11,7 @@ from threading import Thread
 from typing import Any, Callable, TypeVar
 
 from ml.utils.colors import colorize
+from ml.utils.distributed import is_master
 
 timer_logger: logging.Logger = logging.getLogger(__name__)
 
@@ -24,6 +25,7 @@ def allow_spinners() -> bool:
         and "pytest" not in sys.modules
         and sys.stdout.isatty()
         and os.environ.get("TERM") != "dumb"
+        and is_master()
     )
 
 
