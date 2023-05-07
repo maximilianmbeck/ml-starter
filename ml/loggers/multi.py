@@ -1,7 +1,7 @@
 import functools
+import logging
 import math
 import re
-import warnings
 from collections import defaultdict
 from typing import Any, Callable, Iterator, Sequence, TypeVar
 
@@ -14,6 +14,8 @@ from torchvision.transforms import InterpolationMode
 
 from ml.core.state import State
 from ml.loggers.base import BaseLogger
+
+logger = logging.getLogger(__name__)
 
 LogT = TypeVar("LogT")
 Number = int | float | Tensor
@@ -201,8 +203,8 @@ def standardize_audio(audio: Tensor, *, log_key: str | None = None) -> Tensor:
     else:
         raise ValueError(f"Invalid audio shape{'' if log_key is None else f' for {log_key}'}: {audio.shape}")
     if audio.max() > 1.0:
-        warnings.warn("Audio is outside the range [-1, 1]; clipping")
-        audio = audio / audio.max()
+        logger.warning("Audio is outside the range [-1, 1]; clipping")
+        audio = audio.clamp_(-5e3, 5e3) / audio.max()
     return audio
 
 
