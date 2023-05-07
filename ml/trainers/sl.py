@@ -209,7 +209,7 @@ class SupervisedLearningTrainer(
             )
 
         except Exception:
-            logger.exception("Caught exception during training loop")
+            logger.exception("Caught exception during training loop for %s", self.config_path)
 
         finally:
             self.on_training_end(state, task, model, optim, lr_sched)
