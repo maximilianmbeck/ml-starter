@@ -14,6 +14,7 @@ from torchvision.transforms import InterpolationMode
 
 from ml.core.state import State
 from ml.loggers.base import BaseLogger
+from ml.utils.logging import IntervalTicker
 
 logger = logging.getLogger(__name__)
 
@@ -177,6 +178,11 @@ def standardize_images(
     return images
 
 
+@functools.lru_cache()
+def audio_warning_ticker() -> IntervalTicker:
+    return IntervalTicker(5.0)
+
+
 def standardize_audio(audio: Tensor, *, log_key: str | None = None) -> Tensor:
     """Converts an arbitrary audio tensor to shape (C, T).
 
@@ -202,9 +208,11 @@ def standardize_audio(audio: Tensor, *, log_key: str | None = None) -> Tensor:
             raise ValueError(f"Invalid channel count{'' if log_key is None else f' for {log_key}'}: {audio.shape}")
     else:
         raise ValueError(f"Invalid audio shape{'' if log_key is None else f' for {log_key}'}: {audio.shape}")
-    if audio.max() > 1.0:
-        logger.warning("Audio is outside the range [-1, 1]; clipping")
-        audio = audio.clamp_(-5e3, 5e3) / audio.max()
+    max_abs = audio.abs().max()
+    if max_abs > 1.0:
+        if audio_warning_ticker().tick():
+            logger.warning("Audio is outside the range [-1, 1]; clipping")
+        audio = audio.clamp_(-5e3, 5e3) / max_abs
     return audio
 
 

@@ -1,6 +1,7 @@
 import logging
 import math
 import sys
+import time
 
 from ml.core.env import is_debugging
 from ml.utils.colors import Color, colorize, get_colorize_parts
@@ -125,3 +126,16 @@ def configure_logging(
     # Avoid junk logs from other libraries.
     logging.getLogger("matplotlib").setLevel(logging.WARNING)
     logging.getLogger("PIL").setLevel(logging.WARNING)
+
+
+class IntervalTicker:
+    def __init__(self, interval: float) -> None:
+        self.interval = interval
+        self.last_tick_time: float | None = None
+
+    def tick(self) -> bool:
+        tick_time = time.time()
+        if self.last_tick_time is None or tick_time - self.last_tick_time > self.interval:
+            self.last_tick_time = tick_time
+            return True
+        return False
