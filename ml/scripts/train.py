@@ -59,8 +59,8 @@ def train_main_with_objects(objs: Objects) -> None:
             }
             if trainer is not None:
                 stats["Experiment Directory"] = str(trainer.exp_dir)
-            stats_str = "".join(f"\n ↪ {colorize(k, 'cyan')}: {colorize(v, 'cyan')}" for k, v in stats.items())
-            logger.info("Finished training. Stats:\n%s", stats_str)
+            stats_str = "".join(f"\n ↪ {colorize(k, 'magenta')}: {colorize(v, 'cyan')}" for k, v in stats.items())
+            logger.info("Finished training. Stats:%s", stats_str)
 
     # Runs the training loop.
     with log_info_wrapper():
