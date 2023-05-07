@@ -1,6 +1,7 @@
 import functools
 import math
 import re
+import warnings
 from collections import defaultdict
 from typing import Any, Callable, Iterator, Sequence, TypeVar
 
@@ -199,6 +200,9 @@ def standardize_audio(audio: Tensor, *, log_key: str | None = None) -> Tensor:
             raise ValueError(f"Invalid channel count{'' if log_key is None else f' for {log_key}'}: {audio.shape}")
     else:
         raise ValueError(f"Invalid audio shape{'' if log_key is None else f' for {log_key}'}: {audio.shape}")
+    if audio.max() > 1.0:
+        warnings.warn("Audio is outside the range [-1, 1]; clipping")
+        audio = audio / audio.max()
     return audio
 
 
