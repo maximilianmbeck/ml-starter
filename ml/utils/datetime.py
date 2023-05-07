@@ -27,3 +27,16 @@ def format_timedelta(delta: datetime.timedelta) -> str:
     parts += [f"{seconds} second" if seconds == 1 else f"{seconds} seconds"]
 
     return ", ".join(parts)
+
+
+def format_datetime(dt: datetime.datetime) -> str:
+    """Formats a datetime to human-readable format.
+
+    Args:
+        dt: The datetime to format
+
+    Returns:
+        The human-readable datetime
+    """
+
+    return dt.strftime("%Y-%m-%d %H:%M:%S")

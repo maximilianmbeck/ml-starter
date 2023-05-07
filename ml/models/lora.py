@@ -44,8 +44,8 @@ class LoRAEmbedding(nn.Embedding):
         self.lora_b: nn.Parameter | None = None
 
         if r > 0:
-            self.lora_a = nn.Parameter(self.weight.new_zeros((r, num_embeddings)))
-            self.lora_b = nn.Parameter(self.weight.new_zeros((embedding_dim, r)))
+            self.lora_a = nn.Parameter(self.weight.new_empty((r, num_embeddings)))
+            self.lora_b = nn.Parameter(self.weight.new_empty((embedding_dim, r)))
             self.weight.requires_grad = False
         else:
             self.register_parameter("lora_a", None)
@@ -129,8 +129,8 @@ class LoRALinear(nn.Linear):
         self.lora_b: nn.Parameter | None = None
 
         if r > 0:
-            self.lora_a = nn.Parameter(self.weight.new_zeros((r, in_features)))
-            self.lora_b = nn.Parameter(self.weight.new_zeros((out_features, r)))
+            self.lora_a = nn.Parameter(self.weight.new_empty((r, in_features)))
+            self.lora_b = nn.Parameter(self.weight.new_empty((out_features, r)))
             self.weight.requires_grad = False
         else:
             self.register_parameter("lora_a", None)
@@ -220,8 +220,8 @@ class LoRAConv1D(nn.Conv1d):
         self.lora_b: nn.Parameter | None = None
 
         if r > 0:
-            self.lora_a = nn.Parameter(self.weight.new_zeros((r, in_channels, kernel_size)))
-            self.lora_b = nn.Parameter(self.weight.new_zeros((out_channels, r)))
+            self.lora_a = nn.Parameter(self.weight.new_empty((r, in_channels, kernel_size)))
+            self.lora_b = nn.Parameter(self.weight.new_empty((out_channels, r)))
             self.weight.requires_grad = False
         else:
             self.register_parameter("lora_a", None)
@@ -322,8 +322,8 @@ class LoRAConv2D(nn.Conv2d):
         self.lora_b: nn.Parameter | None = None
 
         if r > 0:
-            self.lora_a = nn.Parameter(self.weight.new_zeros((r, in_channels, *kernel_size)))
-            self.lora_b = nn.Parameter(self.weight.new_zeros((out_channels, r)))
+            self.lora_a = nn.Parameter(self.weight.new_empty((r, in_channels, *kernel_size)))
+            self.lora_b = nn.Parameter(self.weight.new_empty((out_channels, r)))
             self.weight.requires_grad = False
         else:
             self.register_parameter("lora_a", None)

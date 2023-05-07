@@ -6,6 +6,7 @@ models to their associated devices.
 
 import logging
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Callable, Generic, Iterator, TypeVar, cast
 
 import torch
@@ -204,6 +205,12 @@ class VanillaTrainer(
                 state.num_test_steps += 1
 
     def _init_environment(self) -> None:
+        root_logger = logging.getLogger()
+        for handler in root_logger.handlers:
+            if isinstance(handler, logging.FileHandler) and Path(handler.baseFilename).name == "main.log":
+                root_logger.removeHandler(handler)
+        root_logger.addHandler(logging.FileHandler("main.log"))
+
         # Sets up environment.
         if self.config.deterministic:
             torch.use_deterministic_algorithms(True)

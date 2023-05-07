@@ -1,7 +1,16 @@
+import datetime
+import logging
+from contextlib import contextmanager
+from typing import Iterator
+
 from omegaconf import DictConfig
 
 from ml.core.registry import Objects
+from ml.utils.colors import colorize
+from ml.utils.datetime import format_datetime, format_timedelta
 from ml.utils.timer import Timer
+
+logger = logging.getLogger(__name__)
 
 
 def train_main(config: DictConfig) -> None:
@@ -35,6 +44,24 @@ def train_main_with_objects(objs: Objects) -> None:
     assert (lr_scheduler := objs.lr_scheduler) is not None
     assert (trainer := objs.trainer) is not None
 
+    @contextmanager
+    def log_info_wrapper() -> Iterator[None]:
+        start_time = datetime.datetime.now()
+        try:
+            yield
+        finally:
+            end_time = datetime.datetime.now()
+            delta = end_time - start_time
+            stats: dict[str, str] = {
+                "Start Time": format_datetime(start_time),
+                "End Time": format_datetime(end_time),
+                "Duration": format_timedelta(delta),
+            }
+            if trainer is not None:
+                stats["Experiment Directory"] = str(trainer.exp_dir)
+            stats_str = "".join(f"\n ↪ {colorize(k, 'cyan')}: {colorize(v, 'cyan')}" for k, v in stats.items())
+            logger.info("Finished training. Stats:\n%s", stats_str)
+
     # Runs the training loop.
-    with Timer("running training loop"):
+    with log_info_wrapper():
         trainer.train(model, task, optimizer, lr_scheduler)
