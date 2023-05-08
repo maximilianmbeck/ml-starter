@@ -5,16 +5,22 @@ the training loop, logging, and checkpointing. We get a dataset and dataloader
 from the task, and then train the model on the dataset.
 """
 
+import bisect
 import contextlib
+import functools
+import itertools
 import logging
 import signal
 from dataclasses import dataclass
 from types import FrameType
 from typing import Generic, Iterator, TypeVar
 
+from omegaconf import MISSING
+
 from ml.core.common_types import Batch
 from ml.core.config import conf_field
 from ml.core.registry import register_trainer
+from ml.core.state import State
 from ml.lr_schedulers.base import BaseLRScheduler
 from ml.optimizers.base import BaseOptimizer
 from ml.tasks.sl.base import SupervisedLearningTask
@@ -37,9 +43,19 @@ class ValidationConfig:
 
 
 @dataclass
+class BatchScheduleConfig:
+    num_steps: int = conf_field(MISSING, help="Number of steps to run for")
+    num_batches: int = conf_field(MISSING, help="Number of minibatches for a given step")
+
+
+@dataclass
 class SupervisedLearningTrainerConfig(VanillaTrainerConfig):
     validation: ValidationConfig = conf_field(ValidationConfig())
     batches_per_step: int = conf_field(1, help="Batches per training step, to simulate larger effective batch sizes")
+    batches_per_step_schedule: list[BatchScheduleConfig] | None = conf_field(
+        None,
+        help="A schedule for the number of minibatches per step, as a list of (step_count, num_batches) tuples.",
+    )
 
 
 SupervisedLearningTrainerConfigT = TypeVar("SupervisedLearningTrainerConfigT", bound=SupervisedLearningTrainerConfig)
@@ -51,6 +67,23 @@ class SupervisedLearningTrainer(
     VanillaTrainer[SupervisedLearningTrainerConfigT, ModelT, SupervisedLearningTaskT],
     Generic[SupervisedLearningTrainerConfigT, ModelT, SupervisedLearningTaskT],
 ):
+    @functools.lru_cache()
+    def batches_per_step_schedule(self) -> list[tuple[int, int]] | None:
+        schedule = self.config.batches_per_step_schedule
+        if schedule is None:
+            return None
+        if any(s.num_steps <= 0 or s.num_batches <= 0 for s in schedule):
+            raise ValueError("steps and num_batches must be non-negative")
+        schedule_list = [(s.num_steps, s.num_batches) for s in schedule]
+        schedule_cumsum = list(itertools.accumulate([0] + [s[0] for s in schedule_list]))
+        return list(zip(schedule_cumsum[1:], [s[1] for s in schedule_list]))
+
+    def get_batches_per_step(self, state: State) -> int:
+        if (schedule := self.batches_per_step_schedule()) is not None:
+            i = bisect.bisect_left(schedule, (state.num_steps, 0))
+            return schedule[-1][1] if i == len(schedule) else schedule[i][1]
+        return self.config.batches_per_step
+
     def train(
         self,
         model: ModelT,
@@ -155,7 +188,7 @@ class SupervisedLearningTrainer(
                                 except StopIteration:
                                     raise EpochDoneException
 
-                                for _ in range(self.config.batches_per_step - 1):
+                                for _ in range(self.get_batches_per_step(state) - 1):
                                     try:
                                         yield next(train_pf_iter)
                                     except StopIteration:
