@@ -74,7 +74,7 @@ class Spinner:
             while not self._spinner_stop:
                 for char in chars:
                     elapsed_secs = time.time() - start_time
-                    line = f"[ {char} {elapsed_secs:.1f} ] {self._text}\r"
+                    line = f"[ {char} {elapsed_secs:.1f} ] {self._text}     \r"
                     max_line_len = max(max_line_len, len(line))
                     sys.stderr.write(line)
                     sys.stderr.flush()
