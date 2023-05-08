@@ -24,7 +24,6 @@ Number = int | float | Tensor
 VALID_VIDEO_CHANNEL_COUNTS = {1, 3}
 VALID_AUDIO_CHANNEL_COUNTS = {1, 2}
 TARGET_FPS = 12
-TARGET_SAMPLE_RATE = 22050
 DEFAULT_NAMESPACE = "value"
 
 
@@ -370,38 +369,6 @@ def normalize_video_fps(
     return video[frame_ids]
 
 
-def normalize_audio_sample_rate(
-    audio: Tensor,
-    sample_rate: int | None,
-    length: float | None,
-    target_sample_rate: int = TARGET_SAMPLE_RATE,
-) -> Tensor:
-    """Normalizes an audio signal to have a particular sample rate.
-
-    Args:
-        audio: The audio signal to normalize, with shape (T, C)
-        sample_rate: The desired sample rate
-        length: The desired audio length, in seconds, at the target sample rate
-        target_sample_rate: The target sample rate for the logger
-
-    Returns:
-        The normalized audio signal
-    """
-
-    if sample_rate is None and length is None:
-        return audio
-
-    pre_frames = audio.size(0)
-    if sample_rate is None:
-        assert length is not None  # Not used, just for type checker
-        sample_rate = int(pre_frames / length)
-
-    post_frames = int(pre_frames * (target_sample_rate / sample_rate))
-
-    frame_ids = torch.linspace(0, pre_frames - 1, post_frames, device=audio.device).long()
-    return audio[frame_ids]
-
-
 def standardize_point_cloud(value: Tensor, max_points: int, *, log_key: str | None) -> Tensor:
     for i in range(0, value.ndim - 1):
         if value.shape[i] == 3:
@@ -502,7 +469,7 @@ class MultiLogger:
         self.scalars: dict[str, dict[str, Callable[[], Number]]] = defaultdict(dict)
         self.strings: dict[str, dict[str, Callable[[], str]]] = defaultdict(dict)
         self.images: dict[str, dict[str, Callable[[], Tensor]]] = defaultdict(dict)
-        self.audio: dict[str, dict[str, Callable[[], Tensor]]] = defaultdict(dict)
+        self.audio: dict[str, dict[str, Callable[[], tuple[Tensor, int]]]] = defaultdict(dict)
         self.videos: dict[str, dict[str, Callable[[], Tensor]]] = defaultdict(dict)
         self.histograms: dict[str, dict[str, Callable[[], Tensor]]] = defaultdict(dict)
         self.point_clouds: dict[str, dict[str, Callable[[], Tensor]]] = defaultdict(dict)
@@ -750,12 +717,12 @@ class MultiLogger:
         namespace = self.resolve_namespace(namespace)
 
         @functools.lru_cache
-        def audio_future() -> Tensor:
+        def audio_future() -> tuple[Tensor, int]:
             value_concrete = value() if callable(value) else value
             assert isinstance(value_concrete, Tensor)
             audio = standardize_audio(value_concrete, log_key=f"{namespace}/{key}")
             audio = cast_fp32(audio)
-            return normalize_audio_sample_rate(audio, sample_rate, length)
+            return audio, sample_rate
 
         self.audio[namespace][key] = audio_future
 

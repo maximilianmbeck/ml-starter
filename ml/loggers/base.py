@@ -68,7 +68,7 @@ class BaseLogger(BaseObject[LoggerConfigT], Generic[LoggerConfigT], ABC):
             namespace: The namespace to be logged
         """
 
-    def log_audio(self, key: str, value: Callable[[], Tensor], state: State, namespace: str) -> None:
+    def log_audio(self, key: str, value: Callable[[], tuple[Tensor, int]], state: State, namespace: str) -> None:
         """Logs a normalized audio, with shape (T,).
 
         Args:

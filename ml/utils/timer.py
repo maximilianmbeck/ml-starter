@@ -37,6 +37,7 @@ class Spinner:
         self._flag = threading.Event()
         self._thread = Thread(target=self._spinner, daemon=True)
         self._thread.start()
+        self._max_line_len = 0
 
         # If we're in a breakpoint, we want to close the spinner when we exit
         # the breakpoint.
@@ -69,17 +70,16 @@ class Spinner:
         chars = [colorize(c, "light-yellow") for c in ("|", "/", "-", "\\")]
         while not self._spinner_close:
             self._flag.wait()
-            max_line_len = 0
             start_time = time.time()
             while not self._spinner_stop:
                 for char in chars:
                     elapsed_secs = time.time() - start_time
-                    line = f"[ {char} {elapsed_secs:.1f} ] {self._text}     \r"
-                    max_line_len = max(max_line_len, len(line))
+                    line = f"[ {char} {elapsed_secs:.1f} ] {self._text}\r"
+                    self._max_line_len = max(self._max_line_len, len(line))
                     sys.stderr.write(line)
                     sys.stderr.flush()
                     time.sleep(0.05)
-            sys.stderr.write(" " * max_line_len + "\r")
+            sys.stderr.write(" " * self._max_line_len + "\r")
             self._flag.clear()
 
 
