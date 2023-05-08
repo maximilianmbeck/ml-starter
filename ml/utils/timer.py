@@ -67,11 +67,11 @@ class Spinner:
 
     def _spinner(self) -> None:
         chars = [colorize(c, "light-yellow") for c in ("|", "/", "-", "\\")]
-        max_line_len = 0
         while not self._spinner_close:
             self._flag.wait()
             start_time = time.time()
             while not self._spinner_stop:
+                max_line_len = 0
                 for char in chars:
                     elapsed_secs = time.time() - start_time
                     line = f"[ {char} {elapsed_secs:.1f} ] {self._text}\r"
@@ -79,7 +79,7 @@ class Spinner:
                     sys.stderr.write(line)
                     sys.stderr.flush()
                     time.sleep(0.05)
-            sys.stderr.write(" " * max_line_len + "\r")
+                sys.stderr.write(" " * (max_line_len + 1) + "\r")
             self._flag.clear()
 
 
