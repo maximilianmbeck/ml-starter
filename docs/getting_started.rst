@@ -9,6 +9,7 @@ The easiest way to get started is to click the button below, which will create a
 Next, clone the new repository, then from the top-level directory run:
 
 .. code-block:: bash
+
    pip install -e '.[dev]'  # Install with development dependencies
 
 You will need to define some environment variables to let the framework know where files are. At the bare minimum, you need to define:

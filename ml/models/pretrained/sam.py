@@ -16,13 +16,20 @@ Usage:
 
     predictions, _, _ = predictor.predict()
     single_mask = predictions[0]  # Same shape as the original image.
+
+The choices for the model key are:
+
+- ``ViT-H``: ViT with 32 layers and 16 attention heads.
+- ``ViT-L``: ViT with 24 layers and 16 attention heads.
+- ``ViT-B``: ViT with 12 layers and 12 attention heads.
 """
 
+import argparse
 import copy
 import math
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal, Type, get_args
+from typing import Any, Literal, Type, cast, get_args
 
 import numpy as np
 import PIL.Image
@@ -33,6 +40,8 @@ from torchvision.datasets.utils import download_url
 from torchvision.transforms.functional import resize, to_pil_image
 
 from ml.core.env import get_model_dir
+from ml.utils.device.auto import AutoDevice
+from ml.utils.device.base import BaseDevice
 from ml.utils.logging import configure_logging
 
 PretrainedModel = Literal["ViT-H", "ViT-L", "ViT-B"]
@@ -1256,10 +1265,7 @@ class ResizeLongestSide:
 
 
 class SamPredictor:
-    def __init__(
-        self,
-        sam_model: Sam,
-    ) -> None:
+    def __init__(self, sam_model: Sam, *, device: BaseDevice | None = None) -> None:
         """Provides an API to do repeated mask predictions on an image.
 
         This predictor tses SAM to calculate the image embedding for an image,
@@ -1267,11 +1273,15 @@ class SamPredictor:
 
         Args:
             sam_model: The model to use for mask prediction.
+            device: The device to use for prediction. If None, will use the
+                device returned by AutoDevice.detect_device().
         """
 
         super().__init__()
 
-        self.model = sam_model
+        self.device = AutoDevice.detect_device() if device is None else device
+        self.model = sam_model.eval()
+        self.device.module_to(self.model)
         self.transform = ResizeLongestSide(sam_model.image_encoder.img_size)
         self.reset_image()
 
@@ -1294,7 +1304,7 @@ class SamPredictor:
 
         # Transform the image to the form expected by the model
         input_image = self.transform.apply_image(image)
-        input_image_torch = torch.as_tensor(input_image, device=self.device)
+        input_image_torch = self.device.tensor_to(torch.as_tensor(input_image))
         input_image_torch = input_image_torch.permute(2, 0, 1).contiguous()[None, :, :, :]
 
         self.set_torch_image(input_image_torch, image.shape[:2])
@@ -1382,15 +1392,15 @@ class SamPredictor:
         if point_coords is not None:
             assert point_labels is not None, "point_labels must be supplied if point_coords is supplied."
             point_coords = self.transform.apply_coords(point_coords, self.original_size)
-            coords_torch = torch.as_tensor(point_coords, dtype=torch.float, device=self.device)
-            labels_torch = torch.as_tensor(point_labels, dtype=torch.int, device=self.device)
+            coords_torch = self.device.tensor_to(torch.as_tensor(point_coords, dtype=torch.float))
+            labels_torch = self.device.tensor_to(torch.as_tensor(point_labels, dtype=torch.int))
             coords_torch, labels_torch = coords_torch[None, :, :], labels_torch[None, :]
         if box is not None:
             box = self.transform.apply_boxes(box, self.original_size)
-            box_torch = torch.as_tensor(box, dtype=torch.float, device=self.device)
+            box_torch = self.device.tensor_to(torch.as_tensor(box, dtype=torch.float))
             box_torch = box_torch[None, :]
         if mask_input is not None:
-            mask_input_torch = torch.as_tensor(mask_input, dtype=torch.float, device=self.device)
+            mask_input_torch = self.device.tensor_to(torch.as_tensor(mask_input, dtype=torch.float))
             mask_input_torch = mask_input_torch[None, :, :, :]
 
         masks, iou_predictions, low_res_masks = self.predict_torch(
@@ -1496,10 +1506,6 @@ class SamPredictor:
         assert self.features is not None, "Features must exist if an image has been set."
         return self.features
 
-    @property
-    def device(self) -> torch.device:
-        return self.model.device
-
     def reset_image(self) -> None:
         self.is_image_set = False
         self.features = None
@@ -1574,7 +1580,11 @@ def pretrained_sam(key: PretrainedModel, *, skip_weights: bool = False) -> Sam:
     return model
 
 
-def test_pretrained_model(key: PretrainedModel) -> None:
+def test_pretrained_model() -> None:
+    parser = argparse.ArgumentParser(description="Tests a pretrained SAM model")
+    parser.add_argument("key", type=str, choices=get_args(PretrainedModel))
+    args = parser.parse_args()
+
     configure_logging()
 
     # Gets an image of a peach from Wikipedia.
@@ -1583,7 +1593,7 @@ def test_pretrained_model(key: PretrainedModel) -> None:
     if not url_path.exists():
         download_url(peach_url, "/tmp", filename="peach.jpg")
 
-    model = pretrained_sam(key)
+    model = pretrained_sam(cast(PretrainedModel, args.key))
     predictor = model.predictor()
 
     peach_img = PIL.Image.open(url_path)
@@ -1602,4 +1612,4 @@ def test_pretrained_model(key: PretrainedModel) -> None:
 
 if __name__ == "__main__":
     # python -m ml.models.pretrained.sam
-    test_pretrained_model("ViT-B")
+    test_pretrained_model()

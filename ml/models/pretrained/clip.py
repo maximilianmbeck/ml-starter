@@ -35,6 +35,7 @@ The choices for the model key are:
 - ``ViT_L_14_336px``: ViT-L/14 + Transformer (336px)
 """
 
+import argparse
 import functools
 import gzip
 import html
@@ -55,6 +56,7 @@ from torchvision.datasets.utils import download_url
 
 from ml.core.env import get_model_dir
 from ml.utils.device.auto import AutoDevice
+from ml.utils.device.base import BaseDevice
 from ml.utils.logging import configure_logging
 
 logger = logging.getLogger(__name__)
@@ -94,13 +96,14 @@ PRETRAINED_MODELS: dict[PretrainedModel, str] = {
 
 CLIP_VOCABULARY = "https://github.com/openai/CLIP/raw/main/clip/bpe_simple_vocab_16e6.txt.gz"
 
+MEAN, STD = (0.48145466, 0.4578275, 0.40821073), (0.26862954, 0.26130258, 0.27577711)
+
 
 def _convert_image_to_rgb(image: PIL.Image.Image) -> PIL.Image.Image:
     return image.convert("RGB")
 
 
-def preprocess(n_px: int) -> Callable[[PIL.Image.Image], Tensor]:
-    mean, std = (0.48145466, 0.4578275, 0.40821073), (0.26862954, 0.26130258, 0.27577711)
+def pil_preprocess(n_px: int) -> Callable[[PIL.Image.Image], Tensor]:
     return torchvision.transforms.Compose(
         [
             torchvision.transforms.Resize(n_px, interpolation=torchvision.transforms.InterpolationMode.BICUBIC),
@@ -108,7 +111,16 @@ def preprocess(n_px: int) -> Callable[[PIL.Image.Image], Tensor]:
             _convert_image_to_rgb,
             torchvision.transforms.PILToTensor(),
             torchvision.transforms.ConvertImageDtype(torch.float),
-            torchvision.transforms.Normalize(mean, std),
+            torchvision.transforms.Normalize(MEAN, STD),
+        ],
+    )
+
+
+def tensor_preprocess(n_px: int) -> Callable[[Tensor], Tensor]:
+    return torchvision.transforms.Compose(
+        [
+            torchvision.transforms.ConvertImageDtype(torch.float),
+            torchvision.transforms.Normalize(MEAN, STD),
         ],
     )
 
@@ -179,7 +191,7 @@ def test_clean_func(lower: bool = True) -> Callable[[str], str]:
     return _clean
 
 
-class CLIPTokenizer:
+class ClipTokenizer:
     def __init__(self) -> None:
         vocab_file_name = "CLIP_vocabulary.txt.gz"
         bpe_path = get_model_dir() / vocab_file_name
@@ -689,8 +701,8 @@ class TextModel(nn.Module):
         self.ln_final = nn.LayerNorm(transformer_width, device=device, dtype=dtype)
         self.text_projection = nn.Parameter(text_proj)
 
-    def get_tokenizer(self) -> CLIPTokenizer:
-        return CLIPTokenizer()
+    def get_tokenizer(self) -> ClipTokenizer:
+        return ClipTokenizer()
 
     def initialize_parameters(self) -> None:
         nn.init.normal_(self.token_embedding.weight, std=0.02)
@@ -732,7 +744,7 @@ class TextModel(nn.Module):
         return x
 
 
-class CLIP(nn.Module):
+class Clip(nn.Module):
     def __init__(
         self,
         embed_dim: int,
@@ -801,8 +813,12 @@ class CLIP(nn.Module):
         self.initialize_parameters()
 
     @torch.jit.ignore
-    def get_preprocess(self) -> torchvision.transforms.Compose:
-        return preprocess(self.visual.input_resolution)
+    def get_pil_preprocess(self) -> Callable[[PIL.Image.Image], Tensor]:
+        return pil_preprocess(self.visual.input_resolution)
+
+    @torch.jit.ignore
+    def get_tensor_preprocess(self) -> Callable[[Tensor], Tensor]:
+        return tensor_preprocess(self.visual.input_resolution)
 
     def initialize_parameters(self) -> None:
         if isinstance(self.visual, ModifiedResNet):
@@ -838,6 +854,47 @@ class CLIP(nn.Module):
 
         # shape = [global_batch_size, global_batch_size]
         return logits_per_image, logits_per_text
+
+    def predictor(self, *, device: BaseDevice | None = None) -> "ClipPredictor":
+        return ClipPredictor(self, device=device)
+
+
+class ClipPredictor:
+    def __init__(self, clip_model: Clip, *, device: BaseDevice | None = None) -> None:
+        """Provides an API for doing predictions with a CLIP model.
+
+        Note that this module is not an `nn.Module`, so you can use it in your
+        module without worrying about storing all the weights on accident.
+
+        Args:
+            clip_model: The CLIP model to use for predictions
+            device: The device to use for predictions. If None, will use the
+                device returned by AutoDevice.detect_device().
+        """
+
+        super().__init__()
+
+        self.device = AutoDevice.detect_device() if device is None else device
+        self.model = clip_model.eval()
+        self.device.module_to(self.model)
+        self.tokenizer = self.model.linguistic.get_tokenizer()
+        self.pil_preprocess = self.model.get_pil_preprocess()
+        self.tensor_preprocess = self.model.get_tensor_preprocess()
+
+    def predict_text(self, text: str | Tensor) -> Tensor:
+        tokens = text if isinstance(text, Tensor) else self.device.tensor_to(self.tokenizer.tokenize([text]))
+        return self.model.encode_text(tokens)
+
+    def predict_image(self, image: np.ndarray | PIL.Image.Image | Tensor) -> Tensor:
+        if isinstance(image, np.ndarray):
+            image_tensor = self.tensor_preprocess(self.device.tensor_to(torch.from_numpy(image)))
+        elif isinstance(image, PIL.Image.Image):
+            image_tensor = self.device.tensor_to(self.pil_preprocess(image))
+        elif isinstance(image, Tensor):
+            image_tensor = self.tensor_preprocess(self.device.tensor_to(image))
+        else:
+            raise NotImplementedError(f"Unsupported image type: {type(image)}")
+        return self.model.encode_image(image_tensor)
 
 
 def convert_weights(model: nn.Module) -> None:
@@ -897,7 +954,7 @@ def pretrained_clip(
     *,
     device: torch.device | None = None,
     dtype: torch.dtype | None = None,
-) -> CLIP:
+) -> Clip:
     ...
 
 
@@ -907,7 +964,7 @@ def pretrained_clip(
     *,
     device: torch.device | None = None,
     dtype: torch.dtype | None = None,
-) -> CLIP | ModifiedResNet | VisionTransformer | TextModel:
+) -> Clip | ModifiedResNet | VisionTransformer | TextModel:
     """Builds the CLIP model from a state dictionary.
 
     Args:
@@ -956,7 +1013,7 @@ def pretrained_clip(
     transformer_heads = transformer_width // 64
     transformer_layers = len(set(k.split(".")[2] for k in ckpt if k.startswith("transformer.resblocks")))
 
-    model = CLIP(
+    model = Clip(
         embed_dim,
         image_resolution,
         vision_layers,
@@ -1010,14 +1067,10 @@ def get_pretrained_path(key: PretrainedModel) -> Path:
     return filepath
 
 
-def test_pretrained_model(model_key: PretrainedModel) -> None:
-    """Tests the pretrained model implementation against JIT'd version.
-
-    This also provides a reference for how to call each model.
-
-    Args:
-        model_key: The pretrained model key
-    """
+def test_pretrained_model() -> None:
+    parser = argparse.ArgumentParser(description="Tests a pretraiend CLIP model")
+    parser.add_argument("key", type=str, choices=get_args(PretrainedModel))
+    args = parser.parse_args()
 
     configure_logging()
 
@@ -1033,7 +1086,7 @@ def test_pretrained_model(model_key: PretrainedModel) -> None:
 
     # Loads the JIT'd model and the regular model.
     auto_device = AutoDevice.detect_device()
-    jit_model = cast(CLIP, torch.jit.load(get_pretrained_path(model_key), map_location="cpu"))
+    jit_model = cast(Clip, torch.jit.load(get_pretrained_path(cast(PretrainedModel, args.key)), map_location="cpu"))
     model = pretrained_clip(jit_model, "all")
 
     # Moves to the correct device.
@@ -1045,7 +1098,7 @@ def test_pretrained_model(model_key: PretrainedModel) -> None:
     model.eval()
 
     # Converts raw inputs to tensors.
-    img_tensorizer = model.get_preprocess()
+    img_tensorizer = model.get_pil_preprocess()
     tokenizer = model.linguistic.get_tokenizer()
     imgs = auto_device.tensor_to(img_tensorizer(peach_img)).unsqueeze(0).repeat_interleave(2, dim=0)
     texts = auto_device.tensor_to(tokenizer.tokenize([pos_desc, neg_desc]))
@@ -1079,4 +1132,4 @@ def test_pretrained_model(model_key: PretrainedModel) -> None:
 
 if __name__ == "__main__":
     # python -m ml.models.pretrained.clip
-    test_pretrained_model("RN50")
+    test_pretrained_model()
