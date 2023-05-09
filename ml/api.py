@@ -102,6 +102,8 @@ __all__ = [
     "pad_all",
     "pad_sequence",
     "Phase",
+    "pretrained_clip",
+    "pretrained_sam",
     "project_dir_paths",
     "read_gif",
     "read_video",
@@ -189,6 +191,8 @@ from ml.models.norms import (
     get_norm_3d,
     get_norm_linear,
 )
+from ml.models.pretrained.clip import pretrained_clip
+from ml.models.pretrained.sam import pretrained_sam
 from ml.optimizers.base import BaseOptimizer, BaseOptimizerConfig
 from ml.tasks.base import BaseTask, BaseTaskConfig
 from ml.tasks.datasets import transforms

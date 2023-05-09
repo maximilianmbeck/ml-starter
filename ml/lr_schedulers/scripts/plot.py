@@ -9,11 +9,7 @@ from ml.utils.argparse import add_args, from_args
 
 
 def main() -> None:
-    """Plots a learning rate schedule.
-
-    Usage:
-        python -m ml.lr_schedulers.scripts.plot linear /path/to/save.png
-    """
+    """Plots a learning rate schedule."""
 
     # Gets the plotting-specific arguments.
     parser = argparse.ArgumentParser(description="Plots a learning rate schedule")
@@ -50,4 +46,5 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    # python -m ml.lr_schedulers.scripts.plot linear /path/to/save.png
     main()
