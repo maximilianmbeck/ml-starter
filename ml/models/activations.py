@@ -1,16 +1,21 @@
+import math
 from typing import Literal, cast, get_args
 
+import torch
 from torch import Tensor, nn
 
 ActivationType = Literal[
     "no_act",
     "relu",
     "relu6",
+    "relu2",
     "clamp6",
     "leaky_relu",
     "elu",
     "celu",
     "selu",
+    "gelu",
+    "gelu_fast",
     "sigmoid",
     "log_sigmoid",
     "hard_sigomid",
@@ -19,6 +24,7 @@ ActivationType = Literal[
     "softplus",
     "silu",
     "mish",
+    "swish",
     "hard_swish",
     "soft_shrink",
     "hard_shrink",
@@ -66,6 +72,29 @@ class Clamp6(Clamp):
         super().__init__(value=6.0, inplace=inplace)
 
 
+class ReLUSquared(nn.Module):
+    def forward(self, x: Tensor) -> Tensor:
+        relu_applied = nn.functional.relu(x)
+        squared = torch.square(relu_applied)
+        return squared
+
+
+class FastGELU(nn.Module):
+    def forward(self, x: Tensor) -> Tensor:
+        return 0.5 * x * (1.0 + torch.tanh(x * 0.7978845608 * (1.0 + 0.044715 * x * x)))
+
+
+class QuickGELU(nn.Module):
+    def forward(self, x: Tensor) -> Tensor:
+        return x * torch.sigmoid(1.702 * x)
+
+
+class LaplaceActivation(nn.Module):
+    def forward(self, x: Tensor, mu: float = 0.707107, sigma: float = 0.282095) -> Tensor:
+        x = (x - mu).div(sigma * math.sqrt(2.0))
+        return 0.5 * (1.0 + torch.erf(x))
+
+
 def get_activation(act: ActivationType, *, inplace: bool = True) -> nn.Module:
     """Returns an activation function from a keyword string.
 
@@ -85,6 +114,8 @@ def get_activation(act: ActivationType, *, inplace: bool = True) -> nn.Module:
             return nn.Identity()
         case "relu":
             return nn.ReLU(inplace=inplace)
+        case "relu2":
+            return nn.ReLU(inplace=inplace)
         case "relu6":
             return nn.ReLU6(inplace=inplace)
         case "clamp6":
@@ -97,6 +128,12 @@ def get_activation(act: ActivationType, *, inplace: bool = True) -> nn.Module:
             return nn.CELU(inplace=inplace)
         case "selu":
             return nn.SELU(inplace=inplace)
+        case "gelu":
+            return nn.GELU()
+        case "gelu_fast":
+            return FastGELU()
+        case "gelu_quick":
+            return QuickGELU()
         case "sigmoid":
             return nn.Sigmoid()
         case "log_sigmoid":
@@ -109,7 +146,7 @@ def get_activation(act: ActivationType, *, inplace: bool = True) -> nn.Module:
             return nn.Softsign()
         case "softplus":
             return nn.Softplus()
-        case "silu":
+        case "silu" | "swish":
             return nn.SiLU()
         case "mish":
             return nn.Mish(inplace=inplace)
