@@ -3,7 +3,7 @@ import logging
 import math
 import re
 from collections import defaultdict
-from typing import Any, Callable, Iterator, Sequence, TypeVar
+from typing import Any, Callable, Iterator, Literal, Sequence, TypeVar
 
 import torch
 import torch.nn.functional as F
@@ -20,6 +20,8 @@ logger = logging.getLogger(__name__)
 
 LogT = TypeVar("LogT")
 Number = int | float | Tensor
+
+ChannelSelectMode = Literal["first", "last", "mean"]
 
 VALID_VIDEO_CHANNEL_COUNTS = {1, 3}
 VALID_AUDIO_CHANNEL_COUNTS = {1, 2}
@@ -56,6 +58,31 @@ def standardize_text(text: str, max_line_length: int | None = None, remove_non_a
     if max_line_length is not None:
         lines = [subline for line in lines for subline in _chunk_lines(line, max_line_length)]
     return lines
+
+
+def get_audio_channel(audio: Tensor, channel_select_mode: ChannelSelectMode) -> Tensor:
+    """For stereo audio, selects a single channel.
+
+    Args:
+        audio: The audio tensor to select a channel from, with shape (C, L)
+        channel_select_mode: The channel selection mode
+
+    Returns:
+        The selected audio channel
+
+    Raises:
+        ValueError: If the audio shape is invalid
+    """
+
+    if audio.shape[-2] not in VALID_AUDIO_CHANNEL_COUNTS:
+        raise ValueError(f"Invalid audio channel count: {audio.shape[0]}")
+    if channel_select_mode == "first":
+        return audio[..., 0, :]
+    if channel_select_mode == "last":
+        return audio[..., -1, :]
+    if channel_select_mode == "mean":
+        return audio.mean(dim=-2)
+    raise ValueError(f"Invalid channel select mode: {channel_select_mode}")
 
 
 def make_human_viewable_resolution(
@@ -215,6 +242,66 @@ def standardize_audio(audio: Tensor, *, log_key: str | None = None) -> Tensor:
     return audio
 
 
+def standardize_audios(audios: Tensor, *, log_key: str | None = None) -> Tensor:
+    """Converts an arbitrary audio tensor to shape (B, C, T).
+
+    Args:
+        audios: The audio tensor to log
+        log_key: An optional logging key to use in the exception message
+
+    Returns:
+        The standardized audio tensor, with shape (B, C, T)
+
+    Raises:
+        ValueError: If the audio shape is invalid
+    """
+
+    if audios.ndim == 2:
+        audios = audios.unsqueeze(1)
+    elif audios.ndim == 3:
+        if audios.shape[1] in VALID_AUDIO_CHANNEL_COUNTS:
+            pass
+        elif audios.shape[2] in VALID_AUDIO_CHANNEL_COUNTS:
+            audios = audios.permute(2, 1)
+        else:
+            raise ValueError(f"Invalid channel count{'' if log_key is None else f' for {log_key}'}: {audios.shape}")
+    else:
+        raise ValueError(f"Invalid audio shape{'' if log_key is None else f' for {log_key}'}: {audios.shape}")
+    max_abs = audios.abs().max()
+    if max_abs > 1.0:
+        if audio_warning_ticker().tick():
+            logger.warning("Audio is outside the range [-1, 1]; clipping")
+        audios = audios.clamp_(-5e3, 5e3) / max_abs
+    return audios
+
+
+def separate_with_padding(audio: Tensor, sep_frames: int) -> Tensor:
+    """Converts a (B, C, T) waveform to (C, B * (T + sep_frames) - sep_frames).
+
+    Args:
+        audio: The audio tensor to separate
+        sep_frames: Number of frames to insert between each audio tensor
+
+    Returns:
+        The separated audio tensor
+
+    Raises:
+        ValueError: If the audio shape is invalid
+    """
+
+    if sep_frames == 0:
+        return audio.transpose(0, 1).flatten(1)
+
+    if audio.ndim != 3:
+        raise ValueError(f"Invalid audio shape: {audio.shape}")
+    bsz, chans, tsz = audio.shape
+    audio_samples = audio.unbind(0)  # B * (C, T)
+    output_tensor = audio.new_zeros(chans, bsz * (tsz + sep_frames) - sep_frames)
+    for i, audio_sample in enumerate(audio_samples):
+        output_tensor[:, i * (tsz + sep_frames) : i * (tsz + sep_frames) + tsz] = audio_sample
+    return output_tensor
+
+
 def standardize_video(video: Tensor, *, log_key: str | None = None, normalize: bool = True) -> Tensor:
     """Converts an arbitrary video to shape (T, C, H, W).
 
@@ -317,7 +404,7 @@ def image_with_text(
     font: ImageFont.ImageFont = ImageFont.load_default()
     _, _, _, line_height = font.getbbox(text[0])
     new_width, new_height = width, height + line_spacing + max_num_lines * (line_height + line_spacing)
-    padded_image = Image.new(pil_image.mode, (new_width, new_height), (255, 255, 255))
+    padded_image = Image.new(pil_image.mode, (new_width, new_height), 255)
     padded_image.paste(pil_image, (0, 0))
     drawer = ImageDraw.Draw(padded_image)
     for i, text_line in enumerate(text):
@@ -325,9 +412,9 @@ def image_with_text(
         if centered:
             _, _, line_width, _ = font.getbbox(text_line)
             text_line_left = (width - line_width) / 2
-            drawer.text((text_line_left, text_line_top), text_line, font=font, fill=(0, 0, 0))
+            drawer.text((text_line_left, text_line_top), text_line, font=font, fill=0)
         else:
-            drawer.text((line_spacing, text_line_top), text_line, font=font, fill=(0, 0, 0))
+            drawer.text((line_spacing, text_line_top), text_line, font=font, fill=0)
     return V.pil_to_tensor(padded_image)
 
 
@@ -700,18 +787,25 @@ class MultiLogger:
         *,
         namespace: str | None = None,
         sample_rate: int = 44100,
-        length: float | None = None,
+        log_spec: bool = True,
+        n_fft_ms: float = 32.0,
+        hop_length_ms: float | None = None,
+        channel_select_mode: Literal["first", "last", "mean"] = "first",
     ) -> None:
         """Logs an audio clip.
 
         Args:
             key: The key being logged
-            value: The audio clip being logged; can be (B, C, T) or (B, T) as
-                a mono (1 channel) or stereo (2 channel) audio clip, with
-                exactly B clips
+            value: The audio clip being logged; can be (C, T) or (T) as
+                a mono (1 channel) or stereo (2 channel) audio clip
             namespace: An optional logging namespace
             sample_rate: The sample rate of the audio clip
-            length: The maximum length of the audio clip, in seconds
+            log_spec: If set, also log the spectrogram
+            n_fft_ms: FFT size, in milliseconds
+            hop_length_ms: The FFT hop length, in milliseconds
+            channel_select_mode: How to select the channel if the audio is
+                stereo; can be "first", "last", or "mean"; this is only used
+                for the spectrogram
         """
 
         namespace = self.resolve_namespace(namespace)
@@ -725,6 +819,91 @@ class MultiLogger:
             return audio, sample_rate
 
         self.audio[namespace][key] = audio_future
+
+        if log_spec:
+
+            @functools.lru_cache
+            def spec_future() -> Tensor:
+                audio, sample_rate = audio_future()
+                audio = get_audio_channel(audio, channel_select_mode)
+                to_frames = lambda ms: 2 ** round(math.log2(ms * sample_rate / 1000))
+                n_fft = to_frames(n_fft_ms)
+                hop_length = None if hop_length_ms is None else to_frames(hop_length_ms)
+                audio_spec = torch.stft(audio, n_fft, hop_length=hop_length, normalized=True, return_complex=True)
+                audio_spec = torch.log10(torch.abs(audio_spec) + 1e-6)
+                return audio_spec.unsqueeze(0)  # (F, T) -> (C, F, T)
+
+            self.images[namespace][key] = spec_future
+
+    def log_audios(
+        self,
+        key: str,
+        value: Callable[[], Tensor] | Tensor,
+        *,
+        namespace: str | None = None,
+        sep_ms: float = 0.0,
+        sample_rate: int = 44100,
+        log_spec: bool = True,
+        n_fft_ms: float = 32.0,
+        hop_length_ms: float | None = None,
+        channel_select_mode: ChannelSelectMode = "first",
+        spec_sep: int = 0,
+    ) -> None:
+        """Logs multiple audio clips.
+
+        Args:
+            key: The key being logged
+            value: The audio clip being logged; can be (B, C, T) or (B, T) as
+                a mono (1 channel) or stereo (2 channel) audio clip, with
+                exactly B clips
+            namespace: An optional logging namespace
+            sep_ms: An optional separation amount between adjacent audio clips
+            sample_rate: The sample rate of the audio clip
+            log_spec: If set, also log the spectrogram
+            n_fft_ms: FFT size, in milliseconds
+            hop_length_ms: The FFT hop length, in milliseconds
+            channel_select_mode: How to select the channel if the audio is
+                stereo; can be "first", "last", or "mean"; this is only used
+                for the spectrogram
+            spec_sep: An optional separation amount between adjacent
+                spectrograms
+        """
+
+        namespace = self.resolve_namespace(namespace)
+
+        @functools.lru_cache
+        def raw_audio_future() -> tuple[Tensor, int]:
+            value_concrete = value() if callable(value) else value
+            assert isinstance(value_concrete, Tensor)
+            audio = standardize_audios(value_concrete, log_key=f"{namespace}/{key}")
+            audio = cast_fp32(audio)
+            return audio, sample_rate
+
+        @functools.lru_cache
+        def audio_future() -> tuple[Tensor, int]:
+            audio, sample_rate = raw_audio_future()
+            to_frames = lambda ms: 0 if ms == 0.0 else 2 ** round(math.log2(ms * sample_rate / 1000))
+            audio = separate_with_padding(audio, to_frames(sep_ms))
+            return audio, sample_rate
+
+        self.audio[namespace][key] = audio_future
+
+        if log_spec:
+
+            @functools.lru_cache
+            def spec_future() -> Tensor:
+                audio, sample_rate = raw_audio_future()
+                audio = get_audio_channel(audio, channel_select_mode)
+                to_frames = lambda ms: 2 ** round(math.log2(ms * sample_rate / 1000))
+                n_fft = to_frames(n_fft_ms)
+                hop_length = None if hop_length_ms is None else to_frames(hop_length_ms)
+                audio_spec = torch.stft(audio, n_fft, hop_length=hop_length, normalized=True, return_complex=True)
+                audio_spec = torch.log10(torch.abs(audio_spec) + 1e-6)
+                audio_spec = standardize_images(audio_spec, log_key=f"{namespace}/{key}", keep_resolution=True)
+                audio_spec = make_square_image_or_video(audio_spec, sep=spec_sep)
+                return audio_spec
+
+            self.images[namespace][key] = spec_future
 
     def log_video(
         self,
