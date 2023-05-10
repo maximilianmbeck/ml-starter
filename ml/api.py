@@ -184,14 +184,7 @@ from ml.models.embeddings import (
 )
 from ml.models.init import InitializationType, cast_init_type, init_
 from ml.models.lora import LoraConv1d, LoraConv2d, LoraEmbedding, LoraLinear, lora
-from ml.models.norms import (
-    NormType,
-    cast_norm_type,
-    get_norm_1d,
-    get_norm_2d,
-    get_norm_3d,
-    get_norm_linear,
-)
+from ml.models.norms import NormType, cast_norm_type, get_norm_1d, get_norm_2d, get_norm_3d, get_norm_linear
 from ml.models.pretrained.clip import pretrained_clip
 from ml.models.pretrained.sam import pretrained_sam
 from ml.optimizers.base import BaseOptimizer, BaseOptimizerConfig
