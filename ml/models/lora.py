@@ -48,7 +48,7 @@ SupportedModule = nn.Embedding | nn.Linear | nn.Conv1d | nn.Conv2d | nn.LSTM | n
 
 
 def _lora_post_hook(module: "_Lora", incompatible_keys: _IncompatibleKeys) -> None:
-    lora_keys = [k for k in incompatible_keys.missing_keys if k.startswith("lora_")]
+    lora_keys = [k for k in incompatible_keys.missing_keys if k.split(".")[-1].startswith("lora_")]
     for lora_key in lora_keys:
         incompatible_keys.missing_keys.remove(lora_key)
 
