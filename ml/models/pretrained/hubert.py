@@ -672,7 +672,7 @@ def _load_pretrained_hubert(
     return model
 
 
-def hubert(size: HubertSize) -> Hubert:
+def pretrained_hubert(size: HubertSize) -> Hubert:
     match size:
         case "base":
             return _load_pretrained_hubert(
@@ -781,7 +781,7 @@ def test_hubert_adhoc() -> None:
     configure_logging()
 
     # Loads the model and moves to the right device.
-    model = hubert(size=cast(HubertSize, args.size))
+    model = pretrained_hubert(size=cast(HubertSize, args.size))
     predictor = model.predictor()
 
     # Test the model on a random waveform.
