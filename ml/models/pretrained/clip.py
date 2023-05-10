@@ -170,7 +170,7 @@ def get_pairs(word: tuple[str, ...]) -> set[tuple[str, str]]:
 @functools.lru_cache()
 def test_clean_func(lower: bool = True) -> Callable[[str], str]:
     try:
-        import ftfy  # type: ignore[import]
+        import ftfy  # type: ignore
 
     except ImportError:
         logger.warning("Please install ftfy: pip install ftfy")

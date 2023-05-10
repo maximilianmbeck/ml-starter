@@ -160,7 +160,7 @@ def check_sha256(file_path: str | Path, hash_str: str, chunk_size: int = 2**16, 
     sha256 = hashlib.sha256()
 
     with open(file_path, "rb") as f:
-        for chunk in tqdm.tqdm(iter(lambda: f.read(chunk_size), b""), disabled=not use_tqdm, delay=1.0):
+        for chunk in tqdm.tqdm(iter(lambda: f.read(chunk_size), b""), disable=not use_tqdm, delay=1.0):
             sha256.update(chunk)
 
     return sha256.hexdigest() == hash_str

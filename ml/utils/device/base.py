@@ -217,7 +217,9 @@ class BaseDevice(ABC):
         module.to(cls.get_device(), cls.get_floating_point_type())
 
     @classmethod
-    def tensor_to(cls, tensor: Tensor) -> Tensor:
+    def tensor_to(cls, tensor: np.ndarray | Tensor) -> Tensor:
+        if isinstance(tensor, np.ndarray):
+            tensor = torch.from_numpy(tensor)
         device = cls.get_device()
         if tensor.is_floating_point():
             return tensor.to(device, cls.get_floating_point_type())
