@@ -71,32 +71,31 @@ def test_log_image(
 
 
 @pytest.mark.parametrize(
-    "multi_samples, in_shape, out_shape, spec_shape",
+    "multi_samples, in_shape, out_shape",
     [
-        (False, (2, 100), (2, 100), None),
-        (False, (100,), (1, 100), None),
-        (False, (2, 2, 100), None, None),
-        (False, (3, 100), None, None),
-        (True, (2, 100), (1, 200), None),
-        (True, (2, 2, 100), (2, 200), None),
-        (True, (2, 3, 100), None, None),
-        (False, (2, 1024), (2, 1024), (1, 513, 5)),
-        (True, (2, 1, 1024), (1, 2048), (1, 513, 10)),
+        (False, (2, 100), (2, 100)),
+        (False, (100,), (1, 100)),
+        (False, (2, 2, 100), None),
+        (False, (3, 100), None),
+        (True, (2, 100), (1, 200)),
+        (True, (2, 2, 100), (2, 200)),
+        (True, (2, 3, 100), None),
+        (False, (2, 1024), (2, 1024)),
+        (True, (2, 1, 1024), (1, 2048)),
     ],
 )
 def test_log_audio(
     multi_samples: bool,
     in_shape: tuple[int, ...],
     out_shape: tuple[int, ...] | None,
-    spec_shape: tuple[int, int],
 ) -> None:
     dummy_logger = DummyLogger()
     logger = MultiLogger()
     test_wav = torch.randn(*in_shape)
     if multi_samples:
-        logger.log_audios("test", test_wav, log_spec=spec_shape is not None, keep_spec_resolution=True)
+        logger.log_audios("test", test_wav, log_spec=False)
     else:
-        logger.log_audio("test", test_wav, log_spec=spec_shape is not None, keep_spec_resolution=True)
+        logger.log_audio("test", test_wav, log_spec=False)
 
     if out_shape is None:
         with pytest.raises(ValueError):
@@ -106,10 +105,34 @@ def test_log_audio(
         logger.write([dummy_logger], State.init_state())
         assert dummy_logger.audios["test"][0].shape == out_shape
 
-    if spec_shape is not None:
-        assert dummy_logger.images["test"].shape == spec_shape
+
+@pytest.mark.parametrize(
+    "multi_samples, in_shape, out_shape",
+    [
+        (False, (2, 4096), (513, 17)),
+        (True, (2, 1, 4096), (513, 34)),
+    ],
+)
+def test_log_spectrogram(
+    multi_samples: bool,
+    in_shape: tuple[int, ...],
+    out_shape: tuple[int, ...] | None,
+) -> None:
+    dummy_logger = DummyLogger()
+    logger = MultiLogger()
+    test_wav = torch.randn(*in_shape)
+    if multi_samples:
+        logger.log_spectrograms("test", test_wav, keep_resolution=True)
     else:
-        assert "test" not in dummy_logger.images
+        logger.log_spectrogram("test", test_wav, keep_resolution=True)
+
+    if out_shape is None:
+        with pytest.raises(ValueError):
+            logger.write([dummy_logger], State.init_state())
+        return
+    else:
+        logger.write([dummy_logger], State.init_state())
+        assert dummy_logger.images["test"][0].shape == out_shape
 
 
 @pytest.mark.parametrize(

@@ -10,7 +10,7 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Iterator, cast
+from typing import Any, Callable, Iterable, Iterator, TypeVar, cast
 
 import torch
 from omegaconf import MISSING, DictConfig, OmegaConf
@@ -24,9 +24,12 @@ from ml.core.state import Phase, State
 from ml.loggers.base import BaseLogger, BaseLoggerConfig
 from ml.loggers.multi import TARGET_FPS
 from ml.utils.distributed import is_distributed, is_master
+from ml.utils.logging import IntervalTicker
 from ml.utils.networking import get_unused_port
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+T = TypeVar("T")
 
 WRITE_PROC_TEXT_EVERY_N_SECONDS: int = 60 * 2
 
@@ -134,6 +137,8 @@ class TensorboardLogger(BaseLogger[TensorboardLoggerConfig]):
 
         self.line_str: str | None = None
         self.last_tensorboard_write_time = time.time()
+
+        self.warning_ticker = IntervalTicker(60.0)
 
     def initialize(self, log_directory: Path) -> None:
         super().initialize(log_directory)
@@ -262,20 +267,33 @@ class TensorboardLogger(BaseLogger[TensorboardLoggerConfig]):
                 logger.info("Running TensorBoard process:\n%s", make_bold([self.line_str]))
                 self.last_tensorboard_write_time = cur_time
         writer = self.get_writer(state.phase)
-        for scalar_key, scalar_value in self.scalars[state.phase].items():
+        all_keys: set[str] = set()
+
+        def filter_items(items: Iterable[tuple[str, T]]) -> Iterable[tuple[str, T]]:
+            duplicate_keys: set[str] = set()
+            for k, v in items:
+                if k in all_keys:
+                    duplicate_keys
+                else:
+                    all_keys.add(k)
+                    yield k, v
+            if duplicate_keys and self.warning_ticker.tick():
+                logger.warning("Found duplicate logging key(s): %s", duplicate_keys)
+
+        for scalar_key, scalar_value in filter_items(self.scalars[state.phase].items()):
             writer.add_scalar(scalar_key, scalar_value(), global_step=state.num_steps)
-        for string_key, string_value in self.strings[state.phase].items():
+        for string_key, string_value in filter_items(self.strings[state.phase].items()):
             writer.add_text(string_key, string_value(), global_step=state.num_steps)
-        for image_key, image_value in self.images[state.phase].items():
+        for image_key, image_value in filter_items(self.images[state.phase].items()):
             writer.add_image(image_key, image_value(), global_step=state.num_steps)
-        for audio_key, audio_value in self.audio[state.phase].items():
+        for audio_key, audio_value in filter_items(self.audio[state.phase].items()):
             audio_wav, audio_sample_rate = audio_value()
             writer.add_audio(audio_key, audio_wav, global_step=state.num_steps, sample_rate=audio_sample_rate)
-        for video_key, video_value in self.videos[state.phase].items():
+        for video_key, video_value in filter_items(self.videos[state.phase].items()):
             writer.add_video(video_key, video_value().unsqueeze(0), global_step=state.num_steps, fps=TARGET_FPS)
-        for hist_key, hist_value in self.histograms[state.phase].items():
+        for hist_key, hist_value in filter_items(self.histograms[state.phase].items()):
             writer.add_histogram(hist_key, hist_value(), global_step=state.num_steps)
-        for pc_key, pc_value_func in self.point_clouds[state.phase].items():
+        for pc_key, pc_value_func in filter_items(self.point_clouds[state.phase].items()):
             pc_value = pc_value_func()
             bsz, _, _ = pc_value.shape
             colors = torch.randint(0, 255, (bsz, 1, 3), device=pc_value.device).expand_as(pc_value)

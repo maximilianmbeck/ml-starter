@@ -239,7 +239,7 @@ def standardize_audio(audio: Tensor, *, log_key: str | None = None) -> Tensor:
     if max_abs > 1.0:
         if audio_warning_ticker().tick():
             logger.warning("Audio is outside the range [-1, 1]; clipping")
-        audio = audio.clamp_(-5e3, 5e3) / max_abs
+        audio = audio.clamp(-5e3, 5e3) / max_abs
     return audio
 
 
@@ -276,7 +276,7 @@ def standardize_audios(audios: Tensor, *, log_key: str | None = None, max_audios
     if max_abs > 1.0:
         if audio_warning_ticker().tick():
             logger.warning("Audio is outside the range [-1, 1]; clipping")
-        audios = audios.clamp_(-5e3, 5e3) / max_abs
+        audios = audios.clamp(-5e3, 5e3) / max_abs
     return audios
 
 
@@ -796,7 +796,7 @@ class MultiLogger:
         n_fft_ms: float = 32.0,
         hop_length_ms: float | None = None,
         channel_select_mode: ChannelSelectMode = "first",
-        keep_spec_resolution: bool = False,
+        keep_resolution: bool = False,
     ) -> None:
         """Logs an audio clip.
 
@@ -812,16 +812,21 @@ class MultiLogger:
             channel_select_mode: How to select the channel if the audio is
                 stereo; can be "first", "last", or "mean"; this is only used
                 for the spectrogram
-            keep_spec_resolution: If set, keep the resolution of the
+            keep_resolution: If set, keep the resolution of the
                 spectrogram; otherwise, make human-viewable
         """
 
         namespace = self.resolve_namespace(namespace)
 
         @functools.lru_cache
-        def audio_future() -> tuple[Tensor, int]:
+        def raw_audio_future() -> Tensor:
             value_concrete = value() if callable(value) else value
             assert isinstance(value_concrete, Tensor)
+            return value_concrete
+
+        @functools.lru_cache
+        def audio_future() -> tuple[Tensor, int]:
+            value_concrete = raw_audio_future()
             audio = standardize_audio(value_concrete, log_key=f"{namespace}/{key}")
             audio = cast_fp32(audio)
             return audio, sample_rate
@@ -829,23 +834,18 @@ class MultiLogger:
         self.audio[namespace][key] = audio_future
 
         if log_spec:
-
-            @functools.lru_cache
-            def spec_future() -> Tensor:
-                audio, sample_rate = audio_future()
-                audio = get_audio_channel(audio, channel_select_mode)
-                to_frames = lambda ms: 2 ** round(math.log2(ms * sample_rate / 1000))
-                n_fft = to_frames(n_fft_ms)
-                hop_length = None if hop_length_ms is None else to_frames(hop_length_ms)
-                audio_spec = torch.stft(audio, n_fft, hop_length=hop_length, normalized=True, return_complex=True)
-                audio_spec = torch.log10(torch.abs(audio_spec) + 1e-6)
-                return standardize_image(
-                    audio_spec,
-                    log_key=f"{namespace}/{key}",
-                    keep_resolution=keep_spec_resolution,
-                )
-
-            self.images[namespace][key] = spec_future
+            # Using a unique key for the spectrogram is very important because
+            # otherwise Tensorboard will have some issues.
+            self.log_spectrogram(
+                key=f"{key}_spec",
+                value=raw_audio_future,
+                namespace=namespace,
+                sample_rate=sample_rate,
+                n_fft_ms=n_fft_ms,
+                hop_length_ms=hop_length_ms,
+                channel_select_mode=channel_select_mode,
+                keep_resolution=keep_resolution,
+            )
 
     def log_audios(
         self,
@@ -861,7 +861,7 @@ class MultiLogger:
         hop_length_ms: float | None = None,
         channel_select_mode: ChannelSelectMode = "first",
         spec_sep: int = 0,
-        keep_spec_resolution: bool = False,
+        keep_resolution: bool = False,
     ) -> None:
         """Logs multiple audio clips.
 
@@ -882,23 +882,23 @@ class MultiLogger:
                 for the spectrogram
             spec_sep: An optional separation amount between adjacent
                 spectrograms
-            keep_spec_resolution: If set, keep the resolution of the
+            keep_resolution: If set, keep the resolution of the
                 spectrogram; otherwise, make human-viewable
         """
 
         namespace = self.resolve_namespace(namespace)
 
         @functools.lru_cache
-        def raw_audio_future() -> tuple[Tensor, int]:
+        def raw_audio_future() -> Tensor:
             value_concrete = value() if callable(value) else value
             assert isinstance(value_concrete, Tensor)
-            audio = standardize_audios(value_concrete, log_key=f"{namespace}/{key}", max_audios=max_audios)
-            audio = cast_fp32(audio)
-            return audio, sample_rate
+            return value_concrete
 
         @functools.lru_cache
         def audio_future() -> tuple[Tensor, int]:
-            audio, sample_rate = raw_audio_future()
+            value_concrete = raw_audio_future()
+            audio = standardize_audios(value_concrete, log_key=f"{namespace}/{key}", max_audios=max_audios)
+            audio = cast_fp32(audio)
             to_frames = lambda ms: 0 if ms == 0.0 else 2 ** round(math.log2(ms * sample_rate / 1000))
             audio = separate_with_padding(audio, to_frames(sep_ms))
             return audio, sample_rate
@@ -906,25 +906,126 @@ class MultiLogger:
         self.audio[namespace][key] = audio_future
 
         if log_spec:
+            # Using a unique key for the spectrogram is very important because
+            # otherwise Tensorboard will have some issues.
+            self.log_spectrograms(
+                key=f"{key}_spec",
+                value=raw_audio_future,
+                namespace=namespace,
+                max_audios=max_audios,
+                sample_rate=sample_rate,
+                n_fft_ms=n_fft_ms,
+                hop_length_ms=hop_length_ms,
+                channel_select_mode=channel_select_mode,
+                spec_sep=spec_sep,
+                keep_resolution=keep_resolution,
+            )
 
-            @functools.lru_cache
-            def spec_future() -> Tensor:
-                audio, sample_rate = raw_audio_future()
-                audio = get_audio_channel(audio, channel_select_mode)
-                to_frames = lambda ms: 2 ** round(math.log2(ms * sample_rate / 1000))
-                n_fft = to_frames(n_fft_ms)
-                hop_length = None if hop_length_ms is None else to_frames(hop_length_ms)
-                audio_spec = torch.stft(audio, n_fft, hop_length=hop_length, normalized=True, return_complex=True)
-                audio_spec = torch.log10(torch.abs(audio_spec) + 1e-6)
-                audio_spec = standardize_images(
-                    audio_spec,
-                    log_key=f"{namespace}/{key}",
-                    keep_resolution=keep_spec_resolution,
-                )
-                audio_spec = make_square_image_or_video(audio_spec, sep=spec_sep)
-                return audio_spec
+    def log_spectrogram(
+        self,
+        key: str,
+        value: Callable[[], Tensor] | Tensor,
+        *,
+        namespace: str | None = None,
+        sample_rate: int = 44100,
+        n_fft_ms: float = 32.0,
+        hop_length_ms: float | None = None,
+        channel_select_mode: ChannelSelectMode = "first",
+        keep_resolution: bool = False,
+    ) -> None:
+        """Logs spectrograms of an audio clip.
 
-            self.images[namespace][key] = spec_future
+        Args:
+            key: The key being logged
+            value: The audio clip being logged; can be (C, T) or (T) as
+                a mono (1 channel) or stereo (2 channel) audio clip
+            namespace: An optional logging namespace
+            sample_rate: The sample rate of the audio clip
+            n_fft_ms: FFT size, in milliseconds
+            hop_length_ms: The FFT hop length, in milliseconds
+            channel_select_mode: How to select the channel if the audio is
+                stereo; can be "first", "last", or "mean"; this is only used
+                for the spectrogram
+            keep_resolution: If set, keep the resolution of the
+                spectrogram; otherwise, make human-viewable
+        """
+
+        namespace = self.resolve_namespace(namespace)
+
+        @functools.lru_cache
+        def spec_future() -> Tensor:
+            audio = value() if callable(value) else value
+            audio = standardize_audio(audio, log_key=f"{namespace}/{key}")
+            audio = get_audio_channel(audio, channel_select_mode)
+            to_frames = lambda ms: 2 ** round(math.log2(ms * sample_rate / 1000))
+            n_fft = to_frames(n_fft_ms)
+            hop_length = None if hop_length_ms is None else to_frames(hop_length_ms)
+            audio_spec = torch.stft(audio, n_fft, hop_length=hop_length, normalized=True, return_complex=True)
+            audio_spec = torch.log10(torch.abs(audio_spec) + 1e-6)
+            return standardize_image(
+                audio_spec,
+                log_key=f"{namespace}/{key}",
+                keep_resolution=keep_resolution,
+            )
+
+        self.images[namespace][key] = spec_future
+
+    def log_spectrograms(
+        self,
+        key: str,
+        value: Callable[[], Tensor] | Tensor,
+        *,
+        namespace: str | None = None,
+        max_audios: int | None = None,
+        sample_rate: int = 44100,
+        n_fft_ms: float = 32.0,
+        hop_length_ms: float | None = None,
+        channel_select_mode: ChannelSelectMode = "first",
+        spec_sep: int = 0,
+        keep_resolution: bool = False,
+    ) -> None:
+        """Logs spectrograms of audio clips.
+
+        Args:
+            key: The key being logged
+            value: The audio clip being logged; can be (B, C, T) or (B, T) as
+                a mono (1 channel) or stereo (2 channel) audio clip, with
+                exactly B clips
+            namespace: An optional logging namespace
+            max_audios: An optional maximum number of audio clips to log
+            sample_rate: The sample rate of the audio clip
+            n_fft_ms: FFT size, in milliseconds
+            hop_length_ms: The FFT hop length, in milliseconds
+            channel_select_mode: How to select the channel if the audio is
+                stereo; can be "first", "last", or "mean"; this is only used
+                for the spectrogram
+            spec_sep: An optional separation amount between adjacent
+                spectrograms
+            keep_resolution: If set, keep the resolution of the
+                spectrogram; otherwise, make human-viewable
+        """
+
+        namespace = self.resolve_namespace(namespace)
+
+        @functools.lru_cache
+        def spec_future() -> Tensor:
+            audio = value() if callable(value) else value
+            audio = standardize_audios(audio, log_key=f"{namespace}/{key}", max_audios=max_audios)
+            audio = get_audio_channel(audio, channel_select_mode)
+            to_frames = lambda ms: 2 ** round(math.log2(ms * sample_rate / 1000))
+            n_fft = to_frames(n_fft_ms)
+            hop_length = None if hop_length_ms is None else to_frames(hop_length_ms)
+            audio_spec = torch.stft(audio, n_fft, hop_length=hop_length, normalized=True, return_complex=True)
+            audio_spec = torch.log10(torch.abs(audio_spec) + 1e-6)
+            audio_spec = standardize_images(
+                audio_spec,
+                log_key=f"{namespace}/{key}",
+                keep_resolution=keep_resolution,
+            )
+            audio_spec = make_square_image_or_video(audio_spec, sep=spec_sep)
+            return audio_spec
+
+        self.images[namespace][key] = spec_future
 
     def log_video(
         self,
