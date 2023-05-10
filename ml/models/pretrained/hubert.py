@@ -477,10 +477,10 @@ class HubertEncoderLayerStableLayerNorm(nn.Module):
         self.feed_forward = HubertFeedForward(config)
         self.final_layer_norm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
 
-    def forward(self, hidden_states: Tensor, attention_mask: Tensor | None = None) -> Tensor:
+    def forward(self, hidden_states: Tensor, attn_mask: Tensor | None = None) -> Tensor:
         attn_residual = hidden_states
         hidden_states = self.layer_norm(hidden_states)
-        hidden_states, _, _ = self.attention(hidden_states, attention_mask=attention_mask)
+        hidden_states, _ = self.attention(hidden_states, attn_mask=attn_mask)
         hidden_states = self.dropout(hidden_states)
         hidden_states = attn_residual + hidden_states
         hidden_states = hidden_states + self.feed_forward(self.final_layer_norm(hidden_states))
@@ -635,7 +635,7 @@ class HubertPredictor:
             feat = []
             for start in range(0, x.size(1), chunk_size):
                 x_chunk = x[:, start : start + chunk_size]
-                feat_chunk, _ = self.model(x_chunk, output_layer=output_layer)
+                feat_chunk = self.model.forward(x_chunk, output_layer=output_layer)
                 feat.append(feat_chunk)
 
         return torch.cat(feat, 1).squeeze(0)
