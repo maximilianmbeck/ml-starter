@@ -36,7 +36,7 @@ can be tuned to improve performance.
 import math
 import warnings
 import weakref
-from typing import Any, TypeVar, cast
+from typing import Any, TypeVar, cast, overload
 
 import torch.nn.functional as F
 from torch import Tensor, nn
@@ -64,7 +64,7 @@ class _Lora(nn.Module):
 
 
 class LoraEmbedding(nn.Embedding, _Lora):
-    __constants__ = nn.Embedding.__constants__ + ["r", "lora_alpha", "scaling", "merge_weights", "merged"]
+    __constants__ = nn.Embedding.__constants__ + ["r", "lora_alpha", "scaling", "merge", "merged"]
 
     def __init__(
         self,
@@ -73,7 +73,7 @@ class LoraEmbedding(nn.Embedding, _Lora):
         r: int,
         lora_alpha: float = 1.0,
         lora_dropout: float = 0.0,
-        merge_weights: bool = False,
+        merge: bool = False,
         padding_idx: int | None = None,
         max_norm: float | None = None,
         norm_type: float = 2.0,
@@ -93,7 +93,7 @@ class LoraEmbedding(nn.Embedding, _Lora):
         self.r = r
         self.lora_alpha = lora_alpha
         self.scaling = self.lora_alpha / self.r
-        self.merge_weights = merge_weights
+        self.merge = merge
 
         self.dropout = nn.Identity() if lora_dropout == 0.0 else nn.Dropout(p=lora_dropout)
         self.merged = False
@@ -115,13 +115,13 @@ class LoraEmbedding(nn.Embedding, _Lora):
         super().train()
 
         if mode:
-            if self.merge_weights and self.merged:
+            if self.merge and self.merged:
                 # Make sure that the weights are not merged
                 if self.lora_a is not None and self.lora_b is not None:
                     self.weight.data -= (self.lora_b @ self.lora_a).transpose(0, 1) * self.scaling
                 self.merged = False
         else:
-            if self.merge_weights and not self.merged:
+            if self.merge and not self.merged:
                 # Merge the weights and mark it
                 if self.lora_a is not None and self.lora_b is not None:
                     self.weight.data += (self.lora_b @ self.lora_a).transpose(0, 1) * self.scaling
@@ -148,14 +148,7 @@ class LoraEmbedding(nn.Embedding, _Lora):
 
 
 class LoraLinear(nn.Linear, _Lora):
-    __constants__ = nn.Linear.__constants__ + [
-        "r",
-        "lora_alpha",
-        "scaling",
-        "merge_weights",
-        "fan_in_fan_out",
-        "merged",
-    ]
+    __constants__ = nn.Linear.__constants__ + ["r", "lora_alpha", "scaling", "merge", "fan_in_fan_out", "merged"]
 
     def __init__(
         self,
@@ -165,7 +158,7 @@ class LoraLinear(nn.Linear, _Lora):
         lora_alpha: float = 1.0,
         lora_dropout: float = 0.0,
         fan_in_fan_out: bool = False,
-        merge_weights: bool = False,
+        merge: bool = False,
         bias: bool = True,
     ) -> None:
         super().__init__(
@@ -179,7 +172,7 @@ class LoraLinear(nn.Linear, _Lora):
         self.r = r
         self.lora_alpha = lora_alpha
         self.scaling = self.lora_alpha / self.r
-        self.merge_weights = merge_weights
+        self.merge = merge
         self.fan_in_fan_out = fan_in_fan_out
 
         self.dropout = nn.Identity() if lora_dropout == 0.0 else nn.Dropout(p=lora_dropout)
@@ -208,14 +201,14 @@ class LoraLinear(nn.Linear, _Lora):
         super().train()
 
         if mode:
-            if self.merge_weights and self.merged:
+            if self.merge and self.merged:
                 # Make sure that the weights are not merged
                 if self.lora_a is not None and self.lora_b is not None:
                     self.weight.data -= self._t(self.lora_b @ self.lora_a) * self.scaling
                 self.merged = False
 
         else:
-            if self.merge_weights and not self.merged:
+            if self.merge and not self.merged:
                 # Merge the weights and mark it
                 if self.lora_a is not None and self.lora_b is not None:
                     self.weight.data += self._t(self.lora_b @ self.lora_a) * self.scaling
@@ -234,7 +227,7 @@ class LoraLinear(nn.Linear, _Lora):
 
 
 class LoraConv1d(nn.Conv1d, _Lora):
-    __constants__ = nn.Conv1d.__constants__ + ["r", "lora_alpha", "scaling", "merge_weights", "merged"]
+    __constants__ = nn.Conv1d.__constants__ + ["r", "lora_alpha", "scaling", "merge", "merged"]
 
     def __init__(
         self,
@@ -244,7 +237,7 @@ class LoraConv1d(nn.Conv1d, _Lora):
         r: int,
         lora_alpha: float = 1.0,
         lora_dropout: float = 0.0,
-        merge_weights: bool = False,
+        merge: bool = False,
         stride: int | tuple[int] = 1,
         padding: str | int | tuple[int] = 0,
         dilation: int | tuple[int] = 1,
@@ -267,7 +260,7 @@ class LoraConv1d(nn.Conv1d, _Lora):
         self.r = r
         self.lora_alpha = lora_alpha
         self.scaling = self.lora_alpha / self.r
-        self.merge_weights = merge_weights
+        self.merge = merge
 
         self.dropout = nn.Identity() if lora_dropout == 0.0 else nn.Dropout(p=lora_dropout)
         self.merged = False
@@ -289,14 +282,14 @@ class LoraConv1d(nn.Conv1d, _Lora):
         super().train()
 
         if mode:
-            if self.merge_weights and self.merged:
+            if self.merge and self.merged:
                 # Make sure that the weights are not merged
                 if self.lora_a is not None and self.lora_b is not None:
                     self.weight.data -= self.lora_b @ self.lora_a * self.scaling
                 self.merged = False
 
         else:
-            if self.merge_weights and not self.merged:
+            if self.merge and not self.merged:
                 # Merge the weights and mark it
                 if self.lora_a is not None and self.lora_b is not None:
                     self.weight.data += self.lora_b @ self.lora_a * self.scaling
@@ -316,7 +309,7 @@ class LoraConv1d(nn.Conv1d, _Lora):
 
 
 class LoraConv2d(nn.Conv2d, _Lora):
-    __constants__ = nn.Conv2d.__constants__ + ["r", "lora_alpha", "scaling", "merge_weights", "merged"]
+    __constants__ = nn.Conv2d.__constants__ + ["r", "lora_alpha", "scaling", "merge", "merged"]
 
     def __init__(
         self,
@@ -326,7 +319,7 @@ class LoraConv2d(nn.Conv2d, _Lora):
         r: int,
         lora_alpha: float = 1.0,
         lora_dropout: float = 0.0,
-        merge_weights: bool = False,
+        merge: bool = False,
         stride: int | tuple[int, int] = (1, 1),
         padding: str | int | tuple[int, int] = (0, 0),
         dilation: int | tuple[int, int] = (1, 1),
@@ -349,7 +342,7 @@ class LoraConv2d(nn.Conv2d, _Lora):
         self.r = r
         self.lora_alpha = lora_alpha
         self.scaling = self.lora_alpha / self.r
-        self.merge_weights = merge_weights
+        self.merge = merge
 
         self.dropout = nn.Identity() if lora_dropout == 0.0 else nn.Dropout(p=lora_dropout)
         self.merged = False
@@ -371,14 +364,14 @@ class LoraConv2d(nn.Conv2d, _Lora):
         super().train()
 
         if mode:
-            if self.merge_weights and self.merged:
+            if self.merge and self.merged:
                 # Make sure that the weights are not merged
                 if self.lora_a is not None and self.lora_b is not None:
                     self.weight.data -= self.lora_b @ self.lora_a * self.scaling
                 self.merged = False
 
         else:
-            if self.merge_weights and not self.merged:
+            if self.merge and not self.merged:
                 # Merge the weights and mark it
                 if self.lora_a is not None and self.lora_b is not None:
                     self.weight.data += self.lora_b @ self.lora_a * self.scaling
@@ -560,13 +553,37 @@ class LoraGRU(nn.GRU, _LoraRNN):
         )
 
 
-def lora(
-    module: SupportedModule,
-    r: int,
-    alpha: float = 1.0,
-    dropout: float = 0.0,
-    merge_weights: bool = False,
-) -> nn.Module:
+@overload
+def lora(module: nn.Embedding, r: int, alpha: float = 1.0, dropout: float = 0.0, merge: bool = False) -> LoraEmbedding:
+    ...
+
+
+@overload
+def lora(module: nn.Linear, r: int, alpha: float = 1.0, dropout: float = 0.0, merge: bool = False) -> LoraLinear:
+    ...
+
+
+@overload
+def lora(module: nn.Conv1d, r: int, alpha: float = 1.0, dropout: float = 0.0, merge: bool = False) -> LoraConv1d:
+    ...
+
+
+@overload
+def lora(module: nn.Conv2d, r: int, alpha: float = 1.0, dropout: float = 0.0, merge: bool = False) -> LoraConv2d:
+    ...
+
+
+@overload
+def lora(module: nn.LSTM, r: int, alpha: float = 1.0, dropout: float = 0.0, merge: bool = False) -> LoraLSTM:
+    ...
+
+
+@overload
+def lora(module: nn.GRU, r: int, alpha: float = 1.0, dropout: float = 0.0, merge: bool = False) -> LoraGRU:
+    ...
+
+
+def lora(module: SupportedModule, r: int, alpha: float = 1.0, dropout: float = 0.0, merge: bool = False) -> nn.Module:
     """Wraps a module with LoRA.
 
     This function takes a base module and returns the LoRA version of that
@@ -582,7 +599,7 @@ def lora(
         dropout: The dropout probability applied to the input value before
             computing the LoRA components. This parameter is not supported
             for RNNs (because it would require modifying the underyling kernel).
-        merge_weights: Whether to merge the LoRA components into the original
+        merge: Whether to merge the LoRA components into the original
             weights. If True, then the LoRA components are merged into the
             weights during training, and the original weights are used during
             evaluation. If False, then the LoRA components are used during
@@ -601,7 +618,7 @@ def lora(
             module.embedding_dim,
             r=r,
             lora_alpha=alpha,
-            merge_weights=merge_weights,
+            merge=merge,
         )
 
     if isinstance(module, nn.Linear):
@@ -610,7 +627,7 @@ def lora(
             module.out_features,
             r=r,
             lora_alpha=alpha,
-            merge_weights=merge_weights,
+            merge=merge,
         )
 
     if isinstance(module, nn.Conv1d):
@@ -621,7 +638,7 @@ def lora(
             r=r,
             lora_alpha=alpha,
             lora_dropout=dropout,
-            merge_weights=merge_weights,
+            merge=merge,
             stride=cast(tuple[int], module.stride),
             padding=cast(tuple[int], module.padding),
             dilation=cast(tuple[int], module.dilation),
@@ -637,7 +654,7 @@ def lora(
             r=r,
             lora_alpha=alpha,
             lora_dropout=dropout,
-            merge_weights=merge_weights,
+            merge=merge,
             stride=cast(tuple[int, int], module.stride),
             padding=cast(tuple[int, int], module.padding),
             dilation=cast(tuple[int, int], module.dilation),
