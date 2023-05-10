@@ -94,9 +94,9 @@ def test_log_audio(
     logger = MultiLogger()
     test_wav = torch.randn(*in_shape)
     if multi_samples:
-        logger.log_audios("test", test_wav, log_spec=spec_shape is not None)
+        logger.log_audios("test", test_wav, log_spec=spec_shape is not None, keep_spec_resolution=True)
     else:
-        logger.log_audio("test", test_wav, log_spec=spec_shape is not None)
+        logger.log_audio("test", test_wav, log_spec=spec_shape is not None, keep_spec_resolution=True)
 
     if out_shape is None:
         with pytest.raises(ValueError):

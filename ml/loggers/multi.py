@@ -190,14 +190,15 @@ def standardize_images(
         images = images.unsqueeze(1)
     elif images.ndim == 4:
         if images.shape[1] in VALID_VIDEO_CHANNEL_COUNTS:
-            images = images if max_images is None else images[:max_images]
+            pass
         elif images.shape[3] in VALID_VIDEO_CHANNEL_COUNTS:
             images = images.permute(0, 3, 1, 2)
-            images = images if max_images is None else images[:max_images]
         else:
             raise ValueError(f"Invalid channel count{'' if log_key is None else f' for {log_key}'}: {images.shape}")
     else:
         raise ValueError(f"Invalid image shape{'' if log_key is None else f' for {log_key}'}: {images.shape}")
+
+    images = images if max_images is None else images[:max_images]
 
     if not keep_resolution:
         images = torch.stack([make_human_viewable_resolution(image) for image in images.unbind(0)], 0)
@@ -242,12 +243,13 @@ def standardize_audio(audio: Tensor, *, log_key: str | None = None) -> Tensor:
     return audio
 
 
-def standardize_audios(audios: Tensor, *, log_key: str | None = None) -> Tensor:
+def standardize_audios(audios: Tensor, *, log_key: str | None = None, max_audios: int | None = None) -> Tensor:
     """Converts an arbitrary audio tensor to shape (B, C, T).
 
     Args:
         audios: The audio tensor to log
         log_key: An optional logging key to use in the exception message
+        max_audios: Maximum number of audios to select
 
     Returns:
         The standardized audio tensor, with shape (B, C, T)
@@ -267,6 +269,9 @@ def standardize_audios(audios: Tensor, *, log_key: str | None = None) -> Tensor:
             raise ValueError(f"Invalid channel count{'' if log_key is None else f' for {log_key}'}: {audios.shape}")
     else:
         raise ValueError(f"Invalid audio shape{'' if log_key is None else f' for {log_key}'}: {audios.shape}")
+
+    audios = audios if max_audios is None else audios[:max_audios]
+
     max_abs = audios.abs().max()
     if max_abs > 1.0:
         if audio_warning_ticker().tick():
@@ -790,7 +795,8 @@ class MultiLogger:
         log_spec: bool = True,
         n_fft_ms: float = 32.0,
         hop_length_ms: float | None = None,
-        channel_select_mode: Literal["first", "last", "mean"] = "first",
+        channel_select_mode: ChannelSelectMode = "first",
+        keep_spec_resolution: bool = False,
     ) -> None:
         """Logs an audio clip.
 
@@ -806,6 +812,8 @@ class MultiLogger:
             channel_select_mode: How to select the channel if the audio is
                 stereo; can be "first", "last", or "mean"; this is only used
                 for the spectrogram
+            keep_spec_resolution: If set, keep the resolution of the
+                spectrogram; otherwise, make human-viewable
         """
 
         namespace = self.resolve_namespace(namespace)
@@ -831,7 +839,11 @@ class MultiLogger:
                 hop_length = None if hop_length_ms is None else to_frames(hop_length_ms)
                 audio_spec = torch.stft(audio, n_fft, hop_length=hop_length, normalized=True, return_complex=True)
                 audio_spec = torch.log10(torch.abs(audio_spec) + 1e-6)
-                return audio_spec.unsqueeze(0)  # (F, T) -> (C, F, T)
+                return standardize_image(
+                    audio_spec,
+                    log_key=f"{namespace}/{key}",
+                    keep_resolution=keep_spec_resolution,
+                )
 
             self.images[namespace][key] = spec_future
 
@@ -842,12 +854,14 @@ class MultiLogger:
         *,
         namespace: str | None = None,
         sep_ms: float = 0.0,
+        max_audios: int | None = None,
         sample_rate: int = 44100,
         log_spec: bool = True,
         n_fft_ms: float = 32.0,
         hop_length_ms: float | None = None,
         channel_select_mode: ChannelSelectMode = "first",
         spec_sep: int = 0,
+        keep_spec_resolution: bool = False,
     ) -> None:
         """Logs multiple audio clips.
 
@@ -858,6 +872,7 @@ class MultiLogger:
                 exactly B clips
             namespace: An optional logging namespace
             sep_ms: An optional separation amount between adjacent audio clips
+            max_audios: An optional maximum number of audio clips to log
             sample_rate: The sample rate of the audio clip
             log_spec: If set, also log the spectrogram
             n_fft_ms: FFT size, in milliseconds
@@ -867,6 +882,8 @@ class MultiLogger:
                 for the spectrogram
             spec_sep: An optional separation amount between adjacent
                 spectrograms
+            keep_spec_resolution: If set, keep the resolution of the
+                spectrogram; otherwise, make human-viewable
         """
 
         namespace = self.resolve_namespace(namespace)
@@ -875,7 +892,7 @@ class MultiLogger:
         def raw_audio_future() -> tuple[Tensor, int]:
             value_concrete = value() if callable(value) else value
             assert isinstance(value_concrete, Tensor)
-            audio = standardize_audios(value_concrete, log_key=f"{namespace}/{key}")
+            audio = standardize_audios(value_concrete, log_key=f"{namespace}/{key}", max_audios=max_audios)
             audio = cast_fp32(audio)
             return audio, sample_rate
 
@@ -899,7 +916,11 @@ class MultiLogger:
                 hop_length = None if hop_length_ms is None else to_frames(hop_length_ms)
                 audio_spec = torch.stft(audio, n_fft, hop_length=hop_length, normalized=True, return_complex=True)
                 audio_spec = torch.log10(torch.abs(audio_spec) + 1e-6)
-                audio_spec = standardize_images(audio_spec, log_key=f"{namespace}/{key}", keep_resolution=True)
+                audio_spec = standardize_images(
+                    audio_spec,
+                    log_key=f"{namespace}/{key}",
+                    keep_resolution=keep_spec_resolution,
+                )
                 audio_spec = make_square_image_or_video(audio_spec, sep=spec_sep)
                 return audio_spec
 
