@@ -38,7 +38,7 @@ from ml.utils.device.auto import AutoDevice
 from ml.utils.device.base import BaseDevice
 from ml.utils.logging import configure_logging
 
-HubertSize = Literal["base", "large", "extra_large"]
+PretrainedHubertSize = Literal["base", "large", "extra_large"]
 
 
 @dataclass
@@ -645,7 +645,7 @@ EXCLUDE_KEYS = {"masked_spec_embed", ".weight", ".bias"}
 
 
 def _load_pretrained_hubert(
-    size: HubertSize,
+    size: PretrainedHubertSize,
     ckpt_url: str,
     sha256: str,
     config: HubertConfig,
@@ -672,7 +672,7 @@ def _load_pretrained_hubert(
     return model
 
 
-def pretrained_hubert(size: HubertSize) -> Hubert:
+def pretrained_hubert(size: PretrainedHubertSize) -> Hubert:
     match size:
         case "base":
             return _load_pretrained_hubert(
@@ -774,14 +774,14 @@ def pretrained_hubert(size: HubertSize) -> Hubert:
 
 def test_hubert_adhoc() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("size", type=str, choices=get_args(HubertSize))
+    parser.add_argument("size", type=str, choices=get_args(PretrainedHubertSize))
     parser.add_argument("-t", "--tsz", type=int, default=22400)
     args = parser.parse_args()
 
     configure_logging()
 
     # Loads the model and moves to the right device.
-    model = pretrained_hubert(size=cast(HubertSize, args.size))
+    model = pretrained_hubert(size=cast(PretrainedHubertSize, args.size))
     predictor = model.predictor()
 
     # Test the model on a random waveform.

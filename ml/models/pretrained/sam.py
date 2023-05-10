@@ -42,7 +42,8 @@ from ml.utils.device.auto import AutoDevice
 from ml.utils.device.base import BaseDevice
 from ml.utils.logging import configure_logging
 
-PretrainedModel = Literal["ViT-H", "ViT-L", "ViT-B"]
+PretrainedSamSize = Literal["ViT-H", "ViT-L", "ViT-B"]
+
 ImageFormat = Literal["RGB", "BGR"]
 
 DEFAULT_PIXEL_MEAN = (123.675, 116.28, 103.53)
@@ -58,7 +59,7 @@ class PretrainedModelConfig:
     encoder_global_attn_indices: tuple[int, int, int, int]
 
 
-PRETRAINED_MODELS: dict[PretrainedModel, PretrainedModelConfig] = {
+PRETRAINED_MODELS: dict[PretrainedSamSize, PretrainedModelConfig] = {
     "ViT-H": PretrainedModelConfig(
         url="https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth",
         encoder_embed_dim=1280,
@@ -1513,7 +1514,7 @@ class SamPredictor:
         self.input_w = None
 
 
-def get_pretrained_path(key: PretrainedModel) -> Path:
+def get_pretrained_path(key: PretrainedSamSize) -> Path:
     if key not in PRETRAINED_MODELS:
         raise KeyError(f"Invalid CLIP model key {key}; choices are {list(PRETRAINED_MODELS.keys())}")
     model_url = PRETRAINED_MODELS[key].url
@@ -1525,7 +1526,7 @@ def get_pretrained_path(key: PretrainedModel) -> Path:
     return filepath
 
 
-def pretrained_sam(key: PretrainedModel, *, skip_weights: bool = False) -> Sam:
+def pretrained_sam(key: PretrainedSamSize, *, skip_weights: bool = False) -> Sam:
     config = PRETRAINED_MODELS[key]
 
     prompt_embed_dim = 256
@@ -1580,7 +1581,7 @@ def pretrained_sam(key: PretrainedModel, *, skip_weights: bool = False) -> Sam:
 
 def test_pretrained_model() -> None:
     parser = argparse.ArgumentParser(description="Tests a pretrained SAM model")
-    parser.add_argument("key", type=str, choices=get_args(PretrainedModel))
+    parser.add_argument("key", type=str, choices=get_args(PretrainedSamSize))
     args = parser.parse_args()
 
     configure_logging()
@@ -1591,7 +1592,7 @@ def test_pretrained_model() -> None:
     if not url_path.exists():
         download_url(peach_url, "/tmp", filename="peach.jpg")
 
-    model = pretrained_sam(cast(PretrainedModel, args.key))
+    model = pretrained_sam(cast(PretrainedSamSize, args.key))
     predictor = model.predictor()
 
     peach_img = PIL.Image.open(url_path)

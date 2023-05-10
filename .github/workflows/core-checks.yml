@@ -32,8 +32,10 @@ jobs:
       - name: Cache requirements
         uses: actions/cache@v2
         with:
-          path: ${{ env.pythonLocation }}
-          key: ${{ env.pythonLocation }}-${{ hashFiles('setup.py', 'pyproject.toml', 'requirements.txt', 'requirements-dev.txt') }}
+          path: |
+            ${{ env.pythonLocation }}
+            .mypy_cache
+          key: ${{ env.pythonLocation }}-${{ hashFiles('setup.py', 'pyproject.toml', 'requirements.txt', 'requirements-dev.txt', 'ml/api.py') }}
 
       - name: Install package
         run: |

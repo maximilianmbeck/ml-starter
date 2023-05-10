@@ -61,7 +61,7 @@ logger = logging.getLogger(__name__)
 
 URL_PREFIX = "https://openaipublic.azureedge.net/clip/models"
 
-PretrainedModel = Literal[
+PretrainedClipSize = Literal[
     "RN50",
     "RN101",
     "RN50x4",
@@ -74,13 +74,13 @@ PretrainedModel = Literal[
 ]
 
 
-def cast_pretrained_model_key(s: str) -> PretrainedModel:
-    args = get_args(PretrainedModel)
+def cast_pretrained_model_key(s: str) -> PretrainedClipSize:
+    args = get_args(PretrainedClipSize)
     assert s in args, f"Invalid pretraiend model key: '{s}' Valid options are {args}"
-    return cast(PretrainedModel, s)
+    return cast(PretrainedClipSize, s)
 
 
-PRETRAINED_MODELS: dict[PretrainedModel, str] = {
+PRETRAINED_MODELS: dict[PretrainedClipSize, str] = {
     "RN50": f"{URL_PREFIX}/afeb0e10f9e5a86da6080e35cf09123aca3b358a0c3e3b6c78a7b63bc04b6762/RN50.pt",
     "RN101": f"{URL_PREFIX}/8fa8567bab74a42d41c5915025a8e4538c3bdbe8804a470a72f30b0d94fab599/RN101.pt",
     "RN50x4": f"{URL_PREFIX}/7e526bd135e493cef0776de27d5f42653e6b4c8bf9e0f653bb11773263205fdd/RN50x4.pt",
@@ -925,7 +925,7 @@ def convert_weights(model: nn.Module) -> None:
 
 @overload
 def pretrained_clip(
-    key: PretrainedModel | nn.Module,
+    key: PretrainedClipSize | nn.Module,
     mode: Literal["visual"],
     *,
     device: torch.device | None = None,
@@ -936,7 +936,7 @@ def pretrained_clip(
 
 @overload
 def pretrained_clip(
-    key: PretrainedModel | nn.Module,
+    key: PretrainedClipSize | nn.Module,
     mode: Literal["linguistic"],
     *,
     device: torch.device | None = None,
@@ -947,7 +947,7 @@ def pretrained_clip(
 
 @overload
 def pretrained_clip(
-    key: PretrainedModel | nn.Module,
+    key: PretrainedClipSize | nn.Module,
     mode: Literal["all"],
     *,
     device: torch.device | None = None,
@@ -957,7 +957,7 @@ def pretrained_clip(
 
 
 def pretrained_clip(
-    key: PretrainedModel | nn.Module,
+    key: PretrainedClipSize | nn.Module,
     mode: str,
     *,
     device: torch.device | None = None,
@@ -1053,7 +1053,7 @@ def pretrained_clip(
         return model
 
 
-def get_pretrained_path(key: PretrainedModel) -> Path:
+def get_pretrained_path(key: PretrainedClipSize) -> Path:
     if key not in PRETRAINED_MODELS:
         raise KeyError(f"Invalid CLIP model key {key}; choices are {list(PRETRAINED_MODELS.keys())}")
     model_url = PRETRAINED_MODELS[key]
@@ -1067,7 +1067,7 @@ def get_pretrained_path(key: PretrainedModel) -> Path:
 
 def test_pretrained_model() -> None:
     parser = argparse.ArgumentParser(description="Tests a pretraiend CLIP model")
-    parser.add_argument("key", type=str, choices=get_args(PretrainedModel))
+    parser.add_argument("key", type=str, choices=get_args(PretrainedClipSize))
     args = parser.parse_args()
 
     configure_logging()
@@ -1084,7 +1084,7 @@ def test_pretrained_model() -> None:
 
     # Loads the JIT'd model and the regular model.
     auto_device = AutoDevice.detect_device()
-    jit_model = cast(Clip, torch.jit.load(get_pretrained_path(cast(PretrainedModel, args.key)), map_location="cpu"))
+    jit_model = cast(Clip, torch.jit.load(get_pretrained_path(cast(PretrainedClipSize, args.key)), map_location="cpu"))
     model = pretrained_clip(jit_model, "all")
 
     # Moves to the correct device.
