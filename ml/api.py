@@ -89,10 +89,11 @@ __all__ = [
     "is_master",
     "LearnedPositionalEmbeddings",
     "load_model_and_task",
-    "LoRAConv1D",
-    "LoRAConv2D",
-    "LoRAEmbedding",
-    "LoRALinear",
+    "lora",
+    "LoraConv1d",
+    "LoraConv2d",
+    "LoraEmbedding",
+    "LoraLinear",
     "Loss",
     "meta_to_empty_func",
     "MultiIterDataset",
@@ -182,7 +183,7 @@ from ml.models.embeddings import (
     get_positional_embeddings,
 )
 from ml.models.init import InitializationType, cast_init_type, init_
-from ml.models.lora import LoRAConv1D, LoRAConv2D, LoRAEmbedding, LoRALinear
+from ml.models.lora import LoraConv1d, LoraConv2d, LoraEmbedding, LoraLinear, lora
 from ml.models.norms import (
     NormType,
     cast_norm_type,

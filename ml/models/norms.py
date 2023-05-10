@@ -1,17 +1,28 @@
 """Defines general-purpose helper functions for initializing norm layers.
 
-Some pointers:
+.. highlight:: python
+.. code-block:: python
 
-- For networks which need to run efficiently at inference time, batch norm
-  is usually a good idea, since it can be fused with the weights of the
-  convolutional neural network. Similarly, weight norm also achieves this
-  (see `nn.utils.weight_norm`).
+    from ml.models.norms import get_norm_linear, get_norm_1d, get_norm_2d, get_norm_3d, cast_norm_type
 
-This documentation should be updated with a better explanation of different
-types of normalization functions. My usual approach is to just throw everything
-at the wall and see what sticks.
+    linear = nn.Sequential(nn.Linear(32, 32), get_norm_linear("layer", dim=32))
+    conv_1d = nn.Sequential(nn.Conv1d(32, 32, 3), get_norm_1d("layer", dim=32, groups=4))
+    conv_2d = nn.Sequential(nn.Conv2d(32, 32, 3), get_norm_2d("layer", dim=32, groups=4))
+    conv_3d = nn.Sequential(nn.Conv3d(32, 32, 3), get_norm_3d("layer", dim=32, groups=4))
+
+    # This lets you parametrize the norm type as a string.
+    linear = nn.Sequential(nn.Linear(32, 32), get_norm_linear(cast_norm_type(my_norm), dim=32))
+
+Choices for the norm type are:
+
+- ``"no_norm"``: No normalization
+- ``"batch"`` or ``"batch_affine"``: Batch normalization
+- ``"instance"`` or ``"instance_affine"``: Instance normalization
+- ``"group"`` or ``"group_affine"``: Group normalization
+- ``"layer"`` or ``"layer_affine"``: Layer normalization
+
+Note that instance norm and group norm are not available for linear layers.
 """
-
 
 from typing import Literal, cast, get_args
 

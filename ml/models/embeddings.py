@@ -1,3 +1,41 @@
+"""Defines a general-purpose API for transformer embedding layers.
+
+.. highlight:: python
+.. code-block:: python
+
+    from ml.models.embeddings import get_positional_embeddings, cast_embedding_kind
+
+    embeddings = get_positional_embeddings(
+        max_tsz=1024,
+        embed_dim=128,
+        kind="sinusoidal",
+        learnable=False,
+    )
+
+    x = torch.arange(3, 5, 8)
+
+    # Time-based positional embeddings - the time tensor supplies the
+    # times for each element in the input.
+    times = torch.randint(0, 1024, (3, 5))
+    y1 = embeddings(x, times=times)
+
+    # Offset-based positional embeddings - the input is assumed to be in
+    # temporal order, and the offset is the offset of the first element.
+    y2 = embeddings(x, offset=1)
+
+    assert y1.shape == y2.shape == x.shape
+
+    # This lets you parametrize the embedding kind as a string.
+    embeddings = get_positional_embeddings(..., kind=cast_embedding_kind(my_kind))
+
+Choices for the embedding kind are:
+
+- ``"identity"``: No positional embeddings are added.
+- ``"learned"``: Positional embeddings are learned.
+- ``"sinusoidal"``: Sinusoidal embeddings.
+- ``"rotary"``: Rotary embeddings (popular for training transformers).
+"""
+
 from typing import Literal, cast, get_args, overload
 
 import torch

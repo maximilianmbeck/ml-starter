@@ -1,8 +1,6 @@
 # pylint: disable=too-many-lines
 """Defines a simple API for using OpenAI's pretrained CLIP model.
 
-Usage:
-
 .. highlight:: python
 .. code-block:: python
 

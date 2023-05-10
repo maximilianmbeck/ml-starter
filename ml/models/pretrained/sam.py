@@ -1,8 +1,6 @@
 # pylint: disable=too-many-lines
 """Defines a simple API for using Meta's pretrained Segment Anything model.
 
-Usage:
-
 .. highlight:: python
 .. code-block:: python
 

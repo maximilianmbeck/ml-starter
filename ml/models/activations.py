@@ -1,3 +1,44 @@
+"""Defines a general-purpose API for activation functions.
+
+.. highlight:: python
+.. code-block:: python
+
+    from ml.models.activations import get_activation, cast_activation_type
+
+    model = nn.Sequential(nn.Linear(4, 5), get_activation("relu"))
+
+    # This lets you parametrize the activation function as a string.
+    model = nn.Sequential(nn.Linear(4, 5), get_activation(cast_activation_type(my_activation)))
+
+Choices for the activation functions are:
+
+- ``"no_act"``
+- ``"relu"``
+- ``"relu6"``
+- ``"relu2"``
+- ``"clamp6"``
+- ``"leaky_relu"``
+- ``"elu"``
+- ``"celu"``
+- ``"selu"``
+- ``"gelu"``
+- ``"gelu_fast"``
+- ``"sigmoid"``
+- ``"log_sigmoid"``
+- ``"hard_sigomid"``
+- ``"tanh"``
+- ``"softsign"``
+- ``"softplus"``
+- ``"silu"``
+- ``"mish"``
+- ``"swish"``
+- ``"hard_swish"``
+- ``"soft_shrink"``
+- ``"hard_shrink"``
+- ``"tanh_shrink"``
+- ``"soft_sign"``
+"""
+
 import math
 from typing import Literal, cast, get_args
 

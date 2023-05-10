@@ -1,3 +1,28 @@
+"""Defines a general-purpose API for weight initialization.
+
+.. highlight:: python
+.. code-block:: python
+
+    from ml.models.init import init_, cast_init_type
+
+    linear = nn.Linear(32, 32)
+    init_(linear.weight, linear.bias, "orthogonal")
+
+    # This lets you parametrize the initialization type as a string.
+    init_(linear.weight, linear.bias, cast_init_type(my_init_type))
+
+Choices for the initialization type are:
+
+- ``"orthogonal"``: Orthogonal initialization, meaning that the weights are initialized to an orthogonal matrix.
+- ``"normal"``: Initializes weights with a normal distribution
+- ``"biased_normal"``: Initializes both weights and biases with a normal distribution
+- ``"uniform"``: Initializes weights with a uniform distribution
+- ``"kaiming_uniform"`` or ``"kaiming_normal"``: Initializes weights with a Kaiming normal or uniform distribution
+- ``"xavier_uniform"`` or ``"xavier_normal"``: Initializes weights with a Xavier normal or uniform distribution
+- ``"zeros"``: Initializes weights to all zeros
+- ``"ones"``: Initializes weights to all ones
+"""
+
 import math
 from typing import Literal, cast, get_args
 
@@ -13,6 +38,7 @@ InitializationType = Literal[
     "kaiming_normal",
     "xavier_uniform",
     "xavier_normal",
+    "zeros",
     "ones",
 ]
 
@@ -94,6 +120,8 @@ def init_(
             return nn.init.xavier_uniform_(weight), _uniform_bias(weight, bias)
         case "xavier_normal":
             return nn.init.xavier_normal_(weight), _uniform_bias(weight, bias)
+        case "zeros":
+            return nn.init.zeros_(weight), None if bias is None else nn.init.zeros_(bias)
         case "ones":
             return nn.init.ones_(weight), None if bias is None else nn.init.zeros_(bias)
         case _:
