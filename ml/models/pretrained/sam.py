@@ -1267,7 +1267,7 @@ class SamPredictor:
     def __init__(self, sam_model: Sam, *, device: BaseDevice | None = None) -> None:
         """Provides an API to do repeated mask predictions on an image.
 
-        This predictor tses SAM to calculate the image embedding for an image,
+        This predictor uses SAM to calculate the image embedding for an image,
         and then allow repeated, efficient mask prediction given prompts.
 
         Args:

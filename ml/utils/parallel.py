@@ -226,7 +226,7 @@ def initialize_parallelism(
     data_parallelism = world_size // (model_parallelism * pipeline_parallelism)
 
     logger.info(
-        "Initializing model paralleism %d, pipeline parallelism %d, and data parallelism %d",
+        "Initializing model parallelism %d, pipeline parallelism %d, and data parallelism %d",
         model_parallelism,
         pipeline_parallelism,
         data_parallelism,

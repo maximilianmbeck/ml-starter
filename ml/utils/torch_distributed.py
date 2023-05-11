@@ -1,3 +1,4 @@
+import functools
 import logging
 import os
 
@@ -21,6 +22,7 @@ def init_process_group_from_backend(backend: str | dist.Backend | None = None) -
     if torch.cuda.is_available():
         device_count = torch.cuda.device_count()
         logger.log(INFOALL, "Finished initializing %d / %d with %d device(s)", rank, world_size, device_count)
+        torch.cuda.set_device(rank % device_count)
         dist.all_reduce(torch.zeros(1).cuda())
     else:
         logger.log(INFOALL, "Finished initializing %d / %d", rank, world_size)
@@ -50,11 +52,18 @@ def init_dist(
     init_process_group_from_backend(backend)
 
 
+@functools.lru_cache
+def default_backend() -> str:
+    if torch.cuda.is_available():
+        return "nccl"
+    return "gloo"
+
+
 def get_distributed_backend() -> dist.Backend:
     # Used to change the distributed backend to something other than NCCL.
     # For example, if you're on a system with some strange NCCL errors, you
     # can try changing this environment variable to `gloo`.
-    return dist.Backend(os.environ.get("TORCH_DISTRIBUTED_BACKEND", "nccl"))
+    return dist.Backend(os.environ.get("TORCH_DISTRIBUTED_BACKEND", default_backend()))
 
 
 def set_distributed_backend(backend: str) -> None:
