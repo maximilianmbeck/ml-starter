@@ -56,7 +56,7 @@ from ml.utils.torch_distributed import init_dist
 
 logger = logging.getLogger(__name__)
 
-PretrainedLLaMaKey = Literal["7B", "13B", "30B", "65B"]
+PretrainedLlamaKey = Literal["7B", "13B", "30B", "65B"]
 
 
 @dataclass
@@ -249,7 +249,7 @@ class Tokenizer:
         return self.sp_model.decode(t)
 
 
-class LLaMa(nn.Module):
+class Llama(nn.Module):
     def __init__(self, params: ModelArgs, tokenizer: Tokenizer | None = None) -> None:
         super().__init__()
 
@@ -288,12 +288,12 @@ class LLaMa(nn.Module):
         output = self.output(h[:, -1, :])
         return output.float()
 
-    def predictor(self) -> "LLaMaPredictor":
-        return LLaMaPredictor(self)
+    def predictor(self) -> "LlamaPredictor":
+        return LlamaPredictor(self)
 
 
-class LLaMaPredictor:
-    def __init__(self, llama_model: LLaMa, *, device: BaseDevice | None = None) -> None:
+class LlamaPredictor:
+    def __init__(self, llama_model: Llama, *, device: BaseDevice | None = None) -> None:
         """Provides an API for sampling from the LLaMa model.
 
         Args:
@@ -373,7 +373,7 @@ def sample_top_p(probs: Tensor, p: float) -> Tensor:
     return next_token
 
 
-def pretrained_llama(key: PretrainedLLaMaKey) -> LLaMa:
+def pretrained_llama(key: PretrainedLlamaKey) -> Llama:
     rank, world_size = parallel_group_info().mp.rank, parallel_group_info().mp.world_size
 
     root_dir = get_model_dir() / "LLaMa"
@@ -405,10 +405,10 @@ def pretrained_llama(key: PretrainedLLaMaKey) -> LLaMa:
         model_args.vocab_size = tokenizer.n_words
 
     # Builds the transformer.
-    with Timer("building LLaMa model", spinner=True):
+    with Timer("building model", spinner=True):
         prev_default_dtype = torch.get_default_dtype()
         torch.set_default_dtype(torch.half)
-        model = LLaMa(model_args, tokenizer)
+        model = Llama(model_args, tokenizer)
         torch.set_default_dtype(prev_default_dtype)
 
     # Loads the checkpoint.
@@ -422,7 +422,7 @@ def worker(
     rank: int,
     world_size: int,
     port: int,
-    key: PretrainedLLaMaKey,
+    key: PretrainedLlamaKey,
     prompts: list[str],
     error_queue: "mp.Queue[str]",
     max_gen_len: int,
@@ -457,7 +457,7 @@ def worker(
 
 def test_pretrained_model() -> None:
     parser = argparse.ArgumentParser(description="Tests a pretrained SAM model")
-    parser.add_argument("key", type=str, choices=get_args(PretrainedLLaMaKey))
+    parser.add_argument("key", type=str, choices=get_args(PretrainedLlamaKey))
     parser.add_argument("prompts", type=str, nargs="+")
     parser.add_argument("-m", "--max-gen-len", type=int, default=256)
     parser.add_argument("-t", "--temperature", type=float, default=0.8)
