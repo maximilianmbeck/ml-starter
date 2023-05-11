@@ -45,7 +45,7 @@ from ml.utils.distributed import (
 )
 from ml.utils.logging import configure_logging
 from ml.utils.staging import stage_environment
-from ml.utils.torch_distributed import get_distributed_backend, init_process_group
+from ml.utils.torch_distributed import init_process_group_from_backend
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -267,7 +267,7 @@ def slurm_main() -> None:
     # Sets the initialization method and configures per-rank logging.
     set_init_method(f"tcp://{get_master_addr()}:{get_master_port()}")
     configure_logging(rank=rank, world_size=world_size)
-    init_process_group(backend=get_distributed_backend())
+    init_process_group_from_backend()
 
     objs = Objects.parse_raw_config(raw_config)  # type: ignore
 

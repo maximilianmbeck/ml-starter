@@ -47,6 +47,7 @@ __all__ = [
     "collate",
     "CollateMode",
     "colorize",
+    "ColumnParallelLinear",
     "conf_field",
     "configure_logging",
     "DDPLauncher",
@@ -83,6 +84,7 @@ __all__ = [
     "init_",
     "init_empty_weights",
     "InitializationType",
+    "initialize_parallelism",
     "instantiate_config",
     "is_debugging",
     "is_distributed",
@@ -102,6 +104,9 @@ __all__ = [
     "Output",
     "pad_all",
     "pad_sequence",
+    "parallel_group_info",
+    "ParallelEmbedding",
+    "parallelism_is_initialized",
     "Phase",
     "pretrained_clip",
     "pretrained_hubert",
@@ -123,7 +128,9 @@ __all__ = [
     "ReinforcementLearningTaskConfig",
     "ReinforcementLearningTrainer",
     "ReinforcementLearningTrainerConfig",
+    "reset_parallelism",
     "RotaryEmbeddings",
+    "RowParallelLinear",
     "set_random_seed",
     "set_slurm_master_addr",
     "set_slurm_rank_and_world_size",
@@ -189,6 +196,7 @@ from ml.models.embeddings import (
 from ml.models.init import InitializationType, cast_init_type, init_
 from ml.models.lora import LoraConv1d, LoraConv2d, LoraEmbedding, LoraLinear, lora
 from ml.models.norms import NormType, cast_norm_type, get_norm_1d, get_norm_2d, get_norm_3d, get_norm_linear
+from ml.models.parallel import ColumnParallelLinear, ParallelEmbedding, RowParallelLinear
 from ml.models.pretrained.clip import PretrainedClipSize, pretrained_clip
 from ml.models.pretrained.hubert import PretrainedHubertSize, pretrained_hubert
 from ml.models.pretrained.sam import PretrainedSamSize, pretrained_sam
@@ -245,6 +253,7 @@ from ml.utils.io import instantiate_config, load_model_and_task
 from ml.utils.large_models import init_empty_weights, meta_to_empty_func
 from ml.utils.logging import configure_logging
 from ml.utils.numpy import as_cpu_tensor, as_numpy_array
+from ml.utils.parallel import initialize_parallelism, parallel_group_info, parallelism_is_initialized, reset_parallelism
 from ml.utils.random import set_random_seed
 from ml.utils.staging import stage_environment
 from ml.utils.timer import Timer, timeout
