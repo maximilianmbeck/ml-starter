@@ -13,6 +13,7 @@ testpaths = ["tests"]
 markers = [
     "slow: Marks test as being slow",
     "has_gpu: Marks test as requiring a GPU to run",
+    "multi_gpu: Marks tests as requiring multiple GPUs to run",
     "has_mps: Marks test as requiring an MPS device to run",
 ]
 

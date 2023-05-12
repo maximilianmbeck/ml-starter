@@ -110,10 +110,10 @@ class SupervisedLearningTrainer(
         model = self._compile_model(model)
 
         with Timer("building task model", spinner=True):
-            task_model = self.get_task_model(task, model)
+            task_model = self._get_task_model(task, model)
             self.maybe_add_grad_clipping(task_model)
 
-        optim, lr_sched = self._get_optim_and_lr_sched(model, optimizer, lr_scheduler)
+        optim, lr_sched = self._get_optim_and_lr_sched(task_model, optimizer, lr_scheduler)
         state = self._get_state(task, model, optim, lr_sched)
 
         def on_exit(signum: int, _: FrameType | None) -> None:

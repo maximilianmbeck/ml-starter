@@ -24,7 +24,7 @@ class MonitorProcessMixin(
     BaseTrainer[MonitorProcessConfigT, ModelT, TaskT],
     Generic[MonitorProcessConfigT, ModelT, TaskT],
 ):
-    """Defines a trainer mixin for getting CPU statistics."""
+    """Defines a base trainer mixin for handling monitoring processes."""
 
     def __init__(self, config: MonitorProcessConfigT) -> None:
         super().__init__(config)

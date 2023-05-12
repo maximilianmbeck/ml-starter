@@ -29,13 +29,17 @@ jobs:
         with:
           python-version: "3.10"
 
-      - name: Cache requirements
-        uses: actions/cache@v2
+      - name: Restore cache
+        id: restore-cache
+        uses: actions/cache/restore@v3
         with:
           path: |
             ${{ env.pythonLocation }}
             .mypy_cache
-          key: ${{ env.pythonLocation }}-${{ github.head_ref || github.run_id }}
+          key: python-requirements-${{ env.pythonLocation }}-${{ github.event.pull_request.base.sha || github.sha }}
+          restore-keys: |
+            python-requirements-${{ env.pythonLocation }}
+            python-requirements-
 
       - name: Install package
         run: |
@@ -49,3 +53,11 @@ jobs:
       - name: Run unit tests
         run: |
           make test
+
+      - name: Save cache
+        uses: actions/cache/save@v3
+        with:
+          path: |
+            ${{ env.pythonLocation }}
+            .mypy_cache
+          key: ${{ steps.restore-cache.outputs.cache-primary-key }}

@@ -18,6 +18,11 @@ def has_gpu() -> bool:
 
 
 @functools.lru_cache()
+def has_multi_gpu() -> bool:
+    return has_gpu() and torch.cuda.device_count() > 1
+
+
+@functools.lru_cache()
 def has_mps() -> bool:
     return torch.backends.mps.is_available()
 
@@ -26,6 +31,8 @@ def pytest_runtest_setup(item: Function) -> None:
     for mark in item.iter_markers():
         if mark.name == "has_gpu" and not has_gpu():
             pytest.skip("Skipping because this test requires a GPU and none is available")
+        if mark.name == "multi_gpu" and not has_multi_gpu():
+            pytest.skip("Skipping because this test requires multiple GPUs but <= 1 are available")
         if mark.name == "has_mps" and not has_mps():
             pytest.skip("Skipping because this test requires an MPS device and none is available")
 

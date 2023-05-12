@@ -80,7 +80,7 @@ class ReinforcementLearningTrainer(
 
         self._init_environment()
         model = self._compile_model(model)
-        task_model = self.get_task_model(task, model)
+        task_model = self._get_task_model(task, model)
         optim, lr_sched = self._get_optim_and_lr_sched(model, optimizer, lr_scheduler)
         state = self._get_state(task, model, optim, lr_sched)
 

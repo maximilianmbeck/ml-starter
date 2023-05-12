@@ -1,4 +1,5 @@
 import logging
+from typing import cast
 
 import pytest
 import torch
@@ -6,9 +7,9 @@ import torch.nn.functional as F
 from torch import Tensor, nn
 
 from ml.models.parallel import ColumnParallelLinear, RowParallelLinear
+from ml.trainers.mixins.data_parallel import ModelConfig, ddp
 from ml.utils.logging import configure_logging
 from ml.utils.networking import get_unused_port
-from ml.utils.parallel import parallel_group_info
 from ml.utils.torch_distributed import MultiprocessConfig, launch_subprocesses
 
 logger = logging.getLogger(__name__)
@@ -28,21 +29,26 @@ class DummyModel(nn.Module):
         return y1, y2
 
 
-def func() -> None:
+def setup() -> None:
     # Hides some nuisance logs.
     logging.getLogger("torch.distributed").setLevel(logging.ERROR)
+    logging.getLogger("torch.nn.parallel.distributed").setLevel(logging.ERROR)
     logging.getLogger("ml.utils.torch_distributed").setLevel(logging.ERROR)
 
     # Setting the seed across all processes to make sure that the weights
     # initialize to the same values (needed to make the test pass).
     torch.manual_seed(1337)
 
-    # Builds a data-parallel model.
-    model = nn.parallel.DistributedDataParallel(
-        DummyModel(),
-        process_group=parallel_group_info().dp.group,
-    )
+
+def func() -> None:
+    config = ModelConfig(use_fsdp=False)
+    model = ddp(DummyModel(), config)
     model.eval()
+    base_model = cast(DummyModel, model.module)
+
+    def get_grad(g: Tensor | None) -> Tensor:
+        assert g is not None
+        return g.clone()
 
     x = torch.randn(4, 12)
 
@@ -50,19 +56,24 @@ def func() -> None:
     output_parallel, output_full = model(x)
     assert torch.allclose(output_parallel, output_full, atol=1e-3)
 
-    # Tests that the gradients are the same for both models.
+    # Backpropagates the parallel outputs.
     output_parallel, _ = model(x)
     output_parallel.sum().backward()
-    output_full.sum().backward()
-    l1_grad_parallel = model.module.layer_1.weight.grad.clone()
-    l2_grad_parallel = model.module.layer_2.weight.grad.clone()
+    l1_grad_parallel = get_grad(base_model.layer_1.weight.grad)
+    l2_grad_parallel = get_grad(base_model.layer_2.weight.grad)
     model.zero_grad()
+
+    # Backpropagates the full outputs.
     _, output_full = model(x)
     output_full.sum().backward()
-    l1_grad_full = model.module.layer_1.weight.grad.clone()
-    l2_grad_full = model.module.layer_2.weight.grad.clone()
-    assert torch.allclose(l1_grad_parallel, l1_grad_full * 2, atol=1e-3)
-    assert torch.allclose(l2_grad_parallel, l2_grad_full * 2, atol=1e-3)
+    l1_grad_full = get_grad(base_model.layer_1.weight.grad)
+    l2_grad_full = get_grad(base_model.layer_2.weight.grad)
+
+    # Checks that the gradients for the parallel outputs and the full outputs
+    # match - this is effectively checking that the implementations of the
+    # model parallel modules are correct.
+    assert torch.allclose(l1_grad_parallel, l1_grad_full, atol=1e-3)
+    assert torch.allclose(l2_grad_parallel, l2_grad_full, atol=1e-3)
 
 
 @pytest.mark.slow
@@ -70,8 +81,8 @@ def test_parallel_model() -> None:
     """Tests model parallelism primitives.
 
     This function launches 4 processes, partitioned into 2 model parallel and
-    2 data parallel groups. We have a dummy model which performs each type of
-    parallelism to ensure that the primitives are all working as intended.
+    2 data parallel groups. We check that the partitioned model outputs and
+    gradients match the full model.
     """
 
     configure_logging()
@@ -88,7 +99,7 @@ def test_parallel_model() -> None:
         pipeline_parallelism=1,
     )
 
-    launch_subprocesses(func, config)
+    launch_subprocesses(func, config, setup=setup)
 
 
 if __name__ == "__main__":
