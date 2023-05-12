@@ -35,7 +35,7 @@ jobs:
           path: |
             ${{ env.pythonLocation }}
             .mypy_cache
-          key: ${{ env.pythonLocation }}-${{ hashFiles('setup.py', 'pyproject.toml', 'requirements.txt', 'requirements-dev.txt', 'ml/api.py') }}
+          key: ${{ env.pythonLocation }}-${{ github.head_ref || github.run_id }}
 
       - name: Install package
         run: |

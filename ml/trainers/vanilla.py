@@ -12,6 +12,10 @@ from typing import Callable, Generic, Iterator, TypeVar, cast
 import torch
 from omegaconf import II
 from torch import Tensor, nn
+from torch.distributed.fsdp import (
+    CPUOffload,
+    FullyShardedDataParallel,
+)
 from torch.optim import Optimizer
 
 from ml.core.common_types import Batch, Loss
@@ -102,6 +106,11 @@ class VanillaTrainer(
         task_model: nn.Module = TaskModel(task=task, model=model)
         if get_world_size() > 1:
             task_model = nn.parallel.DistributedDataParallel(task_model)
+        if False:
+            task_model = FullyShardedDataParallel(
+                task_model,
+                cpu_offload=CPUOffload(offload_params=True),
+            )
         return task_model
 
     def train_step(

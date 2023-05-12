@@ -50,8 +50,6 @@ __all__ = [
     "ColumnParallelLinear",
     "conf_field",
     "configure_logging",
-    "DDPLauncher",
-    "DDPLauncherConfig",
     "DictIndex",
     "Environment",
     "format_timedelta",
@@ -62,6 +60,7 @@ __all__ = [
     "get_data_dir",
     "get_dataset_split_for_phase",
     "get_dataset_splits",
+    "get_distributed_backend",
     "get_eval_run_dir",
     "get_exp_name",
     "get_image_mask",
@@ -82,13 +81,16 @@ __all__ = [
     "get_world_size_optional",
     "get_world_size",
     "init_",
+    "init_and_run",
+    "init_dist",
     "init_empty_weights",
+    "init_parallelism",
     "InitializationType",
-    "initialize_parallelism",
     "instantiate_config",
     "is_debugging",
     "is_distributed",
     "is_master",
+    "launch_subprocesses",
     "LearnedPositionalEmbeddings",
     "load_model_and_task",
     "lora",
@@ -99,6 +101,9 @@ __all__ = [
     "Loss",
     "meta_to_empty_func",
     "MultiIterDataset",
+    "MultiprocessConfig",
+    "MultiProcessLauncher",
+    "MultiProcessLauncherConfig",
     "NormType",
     "open_atomic",
     "Output",
@@ -133,6 +138,7 @@ __all__ = [
     "reset_parallelism",
     "RotaryEmbeddings",
     "RowParallelLinear",
+    "set_distributed_backend",
     "set_random_seed",
     "set_slurm_master_addr",
     "set_slurm_rank_and_world_size",
@@ -183,7 +189,7 @@ from ml.core.registry import (
     register_trainer,
 )
 from ml.core.state import Phase, State
-from ml.launchers.ddp import DDPLauncher, DDPLauncherConfig
+from ml.launchers.mp import MultiProcessLauncher, MultiProcessLauncherConfig
 from ml.launchers.slurm import SlurmLauncher, SlurmLauncherConfig, set_slurm_master_addr, set_slurm_rank_and_world_size
 from ml.lr_schedulers.base import BaseLRScheduler, BaseLRSchedulerConfig
 from ml.models.activations import ActivationType, Clamp, cast_activation_type, get_activation
@@ -256,8 +262,16 @@ from ml.utils.io import instantiate_config, load_model_and_task
 from ml.utils.large_models import init_empty_weights, meta_to_empty_func
 from ml.utils.logging import configure_logging
 from ml.utils.numpy import as_cpu_tensor, as_numpy_array
-from ml.utils.parallel import initialize_parallelism, parallel_group_info, parallelism_is_initialized, reset_parallelism
+from ml.utils.parallel import init_parallelism, parallel_group_info, parallelism_is_initialized, reset_parallelism
 from ml.utils.random import set_random_seed
 from ml.utils.staging import stage_environment
 from ml.utils.timer import Timer, timeout
+from ml.utils.torch_distributed import (
+    MultiprocessConfig,
+    get_distributed_backend,
+    init_and_run,
+    init_dist,
+    launch_subprocesses,
+    set_distributed_backend,
+)
 from ml.utils.video import read_video, write_video

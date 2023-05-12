@@ -169,7 +169,7 @@ class ParallismException(Exception):
     pass
 
 
-def initialize_parallelism(
+def init_parallelism(
     model_parallelism: int = 1,
     pipeline_parallelism: int = 1,
     *,
@@ -242,9 +242,9 @@ def initialize_parallelism(
     # same model parallel group than data parallel group. This is because for
     # typical environments we have data parallel groups that are on separate
     # devices.
-    dp_rank = rank % data_parallelism
-    pp_rank = (rank // data_parallelism) % pipeline_parallelism
-    mp_rank = rank // (data_parallelism * pipeline_parallelism)
+    dp_rank = rank % (model_parallelism * pipeline_parallelism)
+    pp_rank = (rank // pipeline_parallelism) % model_parallelism
+    mp_rank = rank // (model_parallelism * pipeline_parallelism)
 
     def get_groups(groups: list[Tensor], backend: str | Backend | None) -> list[tuple[ProcessGroup, list[int]]]:
         return [(torch.distributed.new_group(group.tolist(), backend=backend), group.tolist()) for group in groups]

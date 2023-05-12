@@ -30,17 +30,15 @@ The choices for the model key are:
 """
 
 import argparse
+import functools
 import json
 import logging
 import math
-import sys
-import traceback
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, get_args
 
 import torch
-import torch.multiprocessing as mp
 import torch.nn.functional as F
 from torch import Tensor, nn
 
@@ -49,10 +47,9 @@ from ml.models.parallel import ColumnParallelLinear, ParallelEmbedding, RowParal
 from ml.utils.device.auto import AutoDevice
 from ml.utils.device.base import BaseDevice
 from ml.utils.logging import configure_logging
-from ml.utils.networking import get_unused_port
-from ml.utils.parallel import initialize_parallelism, parallel_group_info
+from ml.utils.parallel import parallel_group_info
 from ml.utils.timer import Timer
-from ml.utils.torch_distributed import init_dist
+from ml.utils.torch_distributed import MultiprocessConfig, launch_subprocesses
 
 logger = logging.getLogger(__name__)
 
@@ -419,40 +416,22 @@ def pretrained_llama(key: PretrainedLlamaKey) -> Llama:
 
 
 def worker(
-    rank: int,
-    world_size: int,
-    port: int,
     key: PretrainedLlamaKey,
     prompts: list[str],
-    error_queue: "mp.Queue[str]",
     max_gen_len: int,
     temperature: float,
     top_p: float,
 ) -> None:
-    configure_logging(rank=rank, world_size=world_size)
+    # Setting the seed across all processes to make sure that the weights
+    # initialize to the same values (needed to make the test pass).
+    torch.manual_seed(1337)
 
-    try:
-        # Initializes the distributed process group.
-        init_dist(rank, world_size, "127.0.0.1", port, f"tcp://127.0.0.1:{port}", "gloo")
+    model = pretrained_llama(key)
+    predictor = model.predictor()
 
-        # Initializes model parallelism.
-        initialize_parallelism(model_parallelism=world_size)
+    generated = predictor.generate(prompts, max_gen_len, temperature=temperature, top_p=top_p)
 
-        # Setting the seed across all processes to make sure that the weights
-        # initialize to the same values (needed to make the test pass).
-        torch.manual_seed(1337)
-
-        model = pretrained_llama(key)
-        predictor = model.predictor()
-
-        generated = predictor.generate(prompts, max_gen_len, temperature=temperature, top_p=top_p)
-        if rank == 0:
-            logger.info("Generated:\n%s", "\n ↪ ".join(generated))
-
-    except Exception:
-        logger.exception("Exception in process %d", rank)
-        error_queue.put(traceback.format_exc())
-        sys.exit(1)
+    logger.info("Generated:\n%s", "\n ↪ ".join(generated))
 
 
 def test_pretrained_model() -> None:
@@ -472,39 +451,10 @@ def test_pretrained_model() -> None:
         raise ValueError(f"LLaMa model {args.key} not found at {ckpt_dir}; download it first")
     world_size = len(list(Path(ckpt_dir).glob("*.pth")))
 
-    ctx = mp.get_context("forkserver")
-    error_queues = []
-    procs = []
-    port = get_unused_port()
-
-    logger.info("Starting %d processes", world_size)
-
-    for rank in range(world_size):
-        error_queue = ctx.SimpleQueue()
-        worker_args = (
-            rank,
-            world_size,
-            port,
-            args.key,
-            args.prompts,
-            error_queue,
-            args.max_gen_len,
-            args.temperature,
-            args.top_p,
-        )
-        proc = ctx.Process(target=worker, args=worker_args, daemon=False)
-        proc.start()
-        error_queues.append(error_queue)
-        procs.append(proc)
-
-    pctx = mp.ProcessContext(procs, error_queues)
-    while not pctx.join():
-        pass
-    for error_queue in error_queues:
-        error = error_queue.get()
-        if error:
-            logger.error("Error in subprocess:\n%s", error)
-            sys.exit(1)
+    launch_subprocesses(
+        functools.partial(worker, args.key, args.prompts, args.max_gen_len, args.temperature, args.top_p),
+        MultiprocessConfig(world_size=world_size),
+    )
 
 
 if __name__ == "__main__":

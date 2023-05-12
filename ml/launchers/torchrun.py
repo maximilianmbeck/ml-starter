@@ -49,7 +49,7 @@ if __name__ == "__main__":
 @dataclass
 class TorchRunLauncherConfig(BaseLauncherConfig):
     nproc_per_node: int = conf_field(MISSING, help="The number of processes per node")
-    master_addr: str = conf_field("localhost", help="The address of the master")
+    master_addr: str = conf_field("127.0.0.1", help="The address of the master")
     master_port: int = conf_field(MISSING, help="The port of the master")
     backend: str = conf_field("nccl", help="The backend to use for distributed training")
     start_method: str = conf_field("spawn", help="The method to use to start processes")
