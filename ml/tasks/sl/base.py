@@ -40,5 +40,4 @@ class SupervisedLearningTask(
         Raises:
             NotImplementedError: If this method is not overridden
         """
-
         raise NotImplementedError("`get_dataset` should be implemented by the task")

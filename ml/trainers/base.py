@@ -83,7 +83,6 @@ def get_ckpt_path(exp_dir: Path, state: State | None = None) -> Path:
     Returns:
         The path to the PyTorch checkpoint to save or load
     """
-
     if state is None:
         return exp_dir / "checkpoints" / "ckpt.pt"
     return exp_dir / "checkpoints" / f"ckpt.{state.num_steps}.pt"
@@ -103,7 +102,6 @@ def get_run_id(base_run_dir: Path, exp_name: str) -> int:
     Returns:
         A run ID for an experiment directory without a lockfile
     """
-
     # If the run ID isn't specified, look at all run IDs until there is one
     # which either doesn't exist or doesn't have a checkpoint directory.
     run_id = 0
@@ -330,7 +328,6 @@ class BaseTrainer(BaseObject[TrainerConfigT], Generic[TrainerConfigT, ModelT, Ta
         Raises:
             UnpicklingError: If there is some issue unpickling the checkpoint.
         """
-
         with Timer("loading checkpoint", spinner=True):
             if isinstance(ckpt, (str, Path)):
                 try:
@@ -417,7 +414,6 @@ class BaseTrainer(BaseObject[TrainerConfigT], Generic[TrainerConfigT, ModelT, Ta
         Raises:
             NotImplementedError: If the subclass does not implement this method
         """
-
         raise NotImplementedError
 
     def write_logs(self, task: TaskT, model: ModelT, state: State) -> None:

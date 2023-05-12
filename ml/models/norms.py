@@ -188,7 +188,6 @@ def get_norm_1d(
     Raises:
         NotImplementedError: If `norm` is not a valid 1D norm type
     """
-
     match norm:
         case "no_norm":
             return nn.Identity()
@@ -234,7 +233,6 @@ def get_norm_2d(
     Raises:
         NotImplementedError: If `norm` is not a valid 2D norm type
     """
-
     match norm:
         case "no_norm":
             return nn.Identity()
@@ -280,7 +278,6 @@ def get_norm_3d(
     Raises:
         NotImplementedError: If `norm` is not a valid 3D norm type
     """
-
     match norm:
         case "no_norm":
             return nn.Identity()
@@ -324,7 +321,6 @@ def get_norm_linear(
     Raises:
         NotImplementedError: If `norm` is not a valid linear norm type
     """
-
     match norm:
         case "no_norm":
             return nn.Identity()

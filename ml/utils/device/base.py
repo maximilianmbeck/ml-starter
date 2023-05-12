@@ -28,7 +28,6 @@ def recursive_apply(item: Any, func: Callable[[Tensor], Tensor]) -> Any:
     Returns:
         The same item, with the function applied
     """
-
     if isinstance(item, (str, int, float)):
         return item
     if isinstance(item, np.ndarray):
@@ -101,7 +100,6 @@ class Prefetcher(Iterable[Batch]):
         Returns:
             The item, split into the requested number of chunks
         """
-
         if isinstance(item, (str, int, float)):
             return [item] * chunks
         if isinstance(item, np.ndarray):

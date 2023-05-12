@@ -15,7 +15,6 @@ def stage_main(config: DictConfig) -> None:
     Args:
         config: The configuration object.
     """
-
     # Stages the currently-imported files.
     out_dir = stage_environment(project_dirs.paths[1:], get_stage_dir())
     logger.info("Staged environment to %s", out_dir)

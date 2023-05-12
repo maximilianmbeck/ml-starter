@@ -239,7 +239,6 @@ def get_error_handling_dataset(dataset: Dataset[BatchT], config: ErrorHandlingCo
     Raises:
         NotImplementedError: If the dataset type is not supported
     """
-
     if isinstance(dataset, IterableDataset):
         return ErrorHandlingIterableDataset(dataset, config)
     elif isinstance(dataset, Dataset):

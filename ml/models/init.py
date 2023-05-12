@@ -87,7 +87,6 @@ def init_(
     Raises:
         NotImplementedError: If the initialization mode isn't implemented
     """
-
     # Don't do anything for meta tensors.
     if weight.is_meta:
         return weight, bias

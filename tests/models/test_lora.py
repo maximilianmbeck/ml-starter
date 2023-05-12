@@ -17,7 +17,6 @@ def test_lora_modules(mod_type: Type[nn.Module]) -> None:
     Raises:
         NotImplementedError: If the model type is not supported.
     """
-
     model: nn.Module
     lora_model: nn.Module
     in_tensors: tuple[Tensor, ...]

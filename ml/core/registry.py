@@ -174,7 +174,6 @@ class register_base(ABC, Generic[Entry, Config]):  # pylint: disable=invalid-nam
         Args:
             name: The name of the registry item to get
         """
-
         lower_name = name.lower()
 
         # Check in the existing registry locations.
@@ -594,7 +593,6 @@ class Objects:
         Args:
             config: The config to update
         """
-
         # Pre-builds the config using the structured configs.
         register_model.update_config(config)
         register_task.update_config(config)
@@ -611,7 +609,6 @@ class Objects:
         Args:
             config: The config to resolve
         """
-
         # Resolves the final config once all structured configs have been merged.
         OmegaConf.resolve(config)
 
@@ -634,7 +631,6 @@ class Objects:
         Returns:
             The parsed Objects dataclass
         """
-
         model = register_model.build_entry(config)
         task = register_task.build_entry(config)
         trainer = register_trainer.build_entry(config)

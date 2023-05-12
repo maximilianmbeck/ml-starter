@@ -9,7 +9,6 @@ from ml.trainers.mixins.cpu_stats import CPUStatsMonitor
 @pytest.mark.slow
 def test_cpu_stats_monitor() -> None:
     """Starts a monitor, waits until it reads something, then kills it."""
-
     manager = mp.Manager()
     monitor = CPUStatsMonitor(0.01, manager)
     for _ in range(3):

@@ -7,5 +7,4 @@ def resolve_main(config: DictConfig) -> None:
     Args:
         config: The configuration object.
     """
-
     print(OmegaConf.to_yaml(config))

@@ -15,7 +15,9 @@ import random
 import time
 
 _RANK: int | None = None
+_LOCAL_RANK: int | None = None
 _WORLD_SIZE: int | None = None
+_LOCAL_WORLD_SIZE: int | None = None
 _MASTER_ADDR: str | None = None
 _MASTER_PORT: int | None = None
 _INIT_METHOD: str | None = None
@@ -32,11 +34,29 @@ def set_rank(rank: int) -> None:
 
 
 def get_rank_optional() -> int | None:
-    return None if _RANK is None else int(_RANK)
+    return _RANK
 
 
 def get_rank() -> int:
     return 0 if _RANK is None else _RANK
+
+
+def set_local_rank(rank: int) -> None:
+    global _LOCAL_RANK
+
+    if rank != _LOCAL_RANK:
+        _LOCAL_RANK = rank
+        os.environ["LOCAL_RANK"] = str(rank)
+    else:
+        raise ValueError(f"Local rank {rank} is already set")
+
+
+def get_local_rank_optional() -> int | None:
+    return _LOCAL_RANK
+
+
+def get_local_rank() -> int:
+    return 0 if _LOCAL_RANK is None else _LOCAL_RANK
 
 
 def set_world_size(world_size: int) -> None:
@@ -50,11 +70,29 @@ def set_world_size(world_size: int) -> None:
 
 
 def get_world_size_optional() -> int | None:
-    return None if _WORLD_SIZE is None else int(_WORLD_SIZE)
+    return _WORLD_SIZE
 
 
 def get_world_size() -> int:
     return 1 if _WORLD_SIZE is None else _WORLD_SIZE
+
+
+def set_local_world_size(local_world_size: int) -> None:
+    global _LOCAL_WORLD_SIZE
+
+    if local_world_size != _LOCAL_WORLD_SIZE:
+        _LOCAL_WORLD_SIZE = local_world_size
+        os.environ["LOCAL_WORLD_SIZE"] = str(local_world_size)
+    else:
+        raise ValueError(f"World size {local_world_size} is already set")
+
+
+def get_local_world_size_optional() -> int | None:
+    return _LOCAL_WORLD_SIZE
+
+
+def get_local_world_size() -> int:
+    return 1 if _LOCAL_WORLD_SIZE is None else _LOCAL_WORLD_SIZE
 
 
 def set_master_addr(master_addr: str) -> None:
@@ -114,13 +152,17 @@ def get_random_port() -> int:
 
 def set_dist(
     rank: int,
+    local_rank: int,
     world_size: int,
+    local_world_size: int,
     master_addr: str,
     master_port: int,
     init_method: str,
 ) -> None:
     set_rank(rank)
+    set_local_rank(local_rank)
     set_world_size(world_size)
+    set_local_world_size(local_world_size)
     set_master_addr(master_addr)
     set_master_port(master_port)
     set_init_method(init_method)

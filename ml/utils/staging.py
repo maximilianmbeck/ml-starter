@@ -34,7 +34,6 @@ def stage_environment(
     Raises:
         ValueError: If no project root is found.
     """
-
     if isinstance(project_roots, (str, Path)):
         project_roots = [Path(project_roots)]
 

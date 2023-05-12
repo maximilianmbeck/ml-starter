@@ -40,7 +40,6 @@ def pad_sequence(
     Raises:
         ValueError: If the tensor dimensions are invalid
     """
-
     if not tensors:
         return tensors
 
@@ -90,7 +89,6 @@ def pad_all(
     Returns:
         The padded tensors
     """
-
     if not tensors:
         return tensors
 
@@ -135,7 +133,6 @@ def collate(
     Raises:
         NotImplementedError: If the mode is invalid
     """
-
     if len(items) == 0:
         return None
     item = items[0]

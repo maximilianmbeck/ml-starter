@@ -9,7 +9,6 @@ def launch_main(config: DictConfig) -> None:
     Args:
         config: The configuration object.
     """
-
     launcher = register_launcher.build_entry(config)
     assert launcher is not None, "Launcher not found in config"
     launcher.launch()

@@ -23,7 +23,6 @@ class VideoFileDataset(IterableDataset[Tensor]):
             reader: The video reader to use
             transform: An optional transform to apply to each frame
         """
-
         super().__init__()
 
         self.file_path = str(file_path)

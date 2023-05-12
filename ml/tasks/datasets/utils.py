@@ -18,7 +18,6 @@ def test_dataset(ds: Dataset | IterableDataset | DataLoader, max_samples: int = 
         ds: The dataset to iterate through
         max_samples: Maximum number of samples to loop through
     """
-
     configure_logging(use_tqdm=True)
     start_time = time.time()
 

@@ -89,7 +89,6 @@ class SyncEnvironmentWorker(BaseEnvironmentWorker[RLState, RLAction], Generic[RL
             env: The environment to wrap.
             seed: The random seed to use.
         """
-
         super().__init__()
 
         self.env = env
@@ -155,7 +154,6 @@ class AsyncEnvironmentWorker(BaseEnvironmentWorker[RLState, RLAction], Generic[R
         Raises:
             ValueError: If the mode is invalid.
         """
-
         super().__init__()
 
         self.cleanup_time = cleanup_time

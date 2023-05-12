@@ -35,7 +35,6 @@ class StreamingDataset(IterableDataset[tuple[int, Batch]], Generic[Batch]):
         Raises:
             ValueError: If no datasets are provided
         """
-
         super().__init__()
 
         if len(datasets) == 0:

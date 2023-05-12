@@ -10,7 +10,6 @@ from ml.utils.argparse import add_args, from_args
 
 def main() -> None:
     """Plots a learning rate schedule."""
-
     # Gets the plotting-specific arguments.
     parser = argparse.ArgumentParser(description="Plots a learning rate schedule")
     parser.add_argument("lr_scheduler", help="Which scheduler to plot")

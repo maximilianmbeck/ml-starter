@@ -102,7 +102,6 @@ class SupervisedLearningTrainer(
         Raises:
             ValueError: If the task is not a supervised learning task
         """
-
         if not isinstance(task, SupervisedLearningTask):
             raise ValueError(f"Expected task to be a SupervisedLearningTask, got {type(task)}")
 

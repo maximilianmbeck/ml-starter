@@ -90,7 +90,9 @@ class StdoutLogger(BaseLogger[StdoutLoggerConfig]):
                     sub_sections[kk][rest] = section[k]
                     section.pop(k)
 
-            get_line = lambda kv: f'"{kv[0]}": {as_str(kv[1](), self.config.precision)}'
+            def get_line(kv: tuple[str, Any]) -> str:
+                return f'"{kv[0]}": {as_str(kv[1](), self.config.precision)}'
+
             inner_str = ", ".join(
                 itertools.chain(
                     map(get_line, sorted(section.items())),

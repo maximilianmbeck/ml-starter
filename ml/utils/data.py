@@ -24,7 +24,6 @@ def get_worker_info() -> WorkerInfo:
     Returns:
         The typed worker info object
     """
-
     if (worker_info := _get_worker_info_base()) is None:
         return WorkerInfo(
             worker_id=0,
@@ -61,7 +60,6 @@ def get_dataset_splits(
     Raises:
         ValueError: If the split sizes would be invalid.
     """
-
     num_items = len(items)
 
     # Converts a fraction to an integer number of items.
@@ -108,7 +106,6 @@ def get_dataset_split_for_phase(
     Raises:
         ValueError: If the phase is not valid.
     """
-
     train_items, valid_items, test_items = get_dataset_splits(items, valid, test)
 
     match phase:
@@ -134,7 +131,6 @@ def check_md5(file_path: str | Path, hash_str: str, chunk_size: int = 2**16, use
     Returns:
         True if the MD5 matches, False otherwise.
     """
-
     md5 = hashlib.md5()
 
     with open(file_path, "rb") as f:
@@ -156,7 +152,6 @@ def check_sha256(file_path: str | Path, hash_str: str, chunk_size: int = 2**16, 
     Returns:
         True if the SHA256 matches, False otherwise.
     """
-
     sha256 = hashlib.sha256()
 
     with open(file_path, "rb") as f:

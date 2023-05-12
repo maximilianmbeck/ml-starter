@@ -25,7 +25,7 @@ class GPUDevice(BaseDevice):
 
     @classmethod
     def get_device(cls) -> torch.device:
-        return torch.device("cuda", 0)
+        return torch.device("cuda")
 
     @classmethod
     def get_floating_point_type(cls) -> torch.dtype:

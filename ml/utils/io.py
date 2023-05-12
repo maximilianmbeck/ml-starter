@@ -27,7 +27,6 @@ def instantiate_config(config: str | Path | DictConfig | dict) -> Objects:
     Returns:
         The instantiated objects.
     """
-
     if isinstance(config, (str, Path)):
         config = cast(DictConfig, OmegaConf.load(config))
     elif isinstance(config, dict):
@@ -96,7 +95,6 @@ def load_model_and_task(
         RuntimeError: If the checkpoint is missing and `missing_ckpt_okay` is
             False.
     """
-
     with Timer("loading checkpoint"):
         ckpt: str | Path | dict | None = None
 

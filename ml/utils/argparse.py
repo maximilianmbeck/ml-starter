@@ -23,7 +23,6 @@ def get_type_from_string(type_name: str) -> Type:
     Raises:
         ValueError: If the type name is not supported.
     """
-
     if type_name == "str":
         return str
     if type_name == "float":
@@ -43,7 +42,6 @@ def add_args(parser: argparse.ArgumentParser, dc: Type[Config]) -> None:
     Raises:
         NotImplementedError: If the dataclass has a field with an unsupported type.
     """
-
     for field in fields(dc):
         args: list[str] = []
         if field.metadata.get("short") is not None:
@@ -95,7 +93,6 @@ def from_args(args: argparse.Namespace, dc: Type[Config]) -> Config:
     Returns:
         The dataclass created from the argument parser namespace.
     """
-
     values: dict[str, Any] = {}
     for field in fields(dc):
         values[field.name] = getattr(args, field.name)

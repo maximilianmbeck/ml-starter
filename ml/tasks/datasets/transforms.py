@@ -96,7 +96,6 @@ def make_size(img: Image, ref_size: tuple[int, int]) -> Image:
     Returns:
         The resized image
     """
-
     img_c, (img_w, img_h), (ref_w, ref_h) = V.get_image_num_channels(img), V.get_image_size(img), ref_size
     if img_h / img_w < ref_h / ref_w:  # Pad width
         new_h, new_w = (img_h * ref_w) // img_w, ref_w
@@ -120,7 +119,6 @@ def make_same_size(img: Image, ref_img: Image) -> Image:
         The input image resized to the same size as the reference image,
             zero-padding dimensions which are too small
     """
-
     ref_w, ref_h = V.get_image_size(ref_img)
     return make_size(img, (ref_w, ref_h))
 
@@ -140,7 +138,6 @@ class SquareResizeCrop(nn.Module):
             size: The square height and width to resize to
             interpolation: The interpolation type to use when resizing
         """
-
         super().__init__()
 
         self.size = int(size)
@@ -160,7 +157,6 @@ class UpperLeftCrop(nn.Module):
             height: The max height of the cropped image
             width: The max width of the cropped image
         """
-
         super().__init__()
 
         self.height, self.width = height, width
@@ -181,7 +177,6 @@ class RescaleImage(nn.Module):
             do_checks: If set, check the input tensor ranges (can disable for
                 more efficient image loading)
         """
-
         super().__init__()
 
         self.min_val, self.scale, self.do_checks = min_val, max_val - min_val, do_checks

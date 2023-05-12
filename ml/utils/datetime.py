@@ -38,5 +38,4 @@ def format_datetime(dt: datetime.datetime) -> str:
     Returns:
         The human-readable datetime
     """
-
     return dt.strftime("%Y-%m-%d %H:%M:%S")

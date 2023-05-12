@@ -13,7 +13,6 @@ def test_cli_import_time() -> None:
     Raises:
         ValueError: If `ml.scripts.cli` imports a disallowed module.
     """
-
     DISALLOWED_IMPORTS = {
         "numpy",
         "omegaconf",

@@ -101,7 +101,6 @@ class _GroupInfo:
         Returns:
             The reduced tensor.
         """
-
         if self.world_size == 1:
             return tensor
         torch.distributed.all_reduce(tensor, op=op, group=self.group, async_op=async_op)
@@ -121,7 +120,6 @@ class _GroupInfo:
         Returns:
             The split tensor.
         """
-
         if self.world_size == 1:
             return tensor
         slice_len = tensor.shape[dim] // self.world_size
@@ -142,7 +140,6 @@ class _GroupInfo:
         Returns:
             The gathered tensor.
         """
-
         if self.world_size == 1:
             return tensor
         output = [torch.empty_like(tensor) for _ in range(self.world_size)]
@@ -192,7 +189,6 @@ def init_parallelism(
     Raises:
         ParallismException: If some settings are invalid.
     """
-
     global _parallel_group_info
 
     if _parallel_group_info is not None:

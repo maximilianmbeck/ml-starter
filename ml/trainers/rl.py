@@ -74,7 +74,6 @@ class ReinforcementLearningTrainer(
         Raises:
             ValueError: If the task is not a reinforcement learning task
         """
-
         if not isinstance(task, ReinforcementLearningTask):
             raise ValueError(f"Expected task to be a ReinforcementLearningTask, got {type(task)}")
 

@@ -17,9 +17,10 @@ from typing import Callable
 import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
-from omegaconf import MISSING, Container, OmegaConf
+from omegaconf import MISSING
 
 from ml.core.config import conf_field
+from ml.utils.config import is_missing
 from ml.utils.distributed import get_init_method, get_rank, get_world_size, set_dist
 from ml.utils.logging import INFOALL, configure_logging
 from ml.utils.networking import get_unused_port
@@ -31,7 +32,9 @@ logger: logging.Logger = logging.getLogger(__name__)
 @dataclass
 class MultiprocessConfig:
     rank: int = conf_field(-1, help="The rank of the process")
+    local_rank: int = conf_field(-1, help="The local rank of the process")
     world_size: int = conf_field(MISSING, help="The total number of processes")
+    local_world_size: int = conf_field(MISSING, help="The number of processes per machine")
     master_addr: str = conf_field("127.0.0.1", help="The address of the master process")
     master_port: int = conf_field(MISSING, help="The port of the master process")
     init_method: str = conf_field("env://", help="The initialization method")
@@ -45,9 +48,11 @@ class MultiprocessConfig:
 
     def resolve(self) -> None:
         device_count = torch.cuda.device_count() if torch.cuda.is_available() else 1
-        if (isinstance(self, Container) and OmegaConf.is_missing(self, "world_size")) or self.world_size is MISSING:
+        if is_missing(self, "world_size"):
             self.world_size = device_count
-        if (isinstance(self, Container) and OmegaConf.is_missing(self, "master_port")) or self.master_port is MISSING:
+        if is_missing(self, "local_world_size"):
+            self.local_world_size = min(device_count, self.world_size)
+        if is_missing(self, "master_port"):
             self.master_port = get_unused_port()
 
 
@@ -56,13 +61,13 @@ def init_process_group_from_backend(backend: str | dist.Backend | None = None) -
         backend = get_distributed_backend()
     init_method, world_size, rank = get_init_method(), get_world_size(), get_rank()
 
+    logger.log(INFOALL, "Initializing %d / %d using %s - %s", rank, world_size, init_method, backend)
+    dist.init_process_group(backend=backend, init_method=init_method, world_size=world_size, rank=rank)
+
     if torch.cuda.is_available():
         device_count = torch.cuda.device_count()
         torch.cuda.set_device(rank % device_count)
-        logger.log(INFOALL, "Initializing %d / %d with %d device(s)", rank, world_size, device_count)
-
-    logger.log(INFOALL, "Initializing %d / %d using %s - %s", rank, world_size, init_method, backend)
-    dist.init_process_group(backend=backend, init_method=init_method, world_size=world_size, rank=rank)
+        torch.set_default_device(torch.device("cuda", rank % device_count))
 
     logger.info("Initialized process group; running dummy all-reduce")
     dist.all_reduce(torch.zeros(1, device="cuda" if torch.cuda.is_available() else "cpu"))
@@ -71,7 +76,9 @@ def init_process_group_from_backend(backend: str | dist.Backend | None = None) -
 
 def init_dist(
     rank: int,
+    local_rank: int,
     world_size: int,
+    local_world_size: int,
     master_addr: str,
     master_port: int,
     init_method: str,
@@ -81,14 +88,15 @@ def init_dist(
 
     Args:
         rank: The rank of the current process.
+        local_rank: The local rank of the current process.
         world_size: The total number of processes.
+        local_world_size: The number of processes per machine.
         master_addr: The address of the master process.
         master_port: The port of the master process.
         init_method: The initialization method.
         backend: The distributed backend.
     """
-
-    set_dist(rank, world_size, master_addr, master_port, init_method)
+    set_dist(rank, local_rank, world_size, local_world_size, master_addr, master_port, init_method)
     init_process_group_from_backend(backend)
 
 
@@ -115,7 +123,9 @@ def init_and_run(func: Callable[[], None], cfg: MultiprocessConfig) -> None:
 
     init_dist(
         rank=cfg.rank,
+        local_rank=cfg.local_rank,
         world_size=cfg.world_size,
+        local_world_size=cfg.local_world_size,
         master_addr=cfg.master_addr,
         master_port=cfg.master_port,
         init_method=cfg.init_method,
@@ -170,7 +180,6 @@ def launch_subprocesses(
     Raises:
         RuntimeError: If the function fails in any subprocess.
     """
-
     cfg.resolve()
 
     if cfg.world_size <= 1:
@@ -186,6 +195,7 @@ def launch_subprocesses(
     for rank in range(cfg.world_size):
         error_queue = ctx.SimpleQueue()
         cfg.rank = rank
+        cfg.local_rank = rank % cfg.local_world_size
         proc = ctx.Process(
             target=_func_wrapped,
             args=(func, setup, cfg, error_queue),

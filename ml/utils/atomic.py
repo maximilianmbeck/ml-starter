@@ -26,7 +26,6 @@ def fsync_directory(path: Path) -> None:
     Args:
         path: The path to fsync.
     """
-
     fid = os.open(str(path), os.O_RDONLY)
     try:
         os.fsync(fid)
@@ -47,7 +46,6 @@ def atomic_save(
         save_path: Where to save the file
         durable: If set, make the write durable
     """
-
     save_path = Path(save_path)
     tmp_file = save_path.parent / f".tmp_{save_path.name}"
     renamed = False
@@ -76,7 +74,6 @@ def tempfile(suffix: str = "", dir: str | Path | None = None) -> Iterator[str]:
     Raises:
         OSError: If the temporary file could not be created
     """
-
     tf = tmp.NamedTemporaryFile(delete=False, suffix=suffix, dir=dir)
     tf.file.close()
     try:
@@ -134,7 +131,6 @@ def open_atomic(
     Yields:
         A context manager that yields the opened file
     """
-
     with tempfile(dir=os.path.dirname(os.path.abspath(filepath))) as tmppath:
         with open(tmppath, mode=mode, encoding=encoding) as file:
             try:

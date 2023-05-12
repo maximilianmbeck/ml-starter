@@ -89,7 +89,6 @@ class Shampoo(Optimizer):
         Returns:
             The total loss
         """
-
         loss = None
         if closure is not None:
             loss = closure()

@@ -8,14 +8,20 @@ parallelism. The process group information can be accessed using
 
 The following layers are defined:
 
-- :class:`ParallelEmbedding`: A parallel embedding layer.
-- :class:`ColumnParallelLinear`: A column parallel linear layer.
-- :class:`RowParallelLinear`: A row parallel linear layer.
+- :class:`ParallelEmbedding`: A model-parallel embedding layer.
+- :class:`ColumnParallelLinear`: A column model-parallel linear layer.
+- :class:`RowParallelLinear`: A row model-parallel linear layer.
 
 The :class:`RowParallelLinear` and :class:`ColumnParallelLinear` layers can
 be used to create a model parallel two-layer MLP, as shown below.
 
 .. code-block:: python
+
+    # Create a parallel embedding layer.
+    parallel_embedding = ParallelEmbedding(
+        num_embeddings=vocab_size,
+        embedding_dim=in_features,
+    )
 
     # Create a column parallel linear layer.
     column_parallel_linear = ColumnParallelLinear(
@@ -34,8 +40,8 @@ be used to create a model parallel two-layer MLP, as shown below.
     )
 
     # Applies the two linear layers together.
-    x = torch.randn(bsz, in_features)
-    y = row_parallel_linear(column_parallel_linear(x))
+    x = torch.randint(0, vocab_size - 1, (bsz, tsz))
+    y = row_parallel_linear(column_parallel_linear(parallel_embedding(x)))
 
 This is equivalent to the following single-process implementation.
 
@@ -43,12 +49,13 @@ This is equivalent to the following single-process implementation.
 
     # Create a sequential model.
     model = nn.Sequential(
+        nn.Embedding(vocab_size, in_features),
         nn.Linear(in_features, out_features, bias=bias),
         nn.Linear(out_features, out_features, bias=bias),
     )
 
     # Applies the sequential model.
-    x = torch.randn(bsz, in_features)
+    x = torch.randint(0, vocab_size - 1, (bsz, tsz))
     y = model(x)
 """
 
@@ -88,7 +95,6 @@ def mp_copy(x: Tensor, op: Any = ReduceOp.SUM) -> Tensor:
     Returns:
         Output tensor, with shape ``(*)``.
     """
-
     return _ModelParallelCopy.apply(x, op)
 
 
@@ -116,7 +122,6 @@ def mp_reduce(x: Tensor, op: Any = ReduceOp.SUM) -> Tensor:
     Returns:
         Output tensor, with shape ``(*)``.
     """
-
     return _ModelParallelReduce.apply(x, op)
 
 
@@ -141,7 +146,6 @@ def mp_scatter(x: Tensor, dim: int = -1) -> Tensor:
     Returns:
         Output tensor, with shape ``(..., N // world_size, ...)``.
     """
-
     return _ModelParallelScatter.apply(x, dim)
 
 
@@ -166,7 +170,6 @@ def mp_gather(x: Tensor, dim: int = -1) -> Tensor:
     Returns:
         Output tensor, with shape ``(..., N * world_size, ...)``.
     """
-
     return _ModelParallelGather.apply(x, dim)
 
 
@@ -190,6 +193,9 @@ def initialize_model_parallel_affine_weight_(
         init_type: Initialization type.
         stride: Stride for the initialization.
     """
+    # Skip meta weights.
+    if weight.is_meta:
+        return
 
     mp_info = parallel_group_info().mp
     rank, world_size = mp_info.rank, mp_info.world_size
@@ -200,7 +206,7 @@ def initialize_model_parallel_affine_weight_(
         return
 
     # Initializes the master weight.
-    master_weight = torch.empty(out_features, in_features, dtype=weight.dtype, requires_grad=False)
+    master_weight = weight.new_empty(out_features, in_features, requires_grad=False)
     init_(master_weight, None, init_type)
 
     # Splits the master weight by the world size.
@@ -241,7 +247,6 @@ class ParallelEmbedding(nn.Module):
             sparse: See ``nn.Embedding``.
             init_type: Initialization type.
         """
-
         super().__init__()
 
         self.num_embeddings = num_embeddings
@@ -263,6 +268,10 @@ class ParallelEmbedding(nn.Module):
         self.weight = nn.Parameter(torch.empty(num_embeddings, self.embedding_dim_per_rank))
 
         self.reset_parameters()
+
+    @property
+    def master_weight(self) -> Tensor:
+        return mp_gather(self.weight, dim=1)
 
     def reset_parameters(self) -> None:
         initialize_model_parallel_affine_weight_(
@@ -320,7 +329,6 @@ class ColumnParallelLinear(nn.Module):
             init_type: Initialization type.
             stride: Stride for the initialization.
         """
-
         super().__init__()
 
         # Keep input parameters
@@ -375,7 +383,6 @@ class ColumnParallelLinear(nn.Module):
             Output tensor of size ``(*, out_features // world_size)``, or
             ``(*, out_features)`` if ``gather_output`` is set to ``True``.
         """
-
         input_parallel = mp_copy(x)
         output_parallel = F.linear(input_parallel, self.weight, self.bias)
         return mp_gather(output_parallel) if self.gather_output else output_parallel
@@ -411,7 +418,6 @@ class RowParallelLinear(nn.Module):
             init_type: Initialization type.
             stride: Stride for the initialization.
         """
-
         super(RowParallelLinear, self).__init__()
 
         # Keep input parameters
@@ -467,7 +473,6 @@ class RowParallelLinear(nn.Module):
         Returns:
             Output tensor of size ``(*, out_features)``.
         """
-
         input_parallel = x if self.input_is_parallel else mp_scatter(x)
         output_parallel = F.linear(input_parallel, self.weight, self.bias)
         output = mp_reduce(output_parallel)

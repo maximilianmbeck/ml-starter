@@ -276,7 +276,6 @@ class BaseTask(
             The single loss with shape (N), where N is the number of losses,
             and the loss names, a list of length N.
         """
-
         if isinstance(loss, Tensor):
             if loss.ndim == 0:
                 return loss.unsqueeze(0), ["loss"]
@@ -363,7 +362,6 @@ class BaseTask(
         Raises:
             NotImplementedError: If this method is not overridden
         """
-
         raise NotImplementedError("`get_sampler` should be implemented for the specific task")
 
     def get_batch_sampler(self, sampler: Sampler, cfg: DataLoaderConfig, phase: Phase) -> Sampler[list[int]]:
@@ -380,7 +378,6 @@ class BaseTask(
         Raises:
             NotImplementedError: If this method is not overridden
         """
-
         raise NotImplementedError("`get_sampler` should be implemented for the specific task")
 
     def get_dataloader(self, dataset: Dataset, phase: Phase) -> DataLoader:

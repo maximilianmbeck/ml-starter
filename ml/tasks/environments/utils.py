@@ -29,7 +29,6 @@ def test_environment(
         save_path: Where to save the recorded clip
         writer: The video writer to use
     """
-
     configure_logging(use_tqdm=True)
     time.time()
 

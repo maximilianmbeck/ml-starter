@@ -149,7 +149,6 @@ def get_activation(act: ActivationType, *, inplace: bool = True) -> nn.Module:
     Raises:
         NotImplementedError: If the activation function is invalid
     """
-
     match act:
         case "no_act":
             return nn.Identity()

@@ -77,7 +77,6 @@ def test_worker_and_pool(
         num_workers: The number of workers to use.
         num_actions: The number of actions to take.
     """
-
     env = DummyEnvironment(num_actions=num_actions)
     workers = cast(list[BaseEnvironmentWorker[DummyState, DummyAction]], worker_cls.from_environment(env, num_workers))
     pool = cast(WorkerPool[DummyState, DummyAction], pool_cls.from_workers(workers))
@@ -110,7 +109,6 @@ def test_for_memory_leaks(num_workers: int) -> None:
     Args:
         num_workers: The number of workers to use.
     """
-
     process = psutil.Process(os.getpid())
 
     info = process.memory_info()

@@ -8,6 +8,7 @@ from ml.utils.colors import Color, colorize, get_colorize_parts
 
 # Logging level to show on all ranks.
 INFOALL: int = logging.INFO + 1
+DEBUGALL: int = logging.DEBUG + 1
 
 
 class RankFilter(logging.Filter):
@@ -17,14 +18,14 @@ class RankFilter(logging.Filter):
         Args:
             rank: The current rank
         """
-
         super().__init__()
 
         self.rank = rank
 
         # Log using INFOALL to show on all ranks.
         logging.addLevelName(INFOALL, "INFOALL")
-        levels_to_log_all_ranks = (INFOALL, logging.CRITICAL, logging.ERROR, logging.WARNING)
+        logging.addLevelName(DEBUGALL, "DEBUGALL")
+        levels_to_log_all_ranks = (DEBUGALL, INFOALL, logging.CRITICAL, logging.ERROR, logging.WARNING)
         self.log_all_ranks = {logging.getLevelName(level) for level in levels_to_log_all_ranks}
 
     def filter(self, record: logging.LogRecord) -> bool:
@@ -46,6 +47,7 @@ class ColoredFormatter(logging.Formatter):
         "WARNING": "yellow",
         "INFOALL": "magenta",
         "INFO": "cyan",
+        "DEBUGALL": "grey",
         "DEBUG": "grey",
         "CRITICAL": "yellow",
         "FATAL": "red",
@@ -111,7 +113,6 @@ def configure_logging(
         world_size: The total world size, or None if not using multiprocessing
         use_tqdm: Write using TQDM instead of sys.stdout
     """
-
     if rank is not None or world_size is not None:
         assert rank is not None and world_size is not None
     root_logger = logging.getLogger()

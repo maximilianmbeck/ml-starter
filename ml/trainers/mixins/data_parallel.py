@@ -88,7 +88,6 @@ def dp(model: T, cfg: ModelConfig) -> T | DDP | FSDP:
     Returns:
         The wrapped model.
     """
-
     if get_world_size() <= 1:
         return model
     return fsdp(model, cfg) if cfg.use_fsdp else ddp(model, cfg)

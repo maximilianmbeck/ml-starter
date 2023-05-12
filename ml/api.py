@@ -64,6 +64,10 @@ __all__ = [
     "get_eval_run_dir",
     "get_exp_name",
     "get_image_mask",
+    "get_local_rank_optional",
+    "get_local_rank",
+    "get_local_world_size_optional",
+    "get_local_world_size",
     "get_master_addr",
     "get_master_port",
     "get_model_dir",
@@ -247,6 +251,10 @@ from ml.utils.datetime import format_timedelta
 from ml.utils.device.auto import AutoDevice
 from ml.utils.device.base import BaseDevice
 from ml.utils.distributed import (
+    get_local_rank,
+    get_local_rank_optional,
+    get_local_world_size,
+    get_local_world_size_optional,
     get_master_addr,
     get_master_port,
     get_random_port,

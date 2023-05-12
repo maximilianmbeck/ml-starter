@@ -33,7 +33,6 @@ class cached_object:  # pylint: disable=invalid-name
             cache_obj: If set, keep the object around to avoid deserializing it
                 when it is accessed again
         """
-
         self.cache_key = cache_key
         self.ext = ext
         self.obj = None
@@ -106,7 +105,6 @@ class DictIndex(Generic[Tk, Tv]):
         Args:
             items: The dictionary to index
         """
-
         self.items = items
 
     @functools.cached_property

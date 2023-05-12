@@ -44,7 +44,6 @@ class ClippifyDataset(IterableDataset[tuple[Tensor, Batch]], Generic[Batch]):
                 sample the first item within `jump_size`
             use_last: If set, always use the last item in the dataset
         """
-
         super().__init__()
 
         self.image_dataset = image_dataset

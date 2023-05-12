@@ -19,7 +19,6 @@ def train_main(config: DictConfig) -> None:
     Args:
         config: The configuration object.
     """
-
     with Timer("setting random seed", spinner=True):
         from ml.utils.random import set_random_seed
 
@@ -36,7 +35,6 @@ def train_main_with_objects(objs: Objects) -> None:
     Args:
         objs: The objects to use for training.
     """
-
     # Checks that the config has the right keys for training.
     assert (model := objs.model) is not None
     assert (task := objs.task) is not None

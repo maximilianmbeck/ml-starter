@@ -15,7 +15,6 @@ def get_image_mask(image: Tensor, *, min_prct: float = 0.2, max_prct: float = 0.
     Returns:
         An image mask, with shape (..., H, W) matching the original image shape
     """
-
     device, bsz, (height, width) = image.device, image.shape[:-2], image.shape[-2:]
     mask_dims = bsz + (1, 1)
 

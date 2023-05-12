@@ -611,7 +611,6 @@ def lora(module: SupportedModule, r: int, alpha: float = 1.0, dropout: float = 0
     Raises:
         ValueError: If the module is not supported.
     """
-
     if isinstance(module, nn.Embedding):
         return LoraEmbedding(
             module.num_embeddings,

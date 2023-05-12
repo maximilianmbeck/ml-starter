@@ -130,7 +130,6 @@ class BaseLogger(BaseObject[LoggerConfigT], Generic[LoggerConfigT], ABC):
         Returns:
             If the logger should write values for the current state
         """
-
         current_time = datetime.datetime.now()
         min_write_time_diff = datetime.timedelta(seconds=self.write_every_n_seconds(state.phase))
 
@@ -180,7 +179,6 @@ class BaseLogger(BaseObject[LoggerConfigT], Generic[LoggerConfigT], ABC):
         Returns:
             The write interval, in seconds
         """
-
         if phase == "train":
             if self.config.write_train_every_n_seconds is not None:
                 return self.config.write_train_every_n_seconds

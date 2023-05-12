@@ -51,7 +51,6 @@ def standardize_text(text: str, max_line_length: int | None = None, remove_non_a
     Returns:
         The standardized text lines
     """
-
     if remove_non_ascii:
         text = "".join(char for char in text if ord(char) < 128)
     lines = [re.sub(r"\s+", " ", line) for line in re.split(r"[\n\r]+", text.strip())]
@@ -73,7 +72,6 @@ def get_audio_channel(audio: Tensor, channel_select_mode: ChannelSelectMode) -> 
     Raises:
         ValueError: If the audio shape is invalid
     """
-
     if audio.shape[-2] not in VALID_AUDIO_CHANNEL_COUNTS:
         raise ValueError(f"Invalid audio channel count: {audio.shape[0]}")
     if channel_select_mode == "first":
@@ -101,7 +99,6 @@ def make_human_viewable_resolution(
     Returns:
         The resized image
     """
-
     width, height = V.get_image_size(image)
     trg_height, trg_width = trg_res
     factor = math.sqrt((trg_height * trg_width) / (height * width))
@@ -131,7 +128,6 @@ def standardize_image(
     Raises:
         ValueError: If the image shape is invalid
     """
-
     if normalize and image.is_floating_point():
         minv, maxv = _aminmax(image)
         maxv.clamp_min_(1.0)
@@ -179,7 +175,6 @@ def standardize_images(
     Raises:
         ValueError: If the image shape is invalid
     """
-
     if normalize and images.is_floating_point():
         minv, maxv = _aminmax(images)
         maxv.clamp_min_(1.0)
@@ -223,7 +218,6 @@ def standardize_audio(audio: Tensor, *, log_key: str | None = None) -> Tensor:
     Raises:
         ValueError: If the audio shape is invalid
     """
-
     if audio.ndim == 1:
         audio = audio.unsqueeze(0)
     elif audio.ndim == 2:
@@ -257,7 +251,6 @@ def standardize_audios(audios: Tensor, *, log_key: str | None = None, max_audios
     Raises:
         ValueError: If the audio shape is invalid
     """
-
     if audios.ndim == 2:
         audios = audios.unsqueeze(1)
     elif audios.ndim == 3:
@@ -293,7 +286,6 @@ def separate_with_padding(audio: Tensor, sep_frames: int) -> Tensor:
     Raises:
         ValueError: If the audio shape is invalid
     """
-
     if sep_frames == 0:
         return audio.transpose(0, 1).flatten(1)
 
@@ -321,7 +313,6 @@ def standardize_video(video: Tensor, *, log_key: str | None = None, normalize: b
     Raises:
         ValueError: If the video shape is invalid
     """
-
     if normalize and video.is_floating_point():
         minv, maxv = _aminmax(video[-1])
         maxv.clamp_min_(1.0)
@@ -359,7 +350,6 @@ def standardize_videos(
     Raises:
         ValueError: If the video shape is invalid
     """
-
     if normalize and videos.is_floating_point():
         minv, maxv = _aminmax(videos[:, -1])
         maxv.clamp_min_(1.0)
@@ -397,7 +387,6 @@ def image_with_text(
     Returns:
         The image with a text label
     """
-
     if not text:
         return image
     if max_num_lines is None:
@@ -442,7 +431,6 @@ def normalize_video_fps(
     Returns:
         The normalized video
     """
-
     if fps is None and length is None:
         return torch.stack(video, dim=stack_dim) if isinstance(video, list) else video
 
@@ -501,7 +489,6 @@ def make_square_image_or_video(
     Returns:
         The square image, with shape (C, H', W') or (T, C, H', W')
     """
-
     assert images_or_videos.dim() in (4, 5)
 
     def ternary_search_optimal_side_counts(height: int, width: int, count: int) -> tuple[int, int]:
@@ -579,7 +566,6 @@ class MultiLogger:
             value: The scalar value being logged
             namespace: An optional logging namespace
         """
-
         namespace = self.resolve_namespace(namespace)
 
         @functools.lru_cache
@@ -599,7 +585,6 @@ class MultiLogger:
             value: The string value being logged
             namespace: An optional logging namespace
         """
-
         namespace = self.resolve_namespace(namespace)
 
         @functools.lru_cache
@@ -629,7 +614,6 @@ class MultiLogger:
                 otherwise upscale or downscale the image to a standard
                 resolution
         """
-
         namespace = self.resolve_namespace(namespace)
 
         @functools.lru_cache
@@ -666,7 +650,6 @@ class MultiLogger:
             centered: If set, center the text labels, otherwise align to the
                 left
         """
-
         namespace = self.resolve_namespace(namespace)
 
         @functools.lru_cache
@@ -707,7 +690,6 @@ class MultiLogger:
                 are clipped
             sep: An optional separation amount between adjacent images
         """
-
         namespace = self.resolve_namespace(namespace)
 
         @functools.lru_cache
@@ -757,7 +739,6 @@ class MultiLogger:
             centered: If set, center the text labels, otherwise align to the
                 left
         """
-
         namespace = self.resolve_namespace(namespace)
 
         @functools.lru_cache
@@ -815,7 +796,6 @@ class MultiLogger:
             keep_resolution: If set, keep the resolution of the
                 spectrogram; otherwise, make human-viewable
         """
-
         namespace = self.resolve_namespace(namespace)
 
         @functools.lru_cache
@@ -885,7 +865,6 @@ class MultiLogger:
             keep_resolution: If set, keep the resolution of the
                 spectrogram; otherwise, make human-viewable
         """
-
         namespace = self.resolve_namespace(namespace)
 
         @functools.lru_cache
@@ -899,7 +878,10 @@ class MultiLogger:
             value_concrete = raw_audio_future()
             audio = standardize_audios(value_concrete, log_key=f"{namespace}/{key}", max_audios=max_audios)
             audio = cast_fp32(audio)
-            to_frames = lambda ms: 0 if ms == 0.0 else 2 ** round(math.log2(ms * sample_rate / 1000))
+
+            def to_frames(ms: float) -> int:
+                return 0 if ms == 0.0 else 2 ** round(math.log2(ms * sample_rate / 1000))
+
             audio = separate_with_padding(audio, to_frames(sep_ms))
             return audio, sample_rate
 
@@ -949,7 +931,6 @@ class MultiLogger:
             keep_resolution: If set, keep the resolution of the
                 spectrogram; otherwise, make human-viewable
         """
-
         namespace = self.resolve_namespace(namespace)
 
         @functools.lru_cache
@@ -957,7 +938,10 @@ class MultiLogger:
             audio = value() if callable(value) else value
             audio = standardize_audio(audio, log_key=f"{namespace}/{key}")
             audio = get_audio_channel(audio, channel_select_mode)
-            to_frames = lambda ms: 2 ** round(math.log2(ms * sample_rate / 1000))
+
+            def to_frames(ms: float) -> int:
+                return 2 ** round(math.log2(ms * sample_rate / 1000))
+
             n_fft = to_frames(n_fft_ms)
             hop_length = None if hop_length_ms is None else to_frames(hop_length_ms)
             audio_spec = torch.stft(audio, n_fft, hop_length=hop_length, normalized=True, return_complex=True)
@@ -1004,7 +988,6 @@ class MultiLogger:
             keep_resolution: If set, keep the resolution of the
                 spectrogram; otherwise, make human-viewable
         """
-
         namespace = self.resolve_namespace(namespace)
 
         @functools.lru_cache
@@ -1012,7 +995,10 @@ class MultiLogger:
             audio = value() if callable(value) else value
             audio = standardize_audios(audio, log_key=f"{namespace}/{key}", max_audios=max_audios)
             audio = get_audio_channel(audio, channel_select_mode)
-            to_frames = lambda ms: 2 ** round(math.log2(ms * sample_rate / 1000))
+
+            def to_frames(ms: float) -> int:
+                return 2 ** round(math.log2(ms * sample_rate / 1000))
+
             n_fft = to_frames(n_fft_ms)
             hop_length = None if hop_length_ms is None else to_frames(hop_length_ms)
             audio_spec = torch.stft(audio, n_fft, hop_length=hop_length, normalized=True, return_complex=True)
@@ -1047,7 +1033,6 @@ class MultiLogger:
             fps: The video frames per second
             length: The desired video length, in seconds, at the target FPS
         """
-
         namespace = self.resolve_namespace(namespace)
 
         @functools.lru_cache
@@ -1085,7 +1070,6 @@ class MultiLogger:
             fps: The video frames per second
             length: The desired video length, in seconds, at the target FPS
         """
-
         namespace = self.resolve_namespace(namespace)
 
         @functools.lru_cache
@@ -1107,7 +1091,6 @@ class MultiLogger:
             value: The values to create a histogram from, with arbitrary shape
             namespace: An optional logging namespace
         """
-
         namespace = self.resolve_namespace(namespace)
 
         @functools.lru_cache
@@ -1137,7 +1120,6 @@ class MultiLogger:
             namespace: An optional logging namespace
             max_points: An optional maximum number of points in the point cloud
         """
-
         namespace = self.resolve_namespace(namespace)
 
         @functools.lru_cache

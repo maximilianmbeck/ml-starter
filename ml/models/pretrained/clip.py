@@ -143,7 +143,6 @@ def bytes_to_unicode() -> dict[int, str]:
     Returns:
         Mapping from UTF-8 byte to unicode string.
     """
-
     bs = list(range(ord("!"), ord("~") + 1))
     bs += list(range(ord("¡"), ord("¬") + 1))
     bs += list(range(ord("®"), ord("ÿ") + 1))
@@ -431,7 +430,6 @@ class ModifiedResNet(nn.Module):
             device: Default PyTorch device to use
             dtype: Default PyTorch dtype to use
         """
-
         super().__init__()
 
         self.output_dim = output_dim
@@ -869,7 +867,6 @@ class ClipPredictor:
             device: The device to use for predictions. If None, will use the
                 device returned by AutoDevice.detect_device().
         """
-
         super().__init__()
 
         self.device = AutoDevice.detect_device() if device is None else device
@@ -975,7 +972,6 @@ def pretrained_clip(
     Returns:
         The constructed clip model, or just the visual or text branch
     """
-
     assert mode in ("all", "visual", "linguistic")
 
     if isinstance(key, nn.Module):

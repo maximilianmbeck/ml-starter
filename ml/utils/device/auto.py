@@ -6,7 +6,7 @@ from ml.utils.device.base import BaseDevice
 from ml.utils.device.cpu import CPUDevice
 from ml.utils.device.gpu import GPUDevice
 from ml.utils.device.metal import MetalDevice
-from ml.utils.logging import INFOALL
+from ml.utils.logging import DEBUGALL
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -27,7 +27,7 @@ class AutoDevice:
     def detect_device(cls) -> Type[BaseDevice]:
         for device_type in ALL_DEVICES:
             if device_type.has_device():
-                logger.log(INFOALL, "Device: [%s]", device_type.get_device())
+                logger.log(DEBUGALL, "Device: [%s]", device_type.get_device())
                 return device_type
         raise RuntimeError("Could not automatically detect the device to use")
 

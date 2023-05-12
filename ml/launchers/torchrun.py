@@ -74,7 +74,6 @@ class TorchRunLauncherConfig(BaseLauncherConfig):
 class TorchRunLauncher(BaseLauncher[TorchRunLauncherConfig]):
     def launch(self) -> None:
         """Launches the job by calling the TorchRun CLI in a subprocess."""
-
         trainer = register_trainer.build_entry_non_null(self.raw_config)
         trainer.save_config()
 

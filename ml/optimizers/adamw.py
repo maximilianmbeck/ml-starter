@@ -23,7 +23,6 @@ def separate_decayable_params(model: nn.Module, default_decay: bool, weight_deca
     Returns:
         The dictionary to pass to the optimizer
     """
-
     wd_params: set[str] = set()
     no_wd_params: set[str] = set()
     seen: set[str] = set()

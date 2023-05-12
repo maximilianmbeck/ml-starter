@@ -156,7 +156,6 @@ class ImageEncoderViT(nn.Module):
             window_size: Window size for window attention blocks.
             global_attn_indexes: Indexes for blocks using global attention.
         """
-
         super().__init__()
 
         self.img_size = img_size
@@ -246,7 +245,6 @@ class Block(nn.Module):
             input_size: Input resolution for calculating the relative positional
                 parameter size.
         """
-
         super().__init__()
 
         self.norm1 = norm_layer(dim)
@@ -304,7 +302,6 @@ class Attention(nn.Module):
             input_size: Input resolution for calculating the relative positional
                 parameter size.
         """
-
         super().__init__()
 
         self.num_heads = num_heads
@@ -350,7 +347,6 @@ def window_partition(x: Tensor, window_size: int) -> tuple[Tensor, tuple[int, in
         Windows after partition with shape (B * n_win, win_size, win_size, C),
         and the shape.
     """
-
     B, H, W, C = x.shape
 
     pad_h = (window_size - H % window_size) % window_size
@@ -376,7 +372,6 @@ def window_unpartition(windows: Tensor, window_size: int, pad_hw: tuple[int, int
     Returns:
         The unpartitioned sequences with shape (B, H, W, C).
     """
-
     Hp, Wp = pad_hw
     H, W = hw
     B = windows.shape[0] // (Hp * Wp // window_size // window_size)
@@ -399,7 +394,6 @@ def get_rel_pos(q_size: int, k_size: int, rel_pos: Tensor) -> Tensor:
     Returns:
         Extracted positional embeddings according to relative positions.
     """
-
     max_rel_dist = int(2 * max(q_size, k_size) - 1)
 
     # Interpolate rel pos if needed.
@@ -444,7 +438,6 @@ def add_decomposed_rel_pos(
     Returns:
         Attention map with added relative positional embeddings.
     """
-
     q_h, q_w = q_size
     k_h, k_w = k_size
     Rh = get_rel_pos(q_h, k_h, rel_pos_h)
@@ -479,7 +472,6 @@ class PatchEmbed(nn.Module):
             in_chans: Number of input image channels.
             embed_dim: Patch embedding dimension.
         """
-
         super().__init__()
 
         self.proj = nn.Conv2d(in_chans, embed_dim, kernel_size=kernel_size, stride=stride, padding=padding)
@@ -513,7 +505,6 @@ class MaskDecoder(nn.Module):
             iou_head_hidden_dim: The hidden dimension of the MLP used to
                 predict mask quality
         """
-
         super().__init__()
         self.transformer_dim = transformer_dim
         self.transformer = transformer
@@ -652,8 +643,7 @@ class PromptEncoder(nn.Module):
         mask_in_chans: int,
         activation: Type[nn.Module] = nn.GELU,
     ) -> None:
-        """
-        Encodes prompts for input to SAM's mask decoder.
+        """Encodes prompts for input to SAM's mask decoder.
 
         Args:
             embed_dim: The prompts' embedding dimension
@@ -665,7 +655,6 @@ class PromptEncoder(nn.Module):
                 input masks.
             activation: The activation to use when encoding input masks.
         """
-
         super().__init__()
 
         self.embed_dim = embed_dim
@@ -699,7 +688,6 @@ class PromptEncoder(nn.Module):
         Returns:
             Positional encoding with shape (1, emb_dim, emb_h, emb_w)
         """
-
         return self.pe_layer(self.image_embedding_size).unsqueeze(0)
 
     def _embed_points(
@@ -772,7 +760,6 @@ class PromptEncoder(nn.Module):
             input points and boxes, and the dense embeddings for the masks,
             with shape (B, emb_dim, emb_h, emb_w)
         """
-
         bs = self._get_batch_size(points, boxes, masks)
         sparse_embeddings = torch.empty((bs, 0, self.embed_dim), device=self._get_device())
         if points is not None:
@@ -854,7 +841,6 @@ class TwoWayTransformer(nn.Module):
                 blocks. The attention blocks will downsample the input image
                 by this factor.
         """
-
         super().__init__()
 
         self.depth = depth
@@ -901,7 +887,6 @@ class TwoWayTransformer(nn.Module):
         Returns:
             The processed point and image embeddings.
         """
-
         image_embedding = image_embedding.flatten(2).permute(0, 2, 1)
         image_pe = image_pe.flatten(2).permute(0, 2, 1)
 
@@ -955,7 +940,6 @@ class TwoWayAttentionBlock(nn.Module):
                 by this factor.
             skip_first_layer_pe: Skip the PE on the first layer
         """
-
         super().__init__()
         self.self_attn = TwoWayAttentionFunction(embedding_dim, num_heads)
         self.norm1 = nn.LayerNorm(embedding_dim)
@@ -1084,7 +1068,6 @@ class Sam(nn.Module):
             pixel_mean: Mean values for normalizing pixels in the input image.
             pixel_std: Std values for normalizing pixels in the input image.
         """
-
         super().__init__()
 
         self.image_encoder = image_encoder
@@ -1135,7 +1118,6 @@ class Sam(nn.Module):
             (B, C, 256, 256). This can be passed as mask input to subsequent
             iterations of prediction.
         """
-
         input_images = torch.stack([self.preprocess(x["image"]) for x in batched_input], dim=0)
         image_embeddings = self.image_encoder(input_images)
 
@@ -1191,7 +1173,6 @@ class Sam(nn.Module):
             Batched masks with shape (B, C, H, W), where (H, W) matches
             the original size.
         """
-
         masks = F.interpolate(
             masks,
             (self.image_encoder.img_size, self.image_encoder.img_size),
@@ -1275,7 +1256,6 @@ class SamPredictor:
             device: The device to use for prediction. If None, will use the
                 device returned by AutoDevice.detect_device().
         """
-
         super().__init__()
 
         self.device = AutoDevice.detect_device() if device is None else device
@@ -1295,7 +1275,6 @@ class SamPredictor:
                 uint8 format, with pixel values in [0, 255].
             image_format: The color format of the image, in ['RGB', 'BGR'].
         """
-
         assert image_format in get_args(ImageFormat)
 
         if image_format != self.model.image_format:
@@ -1326,7 +1305,6 @@ class SamPredictor:
             original_image_size: The size of the image before transformation,
                 in (H, W) format.
         """
-
         assert (
             len(transformed_image.shape) == 4
             and transformed_image.shape[1] == 3
@@ -1382,7 +1360,6 @@ class SamPredictor:
         Raises:
             RuntimeError: If an image has not been set yet.
         """
-
         if not self.is_image_set:
             raise RuntimeError("An image must be set with .set_image(...) before mask prediction.")
 
@@ -1466,7 +1443,6 @@ class SamPredictor:
         Raises:
             RuntimeError: If an image has not been set yet.
         """
-
         if not self.is_image_set:
             raise RuntimeError("An image must be set with .set_image(...) before mask prediction.")
 

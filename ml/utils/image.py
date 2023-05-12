@@ -38,7 +38,6 @@ def make_human_viewable_resolution(
     Returns:
         The resized image
     """
-
     width, height = V.get_image_size(image)
     trg_height, trg_width = trg_res
     factor = math.sqrt((trg_height * trg_width) / (height * width))
@@ -74,7 +73,6 @@ def standardize_image(
     Raises:
         ValueError: If the image shape is invalid
     """
-
     if isinstance(image, np.ndarray):
         image = torch.from_numpy(image)
 
@@ -112,7 +110,6 @@ def read_gif(in_file: str | Path, *, skip_first_frame: bool = True) -> Iterator[
     Yields:
         A stream of Numpy arrays with shape (H, W, C).
     """
-
     gif = Image.open(str(in_file))
     iterator = ImageSequence.Iterator(gif)
     if skip_first_frame:
@@ -142,7 +139,9 @@ def write_gif(
         first_frame_zeros: If set, the first frame will be all zeros.
     """
 
-    to_image = lambda t: Image.fromarray(standardize_image(t, keep_resolution=keep_resolution))
+    def to_image(t: np.ndarray | Tensor) -> Image.Image:
+        return Image.fromarray(standardize_image(t, keep_resolution=keep_resolution))
+
     first_frame = standardize_image(next(itr), keep_resolution=keep_resolution)
     first_img = Image.fromarray(np.zeros_like(first_frame) if first_frame_zeros else first_frame)
     first_img.save(

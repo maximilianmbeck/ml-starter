@@ -24,7 +24,6 @@ def conf_field(
     Returns:
         The correctly constructed dataclass field
     """
-
     metadata: dict[str, Any] = {}
     if help is not None:
         metadata["help"] = help
@@ -54,7 +53,6 @@ class BaseConfig:
         Returns:
             A dictionary of default configurations for the current config
         """
-
         return {}
 
     @classmethod

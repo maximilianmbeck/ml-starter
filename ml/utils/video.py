@@ -69,7 +69,6 @@ def read_video_ffmpeg(
     Yields:
         Frames from the video as numpy arrays with shape (H, W, C)
     """
-
     props = VideoProps.from_file_ffmpeg(in_file)
 
     stream = ffmpeg.input(str(in_file))
@@ -106,7 +105,6 @@ async def read_video_with_timestamps_ffmpeg(
         Frames from the video as numpy arrays with shape (H, W, C), along with
         the frame timestamps
     """
-
     props = VideoProps.from_file_ffmpeg(in_file)
 
     def aspect_ratio(x: int, a: int, b: int) -> int:
@@ -174,7 +172,6 @@ def read_video_opencv(in_file: str | Path) -> Iterator[np.ndarray]:
     Yields:
         Frames from the video as numpy arrays with shape (H, W, C)
     """
-
     cap = cv2.VideoCapture(str(in_file))
 
     while True:
@@ -204,7 +201,6 @@ def write_video_opencv(
         codec: FourCC code specifying OpenCV video codec type. Examples are
             MPEG, MP4V, DIVX, AVC1, H236.
     """
-
     Path(out_file).parent.mkdir(exist_ok=True, parents=True)
 
     first_img = standardize_image(next(itr), keep_resolution=keep_resolution)
@@ -248,7 +244,6 @@ def write_video_ffmpeg(
         input_fmt: The input image format
         output_fmt: The output image format
     """
-
     Path(out_file).parent.mkdir(exist_ok=True, parents=True)
 
     first_img = standardize_image(next(itr), keep_resolution=keep_resolution)
@@ -297,7 +292,6 @@ def write_video_matplotlib(
             default one, make sure you have `ffmpeg` installed on your
             system).
     """
-
     Path(out_file).parent.mkdir(exist_ok=True, parents=True)
 
     first_img = standardize_image(next(itr), keep_resolution=keep_resolution)
@@ -374,7 +368,6 @@ def write_video(
     Raises:
         ValueError: If the writer is invalid.
     """
-
     if writer == "ffmpeg":
         if not shutil.which("ffmpeg"):
             warnings.warn("FFMPEG is not available in the system. Falling back to OpenCV.")

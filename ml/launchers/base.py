@@ -21,5 +21,4 @@ class BaseLauncher(BaseObject[LauncherConfigT], Generic[LauncherConfigT]):
         Raises:
             NotImplementedError: If the subclass does not implement this method
         """
-
         raise NotImplementedError

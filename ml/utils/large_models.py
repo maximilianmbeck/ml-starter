@@ -22,7 +22,6 @@ def init_empty_weights(include_buffers: bool = False) -> Iterator[None]:
     Yields:
         An empty context manager
     """
-
     old_register_parameter = nn.Module.register_parameter
     if include_buffers:
         old_register_buffer = nn.Module.register_buffer
@@ -51,7 +50,7 @@ def init_empty_weights(include_buffers: bool = False) -> Iterator[None]:
             nn.Module.register_buffer = old_register_buffer  # type: ignore
 
 
-def meta_to_empty_func(device: torch.device, dtype: torch.dtype | None) -> Callable[[Tensor], Tensor]:
+def meta_to_empty_func(device: torch.device | str, dtype: torch.dtype | None = None) -> Callable[[Tensor], Tensor]:
     def _func(t: Tensor) -> Tensor:
         if not t.is_meta:
             return t

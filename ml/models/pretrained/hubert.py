@@ -126,7 +126,7 @@ class HubertPositionalConvEmbedding(nn.Module):
 
 
 class HubertAttention(nn.Module):
-    """Multi-headed attention from 'Attention Is All You Need' paper"""
+    """Multi-headed attention from 'Attention Is All You Need' paper."""
 
     def __init__(
         self,
@@ -185,7 +185,6 @@ class HubertAttention(nn.Module):
                 is either `None` or has a different sequence length than the
                 `past_key_value` tuple.
         """
-
         bsz, tgt_len, _ = hidden_states.size()
 
         query_states = self.q_proj(hidden_states) * self.scaling
@@ -581,7 +580,6 @@ class HubertPredictor:
             device: The device to use for predictions. If `None`, will use the
                 device returned by AutoDevice.detect_device().
         """
-
         super().__init__()
 
         self.device = AutoDevice.detect_device() if device is None else device
@@ -599,7 +597,6 @@ class HubertPredictor:
         Returns:
             The hidden states for the given waveform, with shape (B, T, D)
         """
-
         waveform = self.device.tensor_to(waveform)
         return self.model.forward(waveform, attn_mask=None, output_layer=output_layer)
 
@@ -624,7 +621,6 @@ class HubertPredictor:
         Returns:
             The hidden states for the given waveform, with shape (B, T, D)
         """
-
         with torch.inference_mode():
             x = self.device.tensor_to(waveform)  # Loads entire waveform into device memory.
 

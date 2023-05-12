@@ -20,7 +20,6 @@ class ChunkSampler(Sampler[int]):
             batch_size: The size of each chunk
             shuffle: Yield chunks in random order or from first to last
         """
-
         super().__init__(dataset)
 
         self.dataset = dataset

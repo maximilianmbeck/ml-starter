@@ -15,7 +15,6 @@ def set_event(pid: int, heartbeat_event: Event, test_event: Event) -> None:
 @pytest.mark.slow
 def test_cpu_stats_monitor() -> None:
     """Starts a monitor, waits until it reads something, then kills it."""
-
     manager = mp.Manager()
     test_event = manager.Event()
     monitor = HeartbeatMonitor(0.01, manager, functools.partial(set_event, test_event=test_event))

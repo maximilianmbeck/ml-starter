@@ -5,7 +5,7 @@ import torch
 import torch.nn.functional as F
 from torch import Tensor, nn
 
-from ml.models.parallel import ColumnParallelLinear, RowParallelLinear
+from ml.models.parallel import ColumnParallelLinear, ParallelEmbedding, RowParallelLinear
 from ml.trainers.mixins.data_parallel import ModelConfig, fsdp
 from ml.utils.logging import configure_logging
 from ml.utils.networking import get_unused_port
@@ -19,13 +19,15 @@ class DummyModel(nn.Module):
         super().__init__()
 
         # Gets the model and pipeline parallel modules.
+        self.emb = ParallelEmbedding(10, 12)
         self.layer_1 = ColumnParallelLinear(12, 16, bias=False)
         self.layer_2 = RowParallelLinear(16, 8, bias=False)
 
     def forward(self, x: Tensor) -> Tensor:
-        return self.layer_2(self.layer_1(x))
+        return self.layer_2(self.layer_1(self.emb(x)))
 
     def forward_non_parallel(self, x: Tensor) -> Tensor:
+        x = self.emb(x)
         x = F.linear(x, self.layer_1.master_weight)
         x = F.linear(x, self.layer_2.master_weight)
         return x
@@ -50,13 +52,14 @@ def func() -> None:
     # Keeps a copy of the full weights on CPU for later comparison. This needs
     # to happen after moving the weights to CUDA to avoid NCCL errors, but
     # before wrapping the model in FSDP to avoid memory access errors.
+    cpu_emb = base_model.emb.master_weight.cpu()
     cpu_w1 = base_model.layer_1.master_weight.cpu()
     cpu_w2 = base_model.layer_2.master_weight.cpu()
 
     model = fsdp(base_model, config)
     model.eval()
 
-    x = torch.randn(4, 12, device="cuda")
+    x = torch.randint(0, 10, (4, 12), device="cuda")
 
     # Tests that the gradients are non-null. Using gradient clipping as a
     # proxy since FSDP gradients are not stored on the tensors themselves.
@@ -69,7 +72,7 @@ def func() -> None:
     # done on CPU to avoid memory access errors when overlapping with FSDP.
     cpu_y_parallel = output.detach().cpu()
     model.zero_grad()
-    cpu_y_full = F.linear(F.linear(x.cpu(), cpu_w1), cpu_w2)
+    cpu_y_full = F.linear(F.linear(F.embedding(x.cpu(), cpu_emb), cpu_w1), cpu_w2)
     assert torch.allclose(cpu_y_parallel, cpu_y_full, atol=1e-3)
 
 
@@ -84,7 +87,6 @@ def test_parallel_model() -> None:
 
     This test is also a good way to validate NCCL on your system.
     """
-
     configure_logging()
 
     port = get_unused_port()

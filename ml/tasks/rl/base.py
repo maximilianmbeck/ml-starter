@@ -136,7 +136,6 @@ class ReinforcementLearningTask(
         Returns:
             The postprocessed trajectory.
         """
-
         return samples
 
     def postprocess_trajectories(
@@ -151,7 +150,6 @@ class ReinforcementLearningTask(
         Returns:
             The postprocessed trajectories.
         """
-
         return trajectories
 
     def iter_samples(
@@ -192,7 +190,6 @@ class ReinforcementLearningTask(
         Raises:
             ValueError: If `min_batch_size` is greater than `max_batch_size`.
         """
-
         min_trajectory_length = max(min_trajectory_length, self.config.dataset.num_samples, 1)
         num_samples, num_trajectories = 0, 0
 
@@ -394,7 +391,6 @@ class ReinforcementLearningTask(
         Raises:
             ValueError: If `save_path` is provided and `return_states` is `True`
         """
-
         env_cfg = self.config.environment
 
         if not return_states and not return_images:

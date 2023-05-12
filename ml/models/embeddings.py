@@ -73,7 +73,6 @@ class LearnedPositionalEmbeddings(nn.Module):
             weight_init: The initialization type for the embedding weight.
             learnable: Whether the embeddings are learnable.
         """
-
         super().__init__()
 
         self.max_tsz = max_tsz
@@ -106,7 +105,6 @@ class SinusoidalEmbeddings(LearnedPositionalEmbeddings):
             learnable: Whether the embeddings are learnable.
             base: The base for the sinusoidal embeddings.
         """
-
         self.learnable = learnable
         self.base = base
 
@@ -141,7 +139,6 @@ class RotaryEmbeddings(nn.Module):
             learnable: Whether the embeddings are learnable.
             base: The base for the sinusoidal embeddings.
         """
-
         super().__init__()
 
         assert embed_dim % 4 == 0, "Embedding dimension must be divisible by 4."
@@ -258,7 +255,6 @@ def get_positional_embeddings(
     Raises:
         ValueError: If an invalid embedding kind is supplied.
     """
-
     match kind:
         case "identity":
             return IdentityPositionalEmbeddings()
