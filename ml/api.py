@@ -160,6 +160,7 @@ __all__ = [
     "SyncEnvironmentWorker",
     "SyncWorkerPool",
     "test_dataset",
+    "test_environment",
     "timeout",
     "Timer",
     "transforms",
@@ -225,6 +226,7 @@ from ml.tasks.datasets.streaming import StreamingDataset, StreamingDatasetNoInde
 from ml.tasks.datasets.utils import test_dataset
 from ml.tasks.datasets.video_file import VideoFileDataset
 from ml.tasks.environments.base import Environment
+from ml.tasks.environments.utils import test_environment
 from ml.tasks.environments.worker import (
     AsyncEnvironmentWorker,
     AsyncWorkerPool,
@@ -244,6 +246,7 @@ from ml.utils.argparse import from_args, get_args, get_type_from_string
 from ml.utils.atomic import atomic_save, open_atomic
 from ml.utils.augmentation import get_image_mask
 from ml.utils.caching import DictIndex, cached_object
+from ml.utils.checkpoint import instantiate_config, load_model_and_task
 from ml.utils.checks import assert_no_nans
 from ml.utils.colors import colorize
 from ml.utils.data import check_md5, check_sha256, get_dataset_split_for_phase, get_dataset_splits, get_worker_info
@@ -266,7 +269,6 @@ from ml.utils.distributed import (
     is_master,
 )
 from ml.utils.image import read_gif, write_gif
-from ml.utils.checkpoint import instantiate_config, load_model_and_task
 from ml.utils.large_models import init_empty_weights, meta_to_empty_func
 from ml.utils.logging import configure_logging
 from ml.utils.numpy import as_cpu_tensor, as_numpy_array
