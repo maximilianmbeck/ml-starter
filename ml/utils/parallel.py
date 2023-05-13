@@ -162,7 +162,7 @@ def parallel_group_info() -> _GroupsInfos:
     return _parallel_group_info
 
 
-class ParallismException(Exception):
+class ParallismError(Exception):
     pass
 
 
@@ -187,15 +187,15 @@ def init_parallelism(
         dp_backend: Backend to use for data parallelism.
 
     Raises:
-        ParallismException: If some settings are invalid.
+        ParallismError: If some settings are invalid.
     """
     global _parallel_group_info
 
     if _parallel_group_info is not None:
-        raise ParallismException("Parallelism is already initialized; call `reset_parallelism` first.")
+        raise ParallismError("Parallelism is already initialized; call `reset_parallelism` first.")
 
     if not torch.distributed.is_initialized():
-        raise ParallismException("Distributed training is not initialized.")
+        raise ParallismError("Distributed training is not initialized.")
 
     rank, world_size = torch.distributed.get_rank(), torch.distributed.get_world_size()
 
@@ -214,10 +214,10 @@ def init_parallelism(
 
     # Validates parallelism for current world size.
     if world_size % model_parallelism != 0:
-        raise ParallismException(f"{world_size=} is not divisible by {model_parallelism=}")
+        raise ParallismError(f"{world_size=} is not divisible by {model_parallelism=}")
     if world_size % (model_parallelism * pipeline_parallelism) != 0:
         pipeline_size = model_parallelism * pipeline_parallelism
-        raise ParallismException(f"{world_size=} is not divisible by {pipeline_size=}")
+        raise ParallismError(f"{world_size=} is not divisible by {pipeline_size=}")
 
     data_parallelism = world_size // (model_parallelism * pipeline_parallelism)
 

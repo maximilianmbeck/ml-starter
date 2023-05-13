@@ -1,3 +1,5 @@
+"""Tests the activations API."""
+
 from typing import get_args
 
 import pytest

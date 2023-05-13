@@ -1,3 +1,5 @@
+"""Defines a dataset for converting frame streams to clips."""
+
 import logging
 import random
 from collections import deque

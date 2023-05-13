@@ -1,3 +1,5 @@
+"""Holds some common types which are used in various places."""
+
 from typing import Any, Callable, Iterable
 
 from torch import Tensor

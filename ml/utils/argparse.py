@@ -61,7 +61,7 @@ def add_args(parser: argparse.ArgumentParser, dc: Type[Config]) -> None:
             assert "default" in kwargs, f"Field {field.name} requires default"
             default_val = cast(bool, kwargs["default"])
             kwargs["action"] = "store_false" if default_val else "store_true"
-        elif field.type in ("str", "float", "int"):  # type: ignore
+        elif field.type in ("str", "float", "int"):  # type: ignore[comparison-overlap]
             kwargs["type"] = get_type_from_string(cast(str, field.type))
             if "default" in kwargs and not isinstance(kwargs["default"], kwargs["type"]):
                 kwargs.pop("default")

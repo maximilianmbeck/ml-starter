@@ -1,3 +1,5 @@
+"""Tests for the checkpoint utilities."""
+
 from pathlib import Path
 from typing import cast
 
@@ -11,7 +13,7 @@ from ml.core.state import State
 from ml.models.base import BaseModel, BaseModelConfig
 from ml.tasks.base import BaseTask, BaseTaskConfig
 from ml.trainers.vanilla import VanillaTrainerConfig
-from ml.utils.io import load_model_and_task
+from ml.utils.checkpoint import load_model_and_task
 
 
 @pytest.mark.slow

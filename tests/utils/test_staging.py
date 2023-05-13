@@ -1,3 +1,9 @@
+"""Tests staging the project to a new directory.
+
+This stages a dummy Python project to a temporary directory, then checks that
+the Python modules in the staged directory can be imported.
+"""
+
 import sys
 import types
 from pathlib import Path

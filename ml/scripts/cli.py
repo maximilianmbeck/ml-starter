@@ -1,3 +1,45 @@
+"""Main entry point for the CLI.
+
+Whichever package you are using should probably have some sort of CLI entry
+point which calls this function, for example:
+
+.. code-block:: python
+
+    from pathlib import Path
+
+    from ml.scripts.cli import cli_main as ml_cli_main
+
+    PROJECT_ROOT = Path(__file__).parent.parent  # Root relative to CLI file
+
+    def cli_main() -> None:
+        ml_cli_main(PROJECT_ROOT)
+
+    if __name__ == "__main__":
+        cli_main()
+
+You can add this to your ``setup.py`` file as follows:
+
+.. code-block:: python
+
+    setup(
+        ...,
+        entry_points={
+            "console_scripts": [
+                "runml = my_package.cli:cli_main",
+            ],
+        },
+    )
+
+Alternatively, you can add it to your ``setup.cfg`` file as follows:
+
+.. code-block:: ini
+
+    [options.entry_points]
+
+    console_scripts =
+        runml = my_package.cli:cli_main
+"""
+
 import logging
 import shlex
 import sys

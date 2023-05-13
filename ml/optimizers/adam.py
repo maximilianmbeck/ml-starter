@@ -1,3 +1,5 @@
+"""Wrapper around the PyTorch Adam optimizer."""
+
 from dataclasses import dataclass
 
 from torch import nn

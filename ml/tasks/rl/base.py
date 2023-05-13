@@ -1,3 +1,26 @@
+"""The base task and config for reinforcement learning tasks.
+
+This class expects you to implement the following functions:
+
+.. code-block:: python
+
+    class MyReinforcementLearningTask(ml.ReinforcementLearning[Config, Model, State, Action, Output, Loss]):
+        def get_actions(self, model: Model, states: list[State], optimal: bool) -> list[Action]:
+            ...
+
+        def get_environment(self) -> Environment:
+            ...
+
+        def run_model(self, model: Model, batch: tuple[State, Action], state: ml.State) -> Output:
+            ...
+
+        def compute_loss(self, model: Model, batch: tuple[State, Action], state: ml.State, output: Output) -> Loss:
+            ...
+
+Additionally, you can implement :meth:`postprocess_trajectory` and :meth:`postprocess_trajectories` to apply some
+postprocessing to collected batches, such as computing the discounted rewards.
+"""
+
 import functools
 import logging
 import multiprocessing as mp

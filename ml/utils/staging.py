@@ -1,3 +1,13 @@
+"""Functions for staging environments.
+
+Staged environments freeze a copy of the current Python codebase that can be
+run in a separate process without worrying that changes to the current codebase
+will affect the staged environment.
+
+To save space, it basically copies over whatever modules are in the current
+environment (which are a subset of the codebase) to a new directory.
+"""
+
 import datetime
 import hashlib
 import logging

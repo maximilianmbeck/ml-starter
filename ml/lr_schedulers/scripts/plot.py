@@ -1,3 +1,12 @@
+"""A simple script for plotting learning rate schedules with various parameters.
+
+This script can be used as follows:
+
+.. code-block:: bash
+
+    python -m ml.lr_schedulers.scripts.plot linear /path/to/save.png
+"""
+
 import argparse
 from pathlib import Path
 

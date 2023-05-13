@@ -1,3 +1,5 @@
+"""Launches a distributed or multiprocessing training job."""
+
 from omegaconf import DictConfig
 
 from ml.core.registry import register_launcher

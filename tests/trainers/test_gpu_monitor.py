@@ -1,3 +1,5 @@
+"""Tests the GPU monitoring process, if a GPU is available."""
+
 import multiprocessing as mp
 import time
 
@@ -10,7 +12,6 @@ from ml.trainers.mixins.gpu_stats import GPUStatsMonitor
 @pytest.mark.slow
 @pytest.mark.has_gpu
 def test_gpu_stats_monitor() -> None:
-    """Starts a monitor, waits until it reads something, then kills it."""
     cuda_tensor = torch.randn(1, 2, 3, device="cuda")
     manager = mp.Manager()
     monitor = GPUStatsMonitor(1, manager)

@@ -1,3 +1,5 @@
+"""Tests model parallelism primitives."""
+
 import logging
 from typing import cast
 
@@ -7,7 +9,7 @@ import torch.nn.functional as F
 from torch import Tensor, nn
 
 from ml.models.parallel import ColumnParallelLinear, ParallelEmbedding, RowParallelLinear
-from ml.trainers.mixins.data_parallel import ModelConfig, ddp
+from ml.trainers.mixins.data_parallel import ParallelConfig, ddp
 from ml.utils.logging import configure_logging
 from ml.utils.networking import get_unused_port
 from ml.utils.torch_distributed import MultiprocessConfig, launch_subprocesses
@@ -42,7 +44,7 @@ def setup() -> None:
 
 
 def func() -> None:
-    config = ModelConfig(use_fsdp=False)
+    config = ParallelConfig(use_fsdp=False)
     model = ddp(DummyModel(), config)
     model.eval()
     base_model = cast(DummyModel, model.module)

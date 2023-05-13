@@ -1,3 +1,10 @@
+"""Defines checkpoint utility functions.
+
+These functions can be used to load a model from an arbitrary config file
+and checkpoint. Note that there might be some issues if you move the checkpoint
+around places.
+"""
+
 import logging
 from pathlib import Path
 from typing import TypeVar, cast

@@ -1,3 +1,10 @@
+"""Defines a general logger for munging logged values to an expected format.
+
+This logger handles munging, rate limiting, and multiplexing logged values
+to each of the implemented child loggers. It is the logging interface that
+is exposed to the task and model.
+"""
+
 import functools
 import logging
 import math

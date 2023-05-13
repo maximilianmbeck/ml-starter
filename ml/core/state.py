@@ -1,3 +1,5 @@
+"""Defines a dataclass for keeping track of the current training state."""
+
 from dataclasses import dataclass
 from typing import Literal, TypeVar, cast, get_args
 
@@ -30,8 +32,6 @@ def cast_phase(raw_phase: str) -> Phase:
 
 @dataclass
 class State:
-    """Defines the state variables to track training."""
-
     num_epochs: int = conf_field(MISSING, help="Number of epochs so far")
     num_steps: int = conf_field(MISSING, help="Number of steps so far")
     num_epoch_steps: int = conf_field(MISSING, help="Number of steps in the current epoch")

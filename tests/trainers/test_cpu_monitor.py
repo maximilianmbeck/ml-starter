@@ -1,3 +1,9 @@
+"""Tests running a CPU monitoring subprocess.
+
+This just starts a monitoring process, waits for it to read something, then
+kills it and checks that it actually did read something.
+"""
+
 import multiprocessing as mp
 import time
 
@@ -8,7 +14,6 @@ from ml.trainers.mixins.cpu_stats import CPUStatsMonitor
 
 @pytest.mark.slow
 def test_cpu_stats_monitor() -> None:
-    """Starts a monitor, waits until it reads something, then kills it."""
     manager = mp.Manager()
     monitor = CPUStatsMonitor(0.01, manager)
     for _ in range(3):

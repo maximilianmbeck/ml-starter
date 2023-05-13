@@ -1,3 +1,10 @@
+"""Tests the data munging components of the multi-logger.
+
+This is necessary for ensuring that the various downstream loggers recieve
+log values with a canonical format, to avoid having to duplicate the munging
+in each of them.
+"""
+
 from typing import Callable
 
 import pytest

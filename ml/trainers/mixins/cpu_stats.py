@@ -1,3 +1,10 @@
+"""A trainer mixin for logging CPU statistics.
+
+This logs memory and CPU utilization in a background process, sending it to
+the logging process every now and then. This is useful for detecting memory
+leaks in your dataloader, among other issues.
+"""
+
 import logging
 import multiprocessing as mp
 import os

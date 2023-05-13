@@ -519,7 +519,7 @@ class HubertEncoderStableLayerNorm(nn.Module):
 class Hubert(nn.Module):
     __constants__ = ["conv_kernel", "conv_stride"]
 
-    def __init__(self, config: HubertConfig):
+    def __init__(self, config: HubertConfig) -> None:
         super().__init__()
 
         self.conv_kernel = config.conv_kernel

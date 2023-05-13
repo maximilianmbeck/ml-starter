@@ -149,6 +149,10 @@ is_metal_disabled = DisableMetal.get
 DisableGPU = _BoolEnvVar("DISABLE_GPU", default=False)
 is_gpu_disabled = DisableGPU.get
 
+# Disables colors in various parts.
+DisableColors = _BoolEnvVar("DISABLE_COLORS", default=False)
+are_colors_disabled = DisableColors.get
+
 # Disables Tensorboard subprocess.
 DisableTensorboard = _BoolEnvVar("DISABLE_TENSORBOARD", default=False)
 is_tensorboard_disabled = DisableTensorboard.get

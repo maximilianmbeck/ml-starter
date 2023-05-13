@@ -1,3 +1,9 @@
+"""Defines a metered logger.
+
+This logger keeps track of statistics of logged values. It is useful for
+getting global statistics during evaluation.
+"""
+
 from dataclasses import dataclass
 from typing import Any, Callable, Iterable
 

@@ -1,4 +1,15 @@
 # pylint: disable=too-many-public-methods
+"""Defines the base class and config for all tasks.
+
+Tasks are the main unit of work in the ML framework. They are responsible for
+defining the training, validation, and testing loops, as well as data loading,
+logging, and model evaluation. They also do a lot of timing and logging of
+performance metrics, with some hooks for calling custom code snippets at
+various points. Typically, you should use either the
+:class:`ml.tasks.sl.SupervisedLearningTask` or
+:class:`ml.tasks.rl.ReinforcementLearningTask` classes instead of this base
+class.
+"""
 
 import functools
 import logging
@@ -414,7 +425,7 @@ class BaseTask(
                 batch_size=cfg.batch_size,
                 drop_last=cfg.drop_last,
                 shuffle=cfg.shuffle if isinstance(dataset, Sized) else False,
-                **common_kwargs,  # type: ignore
+                **common_kwargs,  # type: ignore[arg-type]
             )
 
         try:
@@ -425,13 +436,13 @@ class BaseTask(
                 sampler=sampler,
                 batch_size=cfg.batch_size,
                 drop_last=cfg.drop_last,
-                **common_kwargs,  # type: ignore
+                **common_kwargs,  # type: ignore[arg-type]
             )
 
         return DataLoader(
             dataset=dataset,
             batch_sampler=batch_sampler,
-            **common_kwargs,  # type: ignore
+            **common_kwargs,  # type: ignore[arg-type]
         )
 
     @classmethod

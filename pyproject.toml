@@ -56,8 +56,16 @@ profile = "black"
 
 [tool.ruff]
 
-select = ["D", "E", "F", "I", "W"]
-ignore = ["D100", "D101", "D102", "D103", "D104", "D105", "D106", "D107"]
+select = ["ANN", "D", "E", "F", "I", "N", "PGH", "PLC", "PLE", "PLR", "PLW", "W"]
+
+ignore = [
+    "ANN101", "ANN102", "ANN401",
+    "D101", "D102", "D103", "D104", "D105", "D106", "D107",
+    "N812", "N817",
+    "PLR0911", "PLR0912", "PLR0913", "PLR0915", "PLR2004",
+    "PLW0603", "PLW2901",
+]
+
 line-length = 120
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 target-version = "py310"
@@ -65,10 +73,6 @@ target-version = "py310"
 [tool.ruff.per-file-ignores]
 
 "__init__.py" = ["E402", "F401", "F403", "F811"]
-
-[tool.ruff.mccabe]
-
-max-complexity = 10
 
 [tool.ruff.isort]
 

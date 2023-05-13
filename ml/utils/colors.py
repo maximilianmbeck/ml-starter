@@ -1,4 +1,11 @@
+"""Defines helper functions for printing colored text to the terminal.
+
+Colors can be disabled by setting ``DISABLE_COLORS=1`` in the environment.
+"""
+
 from typing import Literal
+
+from ml.core.env import are_colors_disabled
 
 RESET_SEQ = "\033[0m"
 REG_COLOR_SEQ = "\033[%dm"
@@ -50,5 +57,7 @@ def get_colorize_parts(color: Color, bold: bool = False) -> tuple[str, str]:
 
 
 def colorize(s: str, color: Color, bold: bool = False) -> str:
+    if are_colors_disabled():
+        return s
     start, end = get_colorize_parts(color, bold=bold)
     return start + s + end

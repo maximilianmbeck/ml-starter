@@ -1,3 +1,10 @@
+"""Defines a trainer mixin for profiling PyTorch models.
+
+This can be enabled by setting ``trainer.profiler.enabled=true`` in your
+configuration file. It will run the first few steps of training with the
+profiler enabled, and then log a report of the results to the log directory.
+"""
+
 import contextlib
 import datetime
 import logging

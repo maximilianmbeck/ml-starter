@@ -1,3 +1,10 @@
+"""A trainer mixin to support ``torch.compile``.
+
+By default this is disabled, but can be enabled by setting the environment
+variable ``TORCH_COMPILE=1`` or setting ``trainer.torch_compile.enabled=true``
+in your configuration file.
+"""
+
 import logging
 from dataclasses import dataclass
 from typing import Callable, TypeVar, cast

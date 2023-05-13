@@ -1,3 +1,9 @@
+"""Tests running reinforcement learning environments in parallel.
+
+This tests the synchronous and asynchronous workers and worker pools, running
+a simple dummy environment, to make sure that they don't deadlock.
+"""
+
 import multiprocessing as mp
 import os
 from dataclasses import dataclass

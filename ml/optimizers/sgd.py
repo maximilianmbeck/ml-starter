@@ -1,3 +1,5 @@
+"""Defines a simple SGD optimizer."""
+
 from dataclasses import dataclass
 
 from torch import nn

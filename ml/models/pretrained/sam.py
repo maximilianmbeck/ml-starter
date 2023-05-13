@@ -267,14 +267,14 @@ class Block(nn.Module):
 
         # Window partition
         if self.window_size > 0:
-            H, W = x.shape[1], x.shape[2]
+            hei, wid = x.shape[1], x.shape[2]
             x, pad_hw = window_partition(x, self.window_size)
 
         x = self.attn(x)
 
         # Reverse window partition
         if self.window_size > 0:
-            x = window_unpartition(x, self.window_size, pad_hw, (H, W))
+            x = window_unpartition(x, self.window_size, pad_hw, (hei, wid))
 
         x = shortcut + x
         x = x + self.mlp(self.norm2(x))
@@ -347,17 +347,17 @@ def window_partition(x: Tensor, window_size: int) -> tuple[Tensor, tuple[int, in
         Windows after partition with shape (B * n_win, win_size, win_size, C),
         and the shape.
     """
-    B, H, W, C = x.shape
+    bsz, hei, wid, chans = x.shape
 
-    pad_h = (window_size - H % window_size) % window_size
-    pad_w = (window_size - W % window_size) % window_size
+    pad_h = (window_size - hei % window_size) % window_size
+    pad_w = (window_size - wid % window_size) % window_size
     if pad_h > 0 or pad_w > 0:
         x = F.pad(x, (0, 0, 0, pad_w, 0, pad_h))
-    Hp, Wp = H + pad_h, W + pad_w
+    hei_p, wid_p = hei + pad_h, wid + pad_w
 
-    x = x.view(B, Hp // window_size, window_size, Wp // window_size, window_size, C)
-    windows = x.permute(0, 1, 3, 2, 4, 5).contiguous().view(-1, window_size, window_size, C)
-    return windows, (Hp, Wp)
+    x = x.view(bsz, hei_p // window_size, window_size, wid_p // window_size, window_size, chans)
+    windows = x.permute(0, 1, 3, 2, 4, 5).contiguous().view(-1, window_size, window_size, chans)
+    return windows, (hei_p, wid_p)
 
 
 def window_unpartition(windows: Tensor, window_size: int, pad_hw: tuple[int, int], hw: tuple[int, int]) -> Tensor:
@@ -372,14 +372,14 @@ def window_unpartition(windows: Tensor, window_size: int, pad_hw: tuple[int, int
     Returns:
         The unpartitioned sequences with shape (B, H, W, C).
     """
-    Hp, Wp = pad_hw
-    H, W = hw
-    B = windows.shape[0] // (Hp * Wp // window_size // window_size)
-    x = windows.view(B, Hp // window_size, Wp // window_size, window_size, window_size, -1)
-    x = x.permute(0, 1, 3, 2, 4, 5).contiguous().view(B, Hp, Wp, -1)
+    hei_p, wid_p = pad_hw
+    hei, wid = hw
+    bsz = windows.shape[0] // (hei_p * wid_p // window_size // window_size)
+    x = windows.view(bsz, hei_p // window_size, wid_p // window_size, window_size, window_size, -1)
+    x = x.permute(0, 1, 3, 2, 4, 5).contiguous().view(bsz, hei_p, wid_p, -1)
 
-    if Hp > H or Wp > W:
-        x = x[:, :H, :W, :].contiguous()
+    if hei_p > hei or wid_p > wid:
+        x = x[:, :hei, :wid, :].contiguous()
     return x
 
 
@@ -440,16 +440,16 @@ def add_decomposed_rel_pos(
     """
     q_h, q_w = q_size
     k_h, k_w = k_size
-    Rh = get_rel_pos(q_h, k_h, rel_pos_h)
-    Rw = get_rel_pos(q_w, k_w, rel_pos_w)
+    rel_h = get_rel_pos(q_h, k_h, rel_pos_h)
+    rel_w = get_rel_pos(q_w, k_w, rel_pos_w)
 
-    B, _, dim = q.shape
-    r_q = q.reshape(B, q_h, q_w, dim)
-    rel_h = torch.einsum("bhwc,hkc->bhwk", r_q, Rh)
-    rel_w = torch.einsum("bhwc,wkc->bhwk", r_q, Rw)
+    bsz, _, dim = q.shape
+    r_q = q.reshape(bsz, q_h, q_w, dim)
+    rel_h = torch.einsum("bhwc,hkc->bhwk", r_q, rel_h)
+    rel_w = torch.einsum("bhwc,wkc->bhwk", r_q, rel_w)
 
-    attn = attn.view(B, q_h, q_w, k_h, k_w) + rel_h[:, :, :, :, None] + rel_w[:, :, :, None, :]
-    attn = attn.view(B, q_h * q_w, k_h * k_w)
+    attn = attn.view(bsz, q_h, q_w, k_h, k_w) + rel_h[:, :, :, :, None] + rel_w[:, :, :, None, :]
+    attn = attn.view(bsz, q_h * q_w, k_h * k_w)
 
     return attn
 

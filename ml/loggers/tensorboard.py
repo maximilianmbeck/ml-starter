@@ -1,3 +1,13 @@
+"""Defines a Tensorboard logging interface.
+
+This is a pretty vanilla Tensorboard setup. Each phase gets its own
+SummaryWriter, and scalars are logged to the writer for the current phase.
+Additionally, when developing locally, we also start a Tensorboard server
+in a subprocess. This can be disabled by setting ``DISABLE_TENSORBOARD=1``.
+Also, a specific Tensorboard port can be specified by setting
+``TENSORBOARD_PORT=<port>``.
+"""
+
 import atexit
 import datetime
 import functools

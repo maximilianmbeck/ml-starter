@@ -1,3 +1,8 @@
+"""Defines a timer context manager for timing code blocks.
+
+This also provides a simple spinner for long-running tasks.
+"""
+
 import errno
 import functools
 import logging
@@ -151,6 +156,6 @@ def timeout(seconds: int, error_message: str = os.strerror(errno.ETIME)) -> Call
                 signal.alarm(0)
             return result
 
-        return wrapper  # type: ignore
+        return wrapper  # type: ignore[return-value]
 
     return decorator

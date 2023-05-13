@@ -1,3 +1,5 @@
+"""Function(s) for dealing with random numbers."""
+
 import random
 
 import numpy as np

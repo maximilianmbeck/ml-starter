@@ -1,3 +1,20 @@
+"""Defines utilites for saving and loading video streams.
+
+The main API for using this module is:
+
+.. code-block:: python
+
+    from ml.utils.video import read_video, write_video
+
+    def frame_iterator() -> Iterator[Tensor]:
+        for frame in read_video("/path/to/video.mp4"):
+            yield frame
+
+    write_video(frame_iterator(), "/path/to/other/video.mp4")
+
+This just uses FFMPEG so it should be reasonably quick.
+"""
+
 import asyncio
 import re
 import shutil
@@ -333,7 +350,7 @@ Reader = Literal["ffmpeg", "opencv"]
 Writer = Literal["ffmpeg", "matplotlib", "opencv"]
 
 
-def read_video(reader: Reader, in_file: str | Path) -> Iterator[np.ndarray]:
+def read_video(in_file: str | Path, *, reader: Reader = "ffmpeg") -> Iterator[np.ndarray]:
     if reader == "ffmpeg":
         if not shutil.which("ffmpeg"):
             warnings.warn("FFMPEG is not available in the system. Falling back to OpenCV.")

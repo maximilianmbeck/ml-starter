@@ -1,3 +1,5 @@
+"""Stages the current configuration."""
+
 import logging
 
 from omegaconf import DictConfig, OmegaConf

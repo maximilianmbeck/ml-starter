@@ -1,3 +1,9 @@
+"""Defines a linear warmup and decay learning rate scheduler.
+
+This scheduler first warms up some number of steps, then smoothly decays
+until the end of training.
+"""
+
 from dataclasses import dataclass
 
 from omegaconf import II, MISSING, OmegaConf

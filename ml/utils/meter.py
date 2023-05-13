@@ -1,3 +1,5 @@
+"""Defines a meter for computing statistics over a stream of values."""
+
 import functools
 from typing import Any, cast
 

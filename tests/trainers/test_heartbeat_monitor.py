@@ -1,3 +1,5 @@
+"""Tests the hearbeat monitoring process."""
+
 import functools
 import multiprocessing as mp
 import time

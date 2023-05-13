@@ -1,3 +1,9 @@
+"""Wrapper around the Shampoo optimizer.
+
+This optimizer was proposed in `Shampoo: Preconditioned Stochastic Tensor
+Optimization <https://arxiv.org/abs/1802.09568>`_.
+"""
+
 from dataclasses import dataclass
 
 import torch

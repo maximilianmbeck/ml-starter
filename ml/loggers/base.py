@@ -1,3 +1,10 @@
+"""Defines the base logger.
+
+New loggers should implement whichever `log_` functions they need to.
+Unimplemented functions are simply ignored. The framework will handle logging
+rate limiting and munging the logged values to a common format.
+"""
+
 import datetime
 import functools
 from abc import ABC, abstractmethod
@@ -182,9 +189,8 @@ class BaseLogger(BaseObject[LoggerConfigT], Generic[LoggerConfigT], ABC):
         if phase == "train":
             if self.config.write_train_every_n_seconds is not None:
                 return self.config.write_train_every_n_seconds
-        else:
-            if self.config.write_val_every_n_seconds is not None:
-                return self.config.write_val_every_n_seconds
+        elif self.config.write_val_every_n_seconds is not None:
+            return self.config.write_val_every_n_seconds
 
         if self.config.write_every_n_seconds is not None:
             return self.config.write_every_n_seconds

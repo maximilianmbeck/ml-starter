@@ -1,3 +1,5 @@
+"""Tests the norms API."""
+
 from typing import get_args
 
 import pytest

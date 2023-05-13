@@ -1,3 +1,9 @@
+"""A trainer mixin for logging GPU statistics.
+
+This logs GPU memory and utilization in a background process using
+``nvidia-smi``, if a GPU is available in the system.
+"""
+
 import functools
 import logging
 import multiprocessing as mp

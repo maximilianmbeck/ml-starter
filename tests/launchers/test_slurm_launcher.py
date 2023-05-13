@@ -1,3 +1,10 @@
+"""Tests that the slurm launcher can write a config file.
+
+This test doesn't actually launch a job because that wouldn't be possible on
+CI, just runs through the process of staging a directory and writing an
+sbatch file.
+"""
+
 import sys
 import types
 from pathlib import Path

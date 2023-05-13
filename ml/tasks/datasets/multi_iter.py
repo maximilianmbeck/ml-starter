@@ -1,3 +1,12 @@
+"""Defines a dataset for iterating from multiple sub-datasets.
+
+It's often the case that you want to write a dataset for iterating from a
+single sample, then combine all those datasets into one mega-dataset for
+iterating from all the samples. This dataset serves that purpose by, at each
+iteration, randomly choosing a dataset and getting it's next sample, until
+all samples in all datasets have been exhausted.
+"""
+
 import random
 from dataclasses import dataclass
 from typing import Generic, Iterable, Iterator, TypeVar
@@ -26,7 +35,8 @@ class MultiIterDataset(IterableDataset[T]):
 
         Args:
             datasets: The information about the datasets to iterate from and
-                how to iterate them; specifically,
+                how to iterate them; specifically, the sampling rate of each
+                dataset.
             until_all_empty: If set, iterates until all datasets are empty,
                 otherwise only iterate until any dataset is empty
             iterate_forever: If set, iterate child dataset forever

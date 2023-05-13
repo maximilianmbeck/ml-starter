@@ -25,14 +25,14 @@ from ml.lr_schedulers.base import BaseLRScheduler
 from ml.optimizers.base import BaseOptimizer
 from ml.tasks.sl.base import SupervisedLearningTask
 from ml.trainers.base import ModelT
-from ml.trainers.vanilla import TrainingFinishedException, VanillaTrainer, VanillaTrainerConfig
+from ml.trainers.vanilla import TrainingFinishedError, VanillaTrainer, VanillaTrainerConfig
 from ml.utils.device.base import InfinitePrefetcher
 from ml.utils.timer import Timer
 
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-class EpochDoneException(Exception):
+class EpochDoneError(Exception):
     """Raised when an epoch is done."""
 
 
@@ -121,7 +121,7 @@ class SupervisedLearningTrainer(
 
         def on_finish_training() -> None:
             self.save_checkpoint(state, task, model, optim, lr_sched)
-            raise TrainingFinishedException
+            raise TrainingFinishedError
 
         # Handle user-defined interrupts.
         signal.signal(signal.SIGUSR1, on_exit)
@@ -185,7 +185,7 @@ class SupervisedLearningTrainer(
                                 try:
                                     yield next(train_pf_iter)
                                 except StopIteration:
-                                    raise EpochDoneException
+                                    raise EpochDoneError
 
                                 for _ in range(self.get_batches_per_step(state) - 1):
                                     try:
@@ -203,7 +203,7 @@ class SupervisedLearningTrainer(
                                 lr_sched=lr_sched,
                             )
 
-                        except EpochDoneException:
+                        except EpochDoneError:
                             break
 
                         valid_every_n_steps = self.config.validation.valid_every_n_steps
@@ -232,7 +232,7 @@ class SupervisedLearningTrainer(
 
                     state.num_epochs += 1
 
-        except TrainingFinishedException:
+        except TrainingFinishedError:
             logger.info(
                 "Finished training after %d epochs, %d steps, %d samples",
                 state.num_epochs,

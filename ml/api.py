@@ -266,7 +266,7 @@ from ml.utils.distributed import (
     is_master,
 )
 from ml.utils.image import read_gif, write_gif
-from ml.utils.io import instantiate_config, load_model_and_task
+from ml.utils.checkpoint import instantiate_config, load_model_and_task
 from ml.utils.large_models import init_empty_weights, meta_to_empty_func
 from ml.utils.logging import configure_logging
 from ml.utils.numpy import as_cpu_tensor, as_numpy_array

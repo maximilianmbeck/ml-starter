@@ -1,3 +1,5 @@
+"""Runs the training script."""
+
 import datetime
 import logging
 from contextlib import contextmanager

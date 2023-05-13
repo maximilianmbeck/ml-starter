@@ -1,3 +1,22 @@
+"""Utilities for working with devices.
+
+This module contains utilities for working with devices, such as moving tensors
+and modules to devices, and getting prefetchers for non-blocking host-to-device
+transfers.
+
+The typical flow for using this module is:
+
+.. code-block:: python
+
+    from ml.utils.device.auto import AutoDevice
+
+    device = AutoDevice.detect_device()
+    device.module_to(some_module)
+    device.tensor_to(some_tensor)
+    device.get_prefetcher(some_dataloader)
+    device.recursive_apply(some_container, some_func)
+"""
+
 import contextlib
 import functools
 import threading

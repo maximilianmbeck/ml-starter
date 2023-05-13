@@ -1,3 +1,5 @@
+"""Wrapper around the PyTorch Adan optimizer."""
+
 from dataclasses import dataclass
 from typing import Callable, Iterable
 

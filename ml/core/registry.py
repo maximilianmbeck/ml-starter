@@ -1,3 +1,12 @@
+"""Defines the registry for all objects in the project.
+
+The registry is used to register all objects in the project, and to
+construct them from their configurations. This is done by using the
+`register` decorator, which registers the decorated class with an
+associated config dataclass in the registry. The registry can then be used to
+construct the object from its configuration.
+"""
+
 import functools
 import inspect
 import json
@@ -102,7 +111,7 @@ def get_names(key: str, config: BaseContainer) -> list[str]:
     return names
 
 
-class register_base(ABC, Generic[Entry, Config]):  # pylint: disable=invalid-name
+class register_base(ABC, Generic[Entry, Config]):  # noqa: N801
     """Defines the base registry type."""
 
     REGISTRY: dict[str, tuple[type[Entry], type[Config]]] = {}
@@ -342,7 +351,7 @@ class register_base(ABC, Generic[Entry, Config]):  # pylint: disable=invalid-nam
         return entry
 
 
-class multi_register_base(register_base[Entry, Config], Generic[Entry, Config]):  # pylint: disable=invalid-name
+class multi_register_base(register_base[Entry, Config], Generic[Entry, Config]):  # noqa: N801
     """Defines a registry which produces multiple objects."""
 
     @classmethod
@@ -430,7 +439,7 @@ class multi_register_base(register_base[Entry, Config], Generic[Entry, Config]):
             raw_config[cls.config_key()] = reg_cfgs
 
 
-class register_model(register_base["BaseModel", "BaseModelConfig"]):  # pylint: disable=invalid-name
+class register_model(register_base["BaseModel", "BaseModelConfig"]):  # noqa: N801
     """Defines a registry for holding modules."""
 
     REGISTRY: dict[str, tuple[type["BaseModel"], type["BaseModelConfig"]]] = {}
@@ -445,7 +454,7 @@ class register_model(register_base["BaseModel", "BaseModelConfig"]):  # pylint: 
         return "model"
 
 
-class register_task(register_base["BaseTask", "BaseTaskConfig"]):  # pylint: disable=invalid-name
+class register_task(register_base["BaseTask", "BaseTaskConfig"]):  # noqa: N801
     """Defines a registry for holding tasks."""
 
     REGISTRY: dict[str, tuple[type["BaseTask"], type["BaseTaskConfig"]]] = {}
@@ -460,7 +469,7 @@ class register_task(register_base["BaseTask", "BaseTaskConfig"]):  # pylint: dis
         return "task"
 
 
-class register_trainer(register_base["BaseTrainer", "BaseTrainerConfig"]):  # pylint: disable=invalid-name
+class register_trainer(register_base["BaseTrainer", "BaseTrainerConfig"]):  # noqa: N801
     """Defines a registry for holding trainers."""
 
     REGISTRY: dict[str, tuple[type["BaseTrainer"], type["BaseTrainerConfig"]]] = {}
@@ -475,7 +484,7 @@ class register_trainer(register_base["BaseTrainer", "BaseTrainerConfig"]):  # py
         return "trainer"
 
 
-class register_optimizer(register_base["BaseOptimizer", "BaseOptimizerConfig"]):  # pylint: disable=invalid-name
+class register_optimizer(register_base["BaseOptimizer", "BaseOptimizerConfig"]):  # noqa: N801
     """Defines a registry for holding optimizers."""
 
     REGISTRY: dict[str, tuple[type["BaseOptimizer"], type["BaseOptimizerConfig"]]] = {}
@@ -490,7 +499,7 @@ class register_optimizer(register_base["BaseOptimizer", "BaseOptimizerConfig"]):
         return "optimizer"
 
 
-class register_lr_scheduler(register_base["BaseLRScheduler", "BaseLRSchedulerConfig"]):  # pylint: disable=invalid-name
+class register_lr_scheduler(register_base["BaseLRScheduler", "BaseLRSchedulerConfig"]):  # noqa: N801
     """Defines a registry for holding learning rate schedulers."""
 
     REGISTRY: dict[str, tuple[type["BaseLRScheduler"], type["BaseLRSchedulerConfig"]]] = {}
@@ -505,7 +514,7 @@ class register_lr_scheduler(register_base["BaseLRScheduler", "BaseLRSchedulerCon
         return "lr_scheduler"
 
 
-class register_logger(multi_register_base["BaseLogger", "BaseLoggerConfig"]):  # pylint: disable=invalid-name
+class register_logger(multi_register_base["BaseLogger", "BaseLoggerConfig"]):  # noqa: N801
     """Defines a registry for holding loggers."""
 
     REGISTRY: dict[str, tuple[type["BaseLogger"], type["BaseLoggerConfig"]]] = {}
@@ -520,7 +529,7 @@ class register_logger(multi_register_base["BaseLogger", "BaseLoggerConfig"]):  #
         return "logger"
 
 
-class register_launcher(register_base["BaseLauncher", "BaseLauncherConfig"]):  # pylint: disable=invalid-name
+class register_launcher(register_base["BaseLauncher", "BaseLauncherConfig"]):  # noqa: N801
     REGISTRY: dict[str, tuple[type["BaseLauncher"], type["BaseLauncherConfig"]]] = {}
     REGISTRY_LOCATIONS: dict[str, Path] = {}
 

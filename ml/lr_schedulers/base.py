@@ -1,3 +1,13 @@
+"""Defines the base class and config for all learning rate schedulers.
+
+Learning rate schedulers can be plotted using the tool in
+:mod:`ml.tools.plot_lr_schedulers`. For example:
+
+.. code-block:: bash
+
+    python -m ml.lr_schedulers.scripts.plot linear /path/to/save.png
+"""
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Generic, TypeVar

@@ -1,3 +1,9 @@
+"""Defines a mixin to wrap some steps in a context manager.
+
+This is used by other components which want to know when a step is being
+run, such as when doing profiling.
+"""
+
 from abc import ABC
 from types import TracebackType
 from typing import ContextManager, Literal, TypeVar

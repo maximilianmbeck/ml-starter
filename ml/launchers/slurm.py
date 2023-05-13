@@ -269,7 +269,7 @@ def slurm_main() -> None:
     configure_logging(rank=rank, world_size=world_size)
     init_process_group_from_backend()
 
-    objs = Objects.parse_raw_config(raw_config)  # type: ignore
+    objs = Objects.parse_raw_config(raw_config)  # type: ignore[arg-type]
 
     assert (trainer := objs.trainer) is not None
     trainer.add_lock_file("running", exists_ok=True)

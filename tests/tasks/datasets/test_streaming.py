@@ -1,3 +1,9 @@
+"""Tests the streaming dataset.
+
+Essentially this just creates a few dummy iterable datasets, then tests that
+the streaming dataset is able to iterate over them.
+"""
+
 import itertools
 import unittest
 from typing import Iterator

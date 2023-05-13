@@ -21,7 +21,7 @@ from ml.optimizers.base import BaseOptimizer
 from ml.trainers.base import BaseTrainer, BaseTrainerConfig, ModelT, TaskT
 from ml.trainers.mixins.compile import CompileConfig, CompileMixin
 from ml.trainers.mixins.cpu_stats import CPUStatsConfig, CPUStatsMixin
-from ml.trainers.mixins.data_parallel import DataParallelConfig, DataParallelMixin
+from ml.trainers.mixins.data_parallel import ParallelMixin, TrainerParallelConfig
 from ml.trainers.mixins.gpu_stats import GPUStatsConfig, GPUStatsMixin
 from ml.trainers.mixins.grad_clipping import (
     GradientClippingConfig,
@@ -37,7 +37,7 @@ from ml.utils.timer import Timer
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-class TrainingFinishedException(Exception):
+class TrainingFinishedError(Exception):
     pass
 
 
@@ -49,7 +49,7 @@ class VanillaTrainerConfig(
     GPUStatsConfig,
     CPUStatsConfig,
     CompileConfig,
-    DataParallelConfig,
+    TrainerParallelConfig,
     BaseTrainerConfig,
 ):
     set_to_none: bool = conf_field(True, help="Mode for clearing optimizer gradients")
@@ -69,7 +69,7 @@ class VanillaTrainer(
     GPUStatsMixin[VanillaTrainerConfigT, ModelT, TaskT],
     CPUStatsMixin[VanillaTrainerConfigT, ModelT, TaskT],
     CompileMixin[VanillaTrainerConfigT, ModelT, TaskT],
-    DataParallelMixin[VanillaTrainerConfigT, ModelT, TaskT],
+    ParallelMixin[VanillaTrainerConfigT, ModelT, TaskT],
     BaseTrainer[VanillaTrainerConfigT, ModelT, TaskT],
     Generic[VanillaTrainerConfigT, ModelT, TaskT],
 ):

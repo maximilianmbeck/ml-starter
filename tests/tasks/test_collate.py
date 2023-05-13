@@ -1,3 +1,5 @@
+"""Tests collating various collections."""
+
 import pytest
 import torch
 

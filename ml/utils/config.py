@@ -1,3 +1,5 @@
+"""Utilities for working with OmegaConf configs."""
+
 from typing import Any
 
 from omegaconf import MISSING, Container, OmegaConf

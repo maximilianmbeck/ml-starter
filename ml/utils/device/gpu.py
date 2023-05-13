@@ -1,3 +1,13 @@
+"""GPU device type.
+
+The default floating point type can be configured with the environment
+variables:
+
+- ``USE_FP64``: Use FP64
+- ``USE_FP32``: Use FP32
+- ``USE_BF16``: Use BF16
+"""
+
 import logging
 import os
 from typing import Callable

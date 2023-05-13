@@ -120,12 +120,11 @@ class LoraEmbedding(nn.Embedding, _Lora):
                 if self.lora_a is not None and self.lora_b is not None:
                     self.weight.data -= (self.lora_b @ self.lora_a).transpose(0, 1) * self.scaling
                 self.merged = False
-        else:
-            if self.merge and not self.merged:
-                # Merge the weights and mark it
-                if self.lora_a is not None and self.lora_b is not None:
-                    self.weight.data += (self.lora_b @ self.lora_a).transpose(0, 1) * self.scaling
-                self.merged = True
+        elif self.merge and not self.merged:
+            # Merge the weights and mark it
+            if self.lora_a is not None and self.lora_b is not None:
+                self.weight.data += (self.lora_b @ self.lora_a).transpose(0, 1) * self.scaling
+            self.merged = True
 
         return self
 
@@ -207,12 +206,11 @@ class LoraLinear(nn.Linear, _Lora):
                     self.weight.data -= self._t(self.lora_b @ self.lora_a) * self.scaling
                 self.merged = False
 
-        else:
-            if self.merge and not self.merged:
-                # Merge the weights and mark it
-                if self.lora_a is not None and self.lora_b is not None:
-                    self.weight.data += self._t(self.lora_b @ self.lora_a) * self.scaling
-                self.merged = True
+        elif self.merge and not self.merged:
+            # Merge the weights and mark it
+            if self.lora_a is not None and self.lora_b is not None:
+                self.weight.data += self._t(self.lora_b @ self.lora_a) * self.scaling
+            self.merged = True
 
         return self
 
@@ -288,12 +286,11 @@ class LoraConv1d(nn.Conv1d, _Lora):
                     self.weight.data -= self.lora_b @ self.lora_a * self.scaling
                 self.merged = False
 
-        else:
-            if self.merge and not self.merged:
-                # Merge the weights and mark it
-                if self.lora_a is not None and self.lora_b is not None:
-                    self.weight.data += self.lora_b @ self.lora_a * self.scaling
-                self.merged = True
+        elif self.merge and not self.merged:
+            # Merge the weights and mark it
+            if self.lora_a is not None and self.lora_b is not None:
+                self.weight.data += self.lora_b @ self.lora_a * self.scaling
+            self.merged = True
 
         return self
 
@@ -370,12 +367,11 @@ class LoraConv2d(nn.Conv2d, _Lora):
                     self.weight.data -= self.lora_b @ self.lora_a * self.scaling
                 self.merged = False
 
-        else:
-            if self.merge and not self.merged:
-                # Merge the weights and mark it
-                if self.lora_a is not None and self.lora_b is not None:
-                    self.weight.data += self.lora_b @ self.lora_a * self.scaling
-                self.merged = True
+        elif self.merge and not self.merged:
+            # Merge the weights and mark it
+            if self.lora_a is not None and self.lora_b is not None:
+                self.weight.data += self.lora_b @ self.lora_a * self.scaling
+            self.merged = True
 
         return self
 

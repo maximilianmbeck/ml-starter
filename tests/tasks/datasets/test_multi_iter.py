@@ -1,3 +1,9 @@
+"""Tests the multi-iter dataset.
+
+This just creates some dummy datasets and tests that the multi-iter dataset
+is able to iterate over them.
+"""
+
 import itertools
 import random
 from typing import Iterator

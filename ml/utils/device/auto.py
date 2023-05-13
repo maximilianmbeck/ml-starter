@@ -1,3 +1,15 @@
+"""Defines a utility class for automatically detecting the device to use.
+
+This function just goes through a list of devices in order of priority and
+finds whichever one is available. To disable some device, you can set the
+associated environment variable, for example:
+
+.. code-block:: bash
+
+    export DISABLE_METAL=1
+    export DISABLE_GPU=1
+"""
+
 import functools
 import logging
 from typing import Type

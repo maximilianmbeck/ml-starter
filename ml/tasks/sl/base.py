@@ -1,4 +1,19 @@
-# pylint: disable=too-many-public-methods
+"""Defines the base supervised learning task type.
+
+This class expects you to implement the following functions:
+
+.. code-block:: python
+
+    class MySupervisedLearningTask(ml.ReinforcementLearning[Config, Model, Batch, Output, Loss]):
+        def run_model(self, model: Model, batch: Batch, state: ml.State) -> Output:
+            ...
+
+        def compute_loss(self, model: Model, batch: Batch, state: ml.State, output: Output) -> Loss:
+            ...
+
+        def get_dataset(self, phase: ml.Phase) -> Dataset:
+            ...
+"""
 
 import logging
 from abc import ABC
@@ -36,8 +51,5 @@ class SupervisedLearningTask(
 
         Args:
             phase: The dataset phase to get
-
-        Raises:
-            NotImplementedError: If this method is not overridden
         """
         raise NotImplementedError("`get_dataset` should be implemented by the task")

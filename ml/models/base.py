@@ -1,3 +1,8 @@
+"""The base object and config for all models.
+
+This is essentially just a small wrapper around a vanilla PyTorch module.
+"""
+
 import logging
 from dataclasses import dataclass
 from typing import Generic, TypeVar

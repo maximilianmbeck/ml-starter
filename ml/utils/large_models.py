@@ -31,23 +31,23 @@ def init_empty_weights(include_buffers: bool = False) -> Iterator[None]:
         if param is not None:
             param_cls = type(module._parameters[name])
             kwargs = module._parameters[name].__dict__
-            meta_param = module._parameters[name].to(torch.device("meta"))  # type: ignore
-            module._parameters[name] = param_cls(meta_param, **kwargs)  # type: ignore
+            meta_param = module._parameters[name].to(torch.device("meta"))  # type: ignore[union-attr]
+            module._parameters[name] = param_cls(meta_param, **kwargs)  # type: ignore[misc]
 
     def register_empty_buffer(module: nn.Module, name: str, buffer: Tensor | None) -> None:
         old_register_buffer(module, name, buffer)
         if buffer is not None:
-            module._buffers[name] = module._buffers[name].to(torch.device("meta"))  # type: ignore
+            module._buffers[name] = module._buffers[name].to(torch.device("meta"))  # type: ignore[union-attr]
 
     try:
-        nn.Module.register_parameter = register_empty_parameter  # type: ignore
+        nn.Module.register_parameter = register_empty_parameter  # type: ignore[assignment]
         if include_buffers:
-            nn.Module.register_buffer = register_empty_buffer  # type: ignore
+            nn.Module.register_buffer = register_empty_buffer  # type: ignore[assignment]
         yield
     finally:
-        nn.Module.register_parameter = old_register_parameter  # type: ignore
+        nn.Module.register_parameter = old_register_parameter  # type: ignore[method-assign]
         if include_buffers:
-            nn.Module.register_buffer = old_register_buffer  # type: ignore
+            nn.Module.register_buffer = old_register_buffer  # type: ignore[method-assign]
 
 
 def meta_to_empty_func(device: torch.device | str, dtype: torch.dtype | None = None) -> Callable[[Tensor], Tensor]:

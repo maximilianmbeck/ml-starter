@@ -1,3 +1,5 @@
+"""Resolves the command line to a config and prints it."""
+
 from omegaconf import DictConfig, OmegaConf
 
 

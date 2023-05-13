@@ -1,3 +1,17 @@
+"""Defines a trainer mixin for data and model parallelism.
+
+This defines how to wrap the model when launching multi-GPU or multi-node jobs.
+There are two wrappers:
+
+- ``DistributedDataParallel`` (DDP)
+- ``FullyShardedDataParallel`` (FSDP)
+
+DDP is the default wrapper unless ``conf.parallel.use_fsdp`` is set to ``True``.
+DDO runs each model replica on a single GPU processing a subset of the batch,
+and then synchronizes gradients across all GPUs. FSDP supports more complex
+sharding of the model across GPUs and nodes, and also supports CPU offloading.
+"""
+
 import logging
 from dataclasses import dataclass
 from typing import Generic, TypeVar
@@ -40,14 +54,14 @@ class TaskModel(nn.Module, Generic[ModelT, TaskT, Batch, Loss]):
 
 
 @dataclass
-class ModelConfig:
+class ParallelConfig:
     use_fsdp: bool = conf_field(False, help="If set, use FSDP; otherwise, use DDP")
     cpu_offload: bool = conf_field(False, help="CPU offloading for FSDP")
     sharding_strategy: ShardingStrategy = conf_field(ShardingStrategy.HYBRID_SHARD, help="Sharding strategy")
     sync_module_states: bool = conf_field(True, help="Whether to sync module states on initialization")
 
 
-def ddp(model: nn.Module, cfg: ModelConfig) -> DDP:
+def ddp(model: nn.Module, cfg: ParallelConfig) -> DDP:
     group_info = parallel_group_info()
 
     return DDP(model, process_group=group_info.dp.group)
@@ -57,7 +71,7 @@ def _all_params_are_cuda(model: nn.Module) -> bool:
     return all(p.is_cuda for p in model.parameters())
 
 
-def fsdp(model: nn.Module, cfg: ModelConfig) -> FSDP:
+def fsdp(model: nn.Module, cfg: ParallelConfig) -> FSDP:
     group_info = parallel_group_info()
 
     process_group: tuple[ProcessGroup, ProcessGroup] | ProcessGroup
@@ -78,7 +92,7 @@ def fsdp(model: nn.Module, cfg: ModelConfig) -> FSDP:
     )
 
 
-def dp(model: T, cfg: ModelConfig) -> T | DDP | FSDP:
+def dp(model: T, cfg: ParallelConfig) -> T | DDP | FSDP:
     """Wraps a model for data parallel training, if necessary.
 
     Args:
@@ -94,14 +108,14 @@ def dp(model: T, cfg: ModelConfig) -> T | DDP | FSDP:
 
 
 @dataclass
-class DataParallelConfig(BaseTrainerConfig):
-    fsdp: ModelConfig = conf_field(ModelConfig(), help="Torch compile config")
+class TrainerParallelConfig(BaseTrainerConfig):
+    parallel: ParallelConfig = conf_field(ParallelConfig(), help="Parallelism configuration options")
 
 
-DataParallelConfigT = TypeVar("DataParallelConfigT", bound=DataParallelConfig)
+ParallelConfigT = TypeVar("ParallelConfigT", bound=TrainerParallelConfig)
 
 
-class DataParallelMixin(BaseTrainer[DataParallelConfigT, ModelT, TaskT]):
+class ParallelMixin(BaseTrainer[ParallelConfigT, ModelT, TaskT]):
     """Defines a trainer mixin for fully sharded data parallel models."""
 
     def _get_task_model(self, task: TaskT, model: ModelT) -> nn.Module:

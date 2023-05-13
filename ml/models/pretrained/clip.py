@@ -1,4 +1,3 @@
-# pylint: disable=too-many-lines
 """Defines a simple API for using OpenAI's pretrained CLIP model.
 
 .. highlight:: python
@@ -169,7 +168,7 @@ def get_pairs(word: tuple[str, ...]) -> set[tuple[str, str]]:
 @functools.lru_cache()
 def test_clean_func(lower: bool = True) -> Callable[[str], str]:
     try:
-        import ftfy  # type: ignore
+        import ftfy  # type: ignore[import]
 
     except ImportError:
         logger.warning("Please install ftfy: pip install ftfy")
@@ -573,7 +572,7 @@ class Transformer(nn.Module):
         *,
         device: torch.device | None = None,
         dtype: torch.dtype | None = None,
-    ):
+    ) -> None:
         super().__init__()
         self.width = width
         self.layers = layers

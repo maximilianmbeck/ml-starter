@@ -112,7 +112,7 @@ def open_atomic(
     ...
 
 
-@contextmanager  # type: ignore
+@contextmanager  # type: ignore[misc]
 def open_atomic(
     filepath: str | Path,
     mode: str,

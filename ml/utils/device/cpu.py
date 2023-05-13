@@ -1,3 +1,5 @@
+"""CPU device type."""
+
 from typing import Callable
 
 import torch

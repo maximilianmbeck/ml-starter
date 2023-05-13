@@ -1,3 +1,12 @@
+"""Defines a mixin for doing FP16 scaling.
+
+FP16 scaling is a technique for training with FP16 precision while maintaining
+FP32 precision for the model weights. This is done by scaling the loss by a
+large factor (e.g. 2^16) and then scaling the gradients by the inverse of that
+factor. So if the scale factor starts to decrease, it means that the loss is
+overflowing and training is diverging.
+"""
+
 from dataclasses import dataclass
 from typing import Any, ContextManager, TypeVar
 

@@ -1,3 +1,5 @@
+"""Defines utilities for dealing with images."""
+
 import itertools
 import math
 from fractions import Fraction

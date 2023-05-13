@@ -1,3 +1,17 @@
+"""Utility function for testing datasets.
+
+All this does is iterates through some samples in a dataset or dataloder. It's
+useful when developing a dataset because you can just add a small code snippet
+to the bottom of your file like so:
+
+.. code-block:: python
+
+    if __name__ == "__main__":
+        from ml.tasks.datasets.utils import test_dataset
+
+        test_dataset(MyDataset())
+"""
+
 import itertools
 import logging
 import time
@@ -27,7 +41,7 @@ def test_dataset(ds: Dataset | IterableDataset | DataLoader, max_samples: int = 
             if i % 10 == 0:
                 logger.info("Sample %d in %.2g seconds", i, time.time() - start_time)
     else:
-        samples = len(ds)  # type: ignore
+        samples = len(ds)  # type: ignore[arg-type]
         logger.info("Dataset has %d items", samples)
         for i in tqdm.trange(min(samples, max_samples)):
             _ = ds[i]

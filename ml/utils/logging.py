@@ -1,3 +1,9 @@
+"""Logging utilities.
+
+This extends the basic Python logger to log across all ranks, and to colorize
+the logs to make them easier to parse.
+"""
+
 import logging
 import math
 import sys
@@ -80,9 +86,8 @@ class ColoredFormatter(logging.Formatter):
 
         if levelname == "DEBUG":
             record.levelname = ""
-        else:
-            if self.use_color and levelname in self.COLORS:
-                record.levelname = colorize(levelname, self.COLORS[levelname], bold=True)
+        elif self.use_color and levelname in self.COLORS:
+            record.levelname = colorize(levelname, self.COLORS[levelname], bold=True)
         return logging.Formatter.format(self, record)
 
 

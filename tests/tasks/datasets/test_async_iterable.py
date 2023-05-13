@@ -1,3 +1,5 @@
+"""Tests the async iterable dataset."""
+
 import asyncio
 from typing import AsyncIterator
 

@@ -1,3 +1,5 @@
+"""Defines a cosine learning rate scheduler with decay."""
+
 import math
 from dataclasses import dataclass
 

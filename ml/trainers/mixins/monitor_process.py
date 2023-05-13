@@ -1,3 +1,5 @@
+"""Defines a base trainer mixin for handling subprocess monitoring jobs."""
+
 import logging
 import multiprocessing as mp
 from dataclasses import dataclass

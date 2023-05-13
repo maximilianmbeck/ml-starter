@@ -1,3 +1,13 @@
+"""Defines the base trainer class and config.
+
+The trainer is the thing that actually runs the training loop. There are
+separate trainers for supervised and reinforcement learning since the latter
+requires interacting with an environment, so you use the appropriate trainer
+for your task (they are defined in :mod:`ml.trainers.sl` and
+:mod:`ml.trainers.rl` respectively). The base trainer handles things like
+setting up the experiment directory, saving checkpoints, and logging.
+"""
+
 import enum
 import functools
 import logging
@@ -62,9 +72,8 @@ def remove_lock_file(exp_dir: Path, lock_type: LockType, *, missing_ok: bool = F
         if (lock_file := exp_dir / f".lock_{lock_type}").exists():
             lock_file.unlink()
             logger.debug("Removed %s lock file from experiment directory %s", lock_type, exp_dir)
-        else:
-            if not missing_ok:
-                raise RuntimeError(f"Lock file not found at {lock_file}")
+        elif not missing_ok:
+            raise RuntimeError(f"Lock file not found at {lock_file}")
 
 
 def has_lock_file(exp_dir: Path, lock_type: LockType | None = None) -> bool:

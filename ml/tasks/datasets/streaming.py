@@ -1,3 +1,10 @@
+"""Defines a dataset which combines many streaming datasets.
+
+This dataset takes a set of child iterable datasets and iterates from
+them infinitely. When a child dataset is exhausted, it is returned to
+the reservoir and restarted, while another dataset is chosen.
+"""
+
 import logging
 import random
 from typing import Collection, Generic, Iterator, TypeVar
@@ -12,18 +19,21 @@ Batch = TypeVar("Batch")
 
 
 class StreamingDataset(IterableDataset[tuple[int, Batch]], Generic[Batch]):
+    """Defines a dataset which combines many streaming datasets.
+
+    This dataset takes a set of child iterable datasets and iterates from
+    them infinitely. When a child dataset is exhausted, it is returned to
+    the reservoir and restarted, while another dataset is chosen.
+
+    An example usage for this dataset is to get samples from many videos,
+    where each sub-dataset yields video samples. This way the child dataset
+    can be used to run inference on a single video, while the parent
+    streaming dataset can be used to train on a mixture of videos. The
+    child dataset can then be optimized to make video loading times fast.
+    """
+
     def __init__(self, datasets: Collection[IterableDataset[Batch]], max_simultaneous: int) -> None:
-        """Defines a dataset which combines many streaming datasets.
-
-        This dataset takes a set of child iterable datasets and iterates from
-        them infinitely. When a child dataset is exhausted, it is returned to
-        the reservoir and restarted, while another dataset is chosen.
-
-        An example usage for this dataset is to get samples from many videos,
-        where each sub-dataset yields video samples. This way the child dataset
-        can be used to run inference on a single video, while the parent
-        streaming dataset can be used to train on a mixture of videos. The
-        child dataset can then be optimized to make video loading times fast.
+        """Initializes a new streaming dataset.
 
         Args:
             datasets: The sub-datasets to iterate from
@@ -107,5 +117,11 @@ class StreamingDataset(IterableDataset[tuple[int, Batch]], Generic[Batch]):
 
 
 class StreamingDatasetNoIndex(StreamingDataset[Batch], IterableDataset[tuple[int, Batch]], Generic[Batch]):
+    """Defines a streaming dataset which only yields the batch.
+
+    This dataset is identical to the StreamingDataset, except that it
+    cuts off the dataset index and only yields the batch.
+    """
+
     def __next__(self) -> Batch:  # type: ignore[override]
         return super().__next__()[1]

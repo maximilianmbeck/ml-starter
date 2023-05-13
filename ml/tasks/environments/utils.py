@@ -1,3 +1,20 @@
+"""Utilities for working with environments.
+
+This is analogous to :mod:`ml.tasks.datasets.utils`, but for environments
+instead of datasets. It's useful when developing an environment because you can
+just add a small code snippet to the bottom of your file like so:
+
+.. code-block:: python
+
+    if __name__ == "__main__":
+        from ml.tasks.environments.utils import test_environment
+
+        test_environment(MyEnvironment(), save_path="env.mp4")
+
+This will dump a video of your environment running for a few steps, which you
+can then inspect to make sure everything is working as expected.
+"""
+
 import logging
 import time
 from pathlib import Path

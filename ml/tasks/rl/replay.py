@@ -75,7 +75,7 @@ class ReplayDataset(IterableDataset[T], Generic[T]):
         buffer: MultiReplaySamples[T],
         clip_size: int,
         stride: int = 1,
-        collate_fn: Callable[[list[T]], T] = collate,  # type: ignore
+        collate_fn: Callable[[list[T]], T] = collate,  # type: ignore[assignment]
     ) -> None:
         super().__init__()
 

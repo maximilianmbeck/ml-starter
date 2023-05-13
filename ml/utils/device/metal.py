@@ -1,3 +1,5 @@
+"""MPS device support for Metal GPUs (i.e., Apple Silicon)."""
+
 from typing import Callable
 
 import torch

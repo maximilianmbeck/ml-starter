@@ -1,3 +1,9 @@
+"""Tests that the ``scaled_dot_product_attention`` function works correctly.
+
+This just checks that the built-in attention function in newer versions of
+PyTorch matches a reference implementation.
+"""
+
 import math
 
 import pytest

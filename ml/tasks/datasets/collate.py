@@ -1,3 +1,5 @@
+"""Defines custom collation functions for PyTorch datasets."""
+
 from dataclasses import is_dataclass
 from typing import Any, Callable, Literal
 
@@ -187,7 +189,7 @@ def collate(
         for j in range(len(item)):
             output_list.append(collate([i[j] for i in items], mode=mode, pad=pad))
         if is_named_tuple(item):
-            return type(item)(*output_list)  # type: ignore
+            return type(item)(*output_list)  # type: ignore[arg-type]
         if isinstance(item, tuple):
             return tuple(output_list)
         return output_list

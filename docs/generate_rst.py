@@ -1,3 +1,5 @@
+"""Script which auto-generates RST files for the API reference."""
+
 import os
 
 source_dir = "../ml"

@@ -1,3 +1,25 @@
+"""Defines a trainer mixin for supporting gradient clipping.
+
+Gradient clipping occurs after the gradients are computed and before the
+optimizer step. It is done in-place, so the gradients are modified. There
+are basically three types of gradient clipping:
+
+1. Norm-based clipping
+2. Value-based clipping
+3. Global norm-based clipping
+
+Norm-based clipping is the most common type of gradient clipping. It
+clips the norm of each gradient to a maximum value, by dividing by the norm
+if the norm is greater than some threshold.
+
+Value-based clipping clips each gradient value to a maximum value, by
+clamping the gradient value to the maximum value.
+
+Global norm-based clipping clips the norm of all gradients to a maximum
+value, by dividing all gradients by the total norm if the total norm is
+greater than some threshold.
+"""
+
 from dataclasses import dataclass
 from typing import Any, Callable, TypeVar
 

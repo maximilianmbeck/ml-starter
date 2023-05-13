@@ -1,3 +1,9 @@
+"""A simple mixin for monitoring if the main training job is still alive.
+
+If this mixin detects that the training job has died then it will kill the
+current process.
+"""
+
 import logging
 import multiprocessing as mp
 import os

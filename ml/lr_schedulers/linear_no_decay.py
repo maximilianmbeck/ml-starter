@@ -1,3 +1,5 @@
+"""Defines a linear warmup scheduler without decay."""
+
 from dataclasses import dataclass
 
 from ml.core.config import conf_field

@@ -1,3 +1,5 @@
+"""Defines a dataset which iterates through frames in a video file."""
+
 from pathlib import Path
 from typing import Callable, Iterator
 
@@ -34,7 +36,7 @@ class VideoFileDataset(IterableDataset[Tensor]):
 
     def __iter__(self) -> Iterator[Tensor]:
         self.video_props = VideoProps.from_file_ffmpeg(self.file_path)
-        self.video_stream = read_video(self.reader, self.file_path)
+        self.video_stream = read_video(self.file_path, reader=self.reader)
         return self
 
     def __next__(self) -> Tensor:

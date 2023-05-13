@@ -1,3 +1,5 @@
+"""Networking utility functions."""
+
 import socket
 
 

@@ -1,9 +1,24 @@
+"""Test to ensure that the CLI startup time doesn't get annoyingly slow.
+
+This basically just imports the main CLI script and ensures that it doesn't
+depend on any of a number of heavy imports, like Torch.
+"""
+
 import inspect
 import sys
 from collections import deque
 from typing import Deque
 
 import pytest
+
+DISALLOWED_IMPORTS = {
+    "numpy",
+    "omegaconf",
+    "torch",
+    "torchaudio",
+    "torchvision",
+    "tqdm",
+}
 
 
 @pytest.mark.slow
@@ -13,15 +28,6 @@ def test_cli_import_time() -> None:
     Raises:
         ValueError: If `ml.scripts.cli` imports a disallowed module.
     """
-    DISALLOWED_IMPORTS = {
-        "numpy",
-        "omegaconf",
-        "torch",
-        "torchaudio",
-        "torchvision",
-        "tqdm",
-    }
-
     visited: set[str] = set()
     queue: Deque[str] = deque()
     queue.append("ml.scripts.cli")

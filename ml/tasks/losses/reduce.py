@@ -1,3 +1,16 @@
+"""Defines helper functions for doing tensor reductions.
+
+This just makes it so that tensor reductions can be defined as strings but
+retain type checking, for example:
+
+.. code-block:: python
+
+    from ml.tasks.losses.reduce import reduce
+
+    t = torch.randn(10, 10)
+    t_reduced = reduce(t, "mean", dim=0)
+"""
+
 from typing import Literal, cast, get_args
 
 from torch import Tensor, nn

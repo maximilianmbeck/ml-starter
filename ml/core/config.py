@@ -1,3 +1,10 @@
+"""Defines the base config and object classes.
+
+The base configuration dataclass provides some small increments over what
+OmegaConf expects. The :func:``conf_field`` function exists to standardize
+the metadata that each field should have.
+"""
+
 from dataclasses import dataclass, field
 from typing import Any, Generic, TypeVar
 

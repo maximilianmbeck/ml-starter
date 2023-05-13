@@ -1,3 +1,21 @@
+"""Defines a dataset for asynchronous iteration.
+
+This dataclass is useful when you are trying to use Python's ``async`` /
+``await`` syntax to iterate over a dataset. This just starts a separate thread
+that runs the async iterator and puts the results into a queue, which is then
+used to iterate over the dataset.
+
+Example::
+
+    class MyDataset(AsyncIterableDataset):
+        async def __aiter__(self) -> AsyncIterator[T]:
+            for i in range(10):
+                yield i
+
+    for i in MyDataset():
+        print(i)
+"""
+
 import asyncio
 import logging
 import queue

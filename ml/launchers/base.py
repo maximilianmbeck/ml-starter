@@ -1,3 +1,5 @@
+"""Base launcher class and config."""
+
 from dataclasses import dataclass
 from typing import Generic, TypeVar
 
@@ -16,9 +18,5 @@ LauncherConfigT = TypeVar("LauncherConfigT", bound=BaseLauncherConfig)
 
 class BaseLauncher(BaseObject[LauncherConfigT], Generic[LauncherConfigT]):
     def launch(self) -> None:
-        """Launches the training process.
-
-        Raises:
-            NotImplementedError: If the subclass does not implement this method
-        """
+        """Launches the training process."""
         raise NotImplementedError

@@ -19,7 +19,7 @@ Tv = TypeVar("Tv")
 CacheType = Literal["pkl", "json"]
 
 
-class cached_object:  # pylint: disable=invalid-name
+class cached_object:  # noqa: N801
     def __init__(self, cache_key: str, ext: CacheType = "pkl", ignore: bool = False, cache_obj: bool = True) -> None:
         """Defines a wrapper for caching function calls to a file location.
 

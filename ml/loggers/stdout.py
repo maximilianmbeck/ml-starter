@@ -1,3 +1,10 @@
+"""Defines a simple logger that writes to stdout.
+
+I put a bunch of colors in here to make it easier to quickly find logged
+values of interest, but the colors can be disabled by setting the
+environment variable ``DISABLE_COLORS=1``
+"""
+
 import datetime
 import itertools
 import logging

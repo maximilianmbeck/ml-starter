@@ -1,3 +1,5 @@
+"""Wrapper around the PyTorch Adamw optimizer."""
+
 from dataclasses import dataclass
 from typing import Any, Iterable
 

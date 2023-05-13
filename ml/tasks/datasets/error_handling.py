@@ -1,3 +1,10 @@
+"""Defines error handling wrappers for datasets.
+
+The worst feeling in the world is when you're training a model and it crashes
+after 10 hours of training. This module defines some error handling wrappers
+for datasets which will catch errors and log them (in batches).
+"""
+
 import bdb
 import logging
 import random

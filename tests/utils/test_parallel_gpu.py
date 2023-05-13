@@ -1,3 +1,5 @@
+"""Tests model parallelism primitives running on GPU, using FSDP."""
+
 import logging
 
 import pytest
@@ -6,7 +8,7 @@ import torch.nn.functional as F
 from torch import Tensor, nn
 
 from ml.models.parallel import ColumnParallelLinear, ParallelEmbedding, RowParallelLinear
-from ml.trainers.mixins.data_parallel import ModelConfig, fsdp
+from ml.trainers.mixins.data_parallel import ParallelConfig, fsdp
 from ml.utils.logging import configure_logging
 from ml.utils.networking import get_unused_port
 from ml.utils.torch_distributed import MultiprocessConfig, launch_subprocesses
@@ -45,7 +47,7 @@ def setup() -> None:
 
 
 def func() -> None:
-    config = ModelConfig(use_fsdp=True)
+    config = ParallelConfig(use_fsdp=True)
     base_model = DummyModel()
     base_model.cuda()
 

@@ -1,3 +1,9 @@
+"""Defines the base optimizer adapter.
+
+This class usually just wraps PyTorch optimizers, providing some common
+hyperparameter configurations.
+"""
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Generic, TypeVar
