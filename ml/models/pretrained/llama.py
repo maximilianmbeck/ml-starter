@@ -572,9 +572,9 @@ def worker(
 
 def setup() -> None:
     # Hides some nuisance logs.
-    # logging.getLogger("torch.distributed").setLevel(logging.ERROR)
-    # logging.getLogger("torch.nn.parallel.distributed").setLevel(logging.ERROR)
-    # logging.getLogger("ml.utils.torch_distributed").setLevel(logging.ERROR)
+    logging.getLogger("torch.distributed").setLevel(logging.ERROR)
+    logging.getLogger("torch.nn.parallel.distributed").setLevel(logging.ERROR)
+    logging.getLogger("ml.utils.torch_distributed").setLevel(logging.ERROR)
 
     # Setting the seed across all processes to make sure that the weights
     # initialize to the same values (needed to make the test pass).
