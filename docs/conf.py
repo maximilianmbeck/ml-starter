@@ -23,6 +23,7 @@ autodoc_member_order = "bysource"
 autodoc_default_flags = ["members", "undoc-members", "show-inheritance"]
 # autodoc_typehints = "description"
 autodoc_typehints = "signature"
+autoclass_content = "both"
 
 autosummary_generate = True
 autosummary_imported_members = False
