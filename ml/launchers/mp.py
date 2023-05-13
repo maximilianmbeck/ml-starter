@@ -37,7 +37,7 @@ class MultiProcessLauncherConfig(BaseLauncherConfig):
         super().resolve(config)
 
         # Resolve multiprocess config.
-        config.multiprocess.resolve()
+        MultiprocessConfig.resolve(config.multiprocess)
 
 
 @register_launcher("mp", MultiProcessLauncherConfig)
@@ -46,5 +46,9 @@ class MultiProcessLauncher(BaseLauncher[MultiProcessLauncherConfig]):
         if not torch.cuda.is_available():
             raise RuntimeError("MultiProcessLauncher requires CUDA")
 
-        func = functools.partial(process_main, raw_config=self.raw_config)
+        func = functools.partial(
+            process_main,
+            cfg=self.config.multiprocess,
+            raw_config=self.raw_config,
+        )
         launch_subprocesses(func, self.config.multiprocess)

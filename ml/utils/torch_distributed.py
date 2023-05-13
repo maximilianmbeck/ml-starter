@@ -46,14 +46,15 @@ class MultiprocessConfig:
     data_parallel_backend: str | None = conf_field(None, help="The data parallel backend")
     launch_method: str = conf_field("forkserver", help="The launch method for multiprocessing")
 
-    def resolve(self) -> None:
+    @classmethod
+    def resolve(cls, config: "MultiprocessConfig") -> None:
         device_count = torch.cuda.device_count() if torch.cuda.is_available() else 1
-        if is_missing(self, "world_size"):
-            self.world_size = device_count
-        if is_missing(self, "local_world_size"):
-            self.local_world_size = min(device_count, self.world_size)
-        if is_missing(self, "master_port"):
-            self.master_port = get_unused_port()
+        if is_missing(config, "world_size"):
+            config.world_size = device_count
+        if is_missing(config, "local_world_size"):
+            config.local_world_size = min(device_count, config.world_size)
+        if is_missing(config, "master_port"):
+            config.master_port = get_unused_port()
 
 
 def init_process_group_from_backend(backend: str | dist.Backend | None = None) -> None:
@@ -67,7 +68,6 @@ def init_process_group_from_backend(backend: str | dist.Backend | None = None) -
     if torch.cuda.is_available():
         device_count = torch.cuda.device_count()
         torch.cuda.set_device(rank % device_count)
-        torch.set_default_device(torch.device("cuda", rank % device_count))
 
     logger.info("Initialized process group; running dummy all-reduce")
     dist.all_reduce(torch.zeros(1, device="cuda" if torch.cuda.is_available() else "cpu"))
@@ -180,7 +180,7 @@ def launch_subprocesses(
     Raises:
         RuntimeError: If the function fails in any subprocess.
     """
-    cfg.resolve()
+    MultiprocessConfig.resolve(cfg)
 
     if cfg.world_size <= 1:
         logger.warning("Multi-process trainer expects more than one device; running single-process")

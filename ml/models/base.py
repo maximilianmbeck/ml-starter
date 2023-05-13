@@ -51,7 +51,7 @@ class BaseModel(BaseObject[ModelConfigT], Generic[ModelConfigT], nn.Module):
 
         self._apply(move_to_device)
 
-        bad_params = {(name, p.device) for name, p in self.named_parameters() if p.device != device}
+        bad_params = {(name, p.device) for name, p in self.named_parameters() if p.device.type != device.type}
         if bad_params:
             bad_param_names = sorted(list(bad_params))[:5]
             logger.warning(
@@ -62,7 +62,7 @@ class BaseModel(BaseObject[ModelConfigT], Generic[ModelConfigT], nn.Module):
                 summarize(bad_param_names),
             )
 
-        bad_buffers = {(name, b.device) for name, b in self.named_buffers() if b.device != device}
+        bad_buffers = {(name, b.device) for name, b in self.named_buffers() if b.device.type != device.type}
         if bad_buffers:
             bad_buffer_names = sorted(list(bad_buffers))[:5]
             logger.warning(

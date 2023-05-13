@@ -123,5 +123,5 @@ class ParallelMixin(BaseTrainer[ParallelConfigT, ModelT, TaskT]):
         model.init(device, dtype)
         task.to(device, dtype)
         task_model: nn.Module = TaskModel(task=task, model=model)
-        task_model = dp(task_model, self.config.fsdp)
+        task_model = dp(task_model, self.config.parallel)
         return task_model
