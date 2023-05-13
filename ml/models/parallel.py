@@ -1,7 +1,7 @@
 """Defines primitive model parallel layers.
 
 Before using this module, you should initialize the parallel process groups
-using :func:`ml.utils.parallel.initialize_parallelism`. This will create
+using :func:`ml.utils.parallel.init_parallelism`. This will create
 three process group for model parallelism, pipeline parallelism, and data
 parallelism. The process group information can be accessed using
 :func:`ml.utils.parallel.parallel_group_info`.
