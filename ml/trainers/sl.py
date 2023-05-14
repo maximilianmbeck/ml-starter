@@ -106,11 +106,12 @@ class SupervisedLearningTrainer(
             raise ValueError(f"Expected task to be a SupervisedLearningTask, got {type(task)}")
 
         self._init_environment()
-        model = self._compile_model(model)
+
+        with Timer("compiling model", spinner=True):
+            model = self._compile_model(model)
 
         with Timer("building task model", spinner=True):
             task_model = self._get_task_model(task, model)
-            self.maybe_add_grad_clipping(task_model)
 
         optim, lr_sched = self._get_optim_and_lr_sched(task_model, optimizer, lr_scheduler)
         state = self._get_state(task, model, optim, lr_sched)

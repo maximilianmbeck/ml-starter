@@ -78,8 +78,13 @@ class ReinforcementLearningTrainer(
             raise ValueError(f"Expected task to be a ReinforcementLearningTask, got {type(task)}")
 
         self._init_environment()
-        model = self._compile_model(model)
-        task_model = self._get_task_model(task, model)
+
+        with Timer("compiling model", spinner=True):
+            model = self._compile_model(model)
+
+        with Timer("building task model", spinner=True):
+            task_model = self._get_task_model(task, model)
+
         optim, lr_sched = self._get_optim_and_lr_sched(model, optimizer, lr_scheduler)
         state = self._get_state(task, model, optim, lr_sched)
 
