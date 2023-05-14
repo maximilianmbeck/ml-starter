@@ -78,6 +78,7 @@ class LoraEmbedding(nn.Embedding, _Lora):
         max_norm: float | None = None,
         norm_type: float = 2.0,
         scale_grad_by_freq: bool = False,
+        sparse: bool = False,
     ) -> None:
         super().__init__(
             num_embeddings,
@@ -86,6 +87,7 @@ class LoraEmbedding(nn.Embedding, _Lora):
             max_norm=max_norm,
             norm_type=norm_type,
             scale_grad_by_freq=scale_grad_by_freq,
+            sparse=sparse,
         )
 
         assert r > 0
@@ -608,25 +610,37 @@ def lora(module: SupportedModule, r: int, alpha: float = 1.0, dropout: float = 0
         ValueError: If the module is not supported.
     """
     if isinstance(module, nn.Embedding):
-        return LoraEmbedding(
+        embedding = LoraEmbedding(
             module.num_embeddings,
             module.embedding_dim,
+            padding_idx=module.padding_idx,
+            max_norm=module.max_norm,
+            norm_type=module.norm_type,
+            scale_grad_by_freq=module.scale_grad_by_freq,
+            sparse=module.sparse,
             r=r,
             lora_alpha=alpha,
             merge=merge,
         )
+        embedding.weight.data.copy_(module.weight.data)
+        return embedding
 
     if isinstance(module, nn.Linear):
-        return LoraLinear(
+        linear = LoraLinear(
             module.in_features,
             module.out_features,
             r=r,
             lora_alpha=alpha,
             merge=merge,
+            bias=module.bias is not None,
         )
+        linear.weight.data.copy_(module.weight.data)
+        if module.bias is not None and linear.bias is not None:
+            linear.bias.data.copy_(module.bias.data)
+        return linear
 
     if isinstance(module, nn.Conv1d):
-        return LoraConv1d(
+        conv_1d = LoraConv1d(
             module.in_channels,
             module.out_channels,
             cast(tuple[int], module.kernel_size),
@@ -640,9 +654,13 @@ def lora(module: SupportedModule, r: int, alpha: float = 1.0, dropout: float = 0
             groups=module.groups,
             bias=module.bias is not None,
         )
+        conv_1d.weight.data.copy_(module.weight.data)
+        if module.bias is not None and conv_1d.bias is not None:
+            conv_1d.bias.data.copy_(module.bias.data)
+        return conv_1d
 
     if isinstance(module, nn.Conv2d):
-        return LoraConv2d(
+        conv_2d = LoraConv2d(
             module.in_channels,
             module.out_channels,
             cast(tuple[int, int], module.kernel_size),
@@ -656,29 +674,36 @@ def lora(module: SupportedModule, r: int, alpha: float = 1.0, dropout: float = 0
             groups=module.groups,
             bias=module.bias is not None,
         )
+        conv_2d.weight.data.copy_(module.weight.data)
+        if module.bias is not None and conv_2d.bias is not None:
+            conv_2d.bias.data.copy_(module.bias.data)
+        return conv_2d
 
     if isinstance(module, nn.LSTM):
         if dropout > 0.0:
             warnings.warn("LoRA dropout is not supported for LSTMs")
 
-        return LoraLSTM(
+        lstm = LoraLSTM(
             module.input_size,
             module.hidden_size,
             r=r,
             lora_alpha=alpha,
             num_layers=module.num_layers,
-            bias=module.bias,
             batch_first=module.batch_first,
             dropout=module.dropout,
             bidirectional=module.bidirectional,
             proj_size=module.proj_size,
+            bias=module.bias,
         )
+        for param_name, param_value in module.named_parameters():
+            getattr(lstm, param_name).data.copy_(param_value.data)
+        return lstm
 
     if isinstance(module, nn.GRU):
         if dropout > 0.0:
             warnings.warn("LoRA dropout is not supported for GRUs")
 
-        return LoraGRU(
+        gru = LoraGRU(
             module.input_size,
             module.hidden_size,
             r=r,
@@ -690,5 +715,8 @@ def lora(module: SupportedModule, r: int, alpha: float = 1.0, dropout: float = 0
             bidirectional=module.bidirectional,
             proj_size=module.proj_size,
         )
+        for param_name, param_value in module.named_parameters():
+            getattr(gru, param_name).data.copy_(param_value.data)
+        return gru
 
     raise ValueError(f"Unsupported module type {type(module)}")

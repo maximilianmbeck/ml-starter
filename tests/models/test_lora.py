@@ -21,23 +21,21 @@ def test_lora_modules(mod_type: Type[nn.Module]) -> None:
     """
     model: nn.Module
     lora_model: nn.Module
-    in_tensors: tuple[Tensor, ...]
+    in_tensor: Tensor
 
     if mod_type in (nn.Embedding, nn.Linear, nn.LSTM, nn.GRU):
         model = mod_type(10, 20)
         if mod_type == nn.Embedding:
-            in_tensors = (torch.randint(0, 10, (5, 10)),)
-        elif mod_type == nn.Linear:
-            in_tensors = (torch.randn(5, 10),)
+            in_tensor = torch.randint(0, 10, (5, 10))
         else:
-            in_tensors = (torch.randn(5, 10),)
+            in_tensor = torch.randn(5, 10)
 
     elif mod_type in (nn.Conv1d, nn.Conv2d):
         model = mod_type(3, 5, 3)
         if mod_type == nn.Conv1d:
-            in_tensors = (torch.randn(5, 3, 10),)
+            in_tensor = torch.randn(5, 3, 10)
         else:
-            in_tensors = (torch.randn(5, 3, 10, 10),)
+            in_tensor = torch.randn(5, 3, 10, 10)
 
     else:
         raise NotImplementedError(f"Unsupported model type: {mod_type}")
@@ -47,7 +45,7 @@ def test_lora_modules(mod_type: Type[nn.Module]) -> None:
     # Loads the weights from the reference model into the LoRA model.
     lora_model.load_state_dict(model.state_dict())
 
-    ref_out, lora_out = model(*in_tensors), lora_model(*in_tensors)
+    ref_out, lora_out = model(in_tensor), lora_model(in_tensor)
     if isinstance(ref_out, tuple):
         ref_out, lora_out = ref_out[0], lora_out[0]
 
