@@ -188,7 +188,7 @@ def get_positional_embeddings(
     kind: Literal["learned"],
     *,
     weight_init: InitializationType = "normal",
-    learnable: bool = True,
+    learnable: bool | None = None,
 ) -> LearnedPositionalEmbeddings:
     ...
 
@@ -199,7 +199,7 @@ def get_positional_embeddings(
     embed_dim: int,
     kind: Literal["sinusoidal"],
     *,
-    learnable: bool = True,
+    learnable: bool | None = None,
     base: int = 10_000,
 ) -> SinusoidalEmbeddings:
     ...
@@ -211,7 +211,7 @@ def get_positional_embeddings(
     embed_dim: int,
     kind: Literal["rotary"],
     *,
-    learnable: bool = False,
+    learnable: bool | None = None,
     base: int = 10_000,
 ) -> RotaryEmbeddings:
     ...
@@ -224,7 +224,7 @@ def get_positional_embeddings(
     kind: EmbeddingKind,
     *,
     weight_init: InitializationType = "normal",
-    learnable: bool = False,
+    learnable: bool | None = None,
     base: int = 10_000,
 ) -> IdentityPositionalEmbeddings | LearnedPositionalEmbeddings | SinusoidalEmbeddings | RotaryEmbeddings:
     ...
@@ -236,7 +236,7 @@ def get_positional_embeddings(
     kind: EmbeddingKind,
     *,
     weight_init: InitializationType = "normal",
-    learnable: bool = False,
+    learnable: bool | None = None,
     base: int = 10_000,
 ) -> nn.Module:
     """Defines the common module for adding positional embeddings.
@@ -246,7 +246,8 @@ def get_positional_embeddings(
         embed_dim: The embedding dimension.
         kind: The type of embedding to use.
         weight_init: The weight initialization for learned embeddings.
-        learnable: Whether the embeddings are learnable.
+        learnable: Whether the embeddings are learnable; if not provided,
+            uses sensible defaults.
         base: The base for the sinusoidal embeddings.
 
     Returns:
@@ -264,14 +265,14 @@ def get_positional_embeddings(
                 max_tsz=max_tsz,
                 embed_dim=embed_dim,
                 weight_init=weight_init,
-                learnable=learnable,
+                learnable=True if learnable is None else learnable,
             )
 
         case "sinusoidal":
             return SinusoidalEmbeddings(
                 max_tsz=max_tsz,
                 embed_dim=embed_dim,
-                learnable=learnable,
+                learnable=False if learnable is None else learnable,
                 base=base,
             )
 
@@ -279,7 +280,7 @@ def get_positional_embeddings(
             return RotaryEmbeddings(
                 max_tsz=max_tsz,
                 embed_dim=embed_dim,
-                learnable=learnable,
+                learnable=False if learnable is None else learnable,
                 base=base,
             )
 
