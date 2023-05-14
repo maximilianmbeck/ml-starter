@@ -42,7 +42,6 @@ class GradientClipping:
     norm_type: Any = conf_field(2, help="Type of norm to use")
     clip_grad_value: float | None = conf_field(None, help="What to clip the gradient value to")
     clip_global_grad_norm: float | None = conf_field(None, help="What to clip global gradient norm to")
-    global_norm_type: Any = conf_field(2, help="Type of global norm to use")
     log_grad: bool = conf_field(False, help="Whether to log the gradient norm")
 
 
@@ -89,19 +88,16 @@ class GradientClippingTrainerMixin(
 
     def clip_grads(self, model: nn.Module, optim: Optimizer) -> None:
         clip_norm = self.config.grad_clipping.clip_global_grad_norm
-        norm_type = self.config.grad_clipping.global_norm_type
+        norm_type = self.config.grad_clipping.norm_type
+        log_grad = self.config.grad_clipping.log_grad
+        if clip_norm is not None or log_grad:
+            self.unscale_mixed_precision(optim)
         if clip_norm is not None:
             if isinstance(model, FSDP):
                 total_norm = model.clip_grad_norm_(clip_norm, norm_type)
             else:
-                self.unscale_mixed_precision(optim)
                 total_norm = nn.utils.clip_grad.clip_grad_norm_(model.parameters(), clip_norm, norm_type)
             self.logger.log_scalar("total_norm", total_norm.item(), namespace="optim")
-            if self.config.grad_clipping.log_grad:
-                self.unscale_mixed_precision(optim)
-                total_grad = sum(
-                    param.grad.norm(self.config.grad_clipping.norm_type) ** 2
-                    for param in model.parameters()
-                    if param.grad is not None
-                )
-                self.logger.log_scalar("total_grad", total_grad.item(), namespace="optim")
+        if log_grad:
+            total_grad = sum(param.grad.norm(norm_type) ** 2 for param in model.parameters() if param.grad is not None)
+            self.logger.log_scalar("total_grad", total_grad.item(), namespace="optim")
