@@ -16,6 +16,7 @@ concurrency:
 
 jobs:
   publish:
+    timeout-minutes: 10
     name: Build and publish
 
     # We don't need to run on all platforms since this package is
@@ -47,6 +48,7 @@ jobs:
           password: ${{ secrets.PYPI_API_TOKEN }}
 
   build-docs:
+    timeout-minutes: 10
     name: Build documentation
     runs-on: ubuntu-latest
 
@@ -85,6 +87,7 @@ jobs:
           path: docs/_build/html
 
   deploy-docs:
+    timeout-minutes: 10
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
