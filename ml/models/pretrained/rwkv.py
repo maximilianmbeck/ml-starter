@@ -1,4 +1,4 @@
-# mypy: disable-error-code="import"
+# mypy: disable-error-code="import, override"
 """Defines a simple API for using the RWKV model.
 
 This code is adapted from the minimimal implementation
@@ -13,7 +13,8 @@ to be fine-tunable.
     model = pretrained_rwkv("7B")
     predictor = model.predictor()
 
-    predictor.predict("The quick brown fox jumps over the lazy dog.")
+    for token in predictor.generate("The quick brown fox jumped over the"):
+        print(token)
 
 Using the tokenizer requires installing the ``tokenizers`` library:
 
@@ -35,7 +36,7 @@ The choices for the model key are:
 import argparse
 import logging
 from dataclasses import dataclass
-from typing import Any, Iterator, Literal, get_args
+from typing import Any, Iterator, Literal, Sequence, get_args
 
 import torch
 import torch.nn.functional as F
@@ -76,12 +77,83 @@ PRETRAINED_MODEL_SIZES: dict[PretrainedRwkvKey, ModelArgs] = {
 TOKENIZER_URL = "https://raw.githubusercontent.com/BlinkDL/ChatRWKV/main/20B_tokenizer.json"
 
 
+def get_mask(tsz: int, device: torch.device | None = None, dtype: torch.dtype | None = None) -> Tensor:
+    """Returns the forward mask, used for training.
+
+    Args:
+        tsz: The number of timesteps in the mask
+        device: The mask device
+        dtype: The mask dtype
+
+    Returns:
+        The forward mask, with shape (T, T)
+    """
+    mask = torch.empty(tsz, tsz, device=device, dtype=dtype)
+    mask.fill_(float("-inf"))
+    # mask.triu_(1)
+    mask.tril_(-1)
+    return mask
+
+
+def run_wkv(
+    tsz: int,
+    w: Tensor,
+    u: Tensor,
+    k: Tensor,
+    v: Tensor,
+    last_num: Tensor,
+    last_den: Tensor,
+    mask: Tensor | None = None,
+) -> tuple[Tensor, Tensor, Tensor]:
+    """Runs the core WKV computation.
+
+    Args;
+        tsz: The number of timesteps
+        w: The decay tensor, with shape (D)
+        u: The output multiplier tensor, with shape (D)
+        k: The K tensor, with shape (B, T, D)
+        v: The V tensor, with shape (B, T, D)
+        last_num: The last numerator, with shape (B, 1, D)
+        last_den: The last denominator, with shape (B, 1, D)
+        mask: The attention mask, with shape (T, T)
+
+    Returns:
+        The WKV tensor, with shape (B, T, D), and the next numerator and
+        denominator tensors, each with shape (B, T, D)
+    """
+    assert w.dim() == u.dim() == 1
+    assert mask is None or mask.dim() == 2
+    assert k.dim() == v.dim() == last_num.dim() == last_den.dim() == 3
+
+    t = torch.arange(tsz + 1, device=w.device)[None, :, None]
+    wt = t[:, None, :-1, :] - t[:, :-1, None, :]
+    w = -torch.exp(w)
+    tw = w * t[:, 1:]
+    twt = w * wt
+    ktw = twt + k[:, :, None]
+    if mask is not None:
+        ktw = ktw + mask[None, :tsz, :tsz, None]
+
+    etw = torch.exp(tw)
+
+    num = etw * last_num + (torch.exp(ktw) * v[:, :, None]).sum(1)
+    den = etw * last_den + torch.exp(ktw).sum(1)
+
+    last_num = torch.cat((last_num, num[..., :-1, :]), dim=-2)
+    last_den = torch.cat((last_den, den[..., :-1, :]), dim=-2)
+
+    out = (last_num + torch.exp(u + k) * v) / (last_den + torch.exp(u + k))
+
+    return out, num, den
+
+
 class Attention(nn.Module):
     init_x: Tensor
     init_num: Tensor
     init_den: Tensor
+    mask: Tensor
 
-    def __init__(self, emb_dim: int) -> None:
+    def __init__(self, emb_dim: int, max_tsz: int = 1024) -> None:
         super().__init__()
 
         self.time_decay = nn.Parameter(torch.empty(emb_dim))
@@ -96,24 +168,33 @@ class Attention(nn.Module):
         self.receptance = nn.Linear(emb_dim, emb_dim, bias=False)
         self.output = nn.Linear(emb_dim, emb_dim, bias=False)
 
-        self.register_buffer("init_x", torch.zeros(emb_dim), persistent=False)
-        self.register_buffer("init_num", torch.zeros(emb_dim), persistent=False)
-        self.register_buffer("init_den", torch.zeros(emb_dim), persistent=False)
+        self.register_buffer("init_x", torch.zeros(1, 1, emb_dim), persistent=False)
+        self.register_buffer("init_num", torch.zeros(1, 1, emb_dim), persistent=False)
+        self.register_buffer("init_den", torch.zeros(1, 1, emb_dim), persistent=False)
+        self.register_buffer("mask", get_mask(max_tsz), persistent=False)
+
+    def time_shift(self, last_x: Tensor, x: Tensor) -> Tensor:
+        _, tsz, _ = x.shape
+        if tsz > 1:
+            last_x = torch.cat((last_x, x[..., :-1, :]), dim=-2)
+        return last_x
 
     def forward(self, x: Tensor, state: AttentionState) -> tuple[Tensor, AttentionState]:
+        _, tsz, _ = x.shape
+
         last_x, last_num, last_den = (self.init_x, self.init_num, self.init_den) if state is None else state
+        last_x = self.time_shift(last_x, x)
 
         k = self.key(x * self.time_mix_k + last_x * (1 - self.time_mix_k))
         v = self.value(x * self.time_mix_v + last_x * (1 - self.time_mix_v))
         r = self.receptance(x * self.time_mix_r + last_x * (1 - self.time_mix_r))
+        sr = torch.sigmoid(r)
 
-        wkv = (last_num + torch.exp(self.time_first + k) * v) / (last_den + torch.exp(self.time_first + k))
-        rwkv = torch.sigmoid(r) * wkv
+        w, u = self.time_decay, self.time_first
+        wkv, num, den = run_wkv(tsz, w, u, k, v, last_num, last_den, self.mask)
+        rwkv = wkv * sr
 
-        num = torch.exp(-torch.exp(self.time_decay)) * last_num + torch.exp(k) * v
-        den = torch.exp(-torch.exp(self.time_decay)) * last_den + torch.exp(k)
-
-        return self.output(rwkv), (x[..., -1, :], num[..., -1, :], den[..., -1, :])
+        return self.output(rwkv), (x[..., -1:, :], num[..., -1:, :], den[..., -1:, :])
 
 
 class FeedForward(nn.Module):
@@ -129,15 +210,22 @@ class FeedForward(nn.Module):
         self.receptance = nn.Linear(emb_dim, emb_dim, bias=False)
         self.value = nn.Linear(ffn_dim, emb_dim, bias=False)
 
-        self.register_buffer("init_state", torch.zeros(emb_dim), persistent=False)
+        self.register_buffer("init_state", torch.zeros(1, 1, emb_dim), persistent=False)
+
+    def time_shift(self, last_x: Tensor, x: Tensor) -> Tensor:
+        _, tsz, _ = x.shape
+        if tsz > 1:
+            last_x = torch.cat((last_x, x[..., :-1, :]), dim=-2)
+        return last_x
 
     def forward(self, x: Tensor, state: FeedForwardState | None = None) -> tuple[Tensor, FeedForwardState]:
-        last_x = self.init_state if state is None else state
+        last_x = self.time_shift(self.init_state if state is None else state, x)
+
         k = self.key(x * self.time_mix_k + last_x * (1 - self.time_mix_k))
         r = self.receptance(x * self.time_mix_r + last_x * (1 - self.time_mix_r))
         vk = self.value(F.relu(k) ** 2)
 
-        return torch.sigmoid(r) * vk, x[..., -1, :]
+        return torch.sigmoid(r) * vk, x[..., -1:, :]
 
 
 class Block(nn.Module):
@@ -237,20 +325,31 @@ class RwkvPredictor:
         max_len: int = 256,
         temperature: float = 1.0,
         top_p: float = 0.85,
-        end_tok: int | None = None,
+        end_toks: Sequence[int] | None = None,
+        end_strs: Sequence[str] | None = None,
     ) -> Iterator[str]:
         tokens = self.tokenizer.encode(prompt).ids
-        state: list[State] | None = None
-        for token in tokens:
-            probs, state = self.model(self.device.tensor_to(torch.tensor([token])), state)
+
+        # state: list[State] | None = None
+        # for token in tokens:
+        #     probs, state = self.model(self.device.tensor_to(torch.tensor([[token]])), state)
+
+        probs, state = self.model(self.device.tensor_to(torch.tensor([tokens])))
+        probs = probs[:, -1:]
+
+        end_toks_set = set() if end_toks is None else set(end_toks)
+        end_strs_set = [] if end_strs is None else list(end_strs)
 
         for i in range(max_len):
             token = self.sample_probs(probs, temperature=temperature, top_p=top_p)
-            if token == end_tok:
+            if token in end_toks_set:
                 break
-            yield self.tokenizer.decode([token.item()])
+            token_str = self.tokenizer.decode([token.item()])
+            yield token_str
+            if any(e in token_str for e in end_strs_set):
+                break
             if i < max_len - 1:
-                probs, state = self.model(self.device.tensor_to(torch.tensor([token])), state)
+                probs, state = self.model(self.device.tensor_to(torch.tensor([[token]])), state)
 
 
 def pretrained_rwkv(key: PretrainedRwkvKey, *, device: BaseDevice | None = None) -> Rwkv:
@@ -286,9 +385,10 @@ def test_rwkv_adhoc() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("size", type=str, choices=get_args(PretrainedRwkvKey))
     parser.add_argument("prompt", type=str)
-    parser.add_argument("-t", "--tsz", type=int, default=256)
+    parser.add_argument("-t", "--tsz", type=int, default=128)
     parser.add_argument("-m", "--temperature", type=float, default=1.0)
     parser.add_argument("-p", "--top-p", type=float, default=0.85)
+    parser.add_argument("-e", "--end-tok", nargs="+", default=[])
     args = parser.parse_args()
 
     configure_logging()
@@ -302,6 +402,7 @@ def test_rwkv_adhoc() -> None:
         max_len=args.tsz,
         temperature=args.temperature,
         top_p=args.top_p,
+        end_strs=args.end_tok,
     ):
         print(token, end="", flush=True)
     print()
