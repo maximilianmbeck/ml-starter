@@ -134,10 +134,9 @@ def run_wkv(
     if mask is not None:
         ktw = ktw + mask[None, :tsz, :tsz, None]
 
-    etw = torch.exp(tw)
-
-    num = etw * last_num + (torch.exp(ktw) * v[:, :, None]).sum(1)
-    den = etw * last_den + torch.exp(ktw).sum(1)
+    etw, ektw = torch.exp(tw), torch.exp(ktw)
+    num = etw * last_num + (ektw * v[:, :, None]).sum(1)
+    den = etw * last_den + ektw.sum(1)
 
     last_num = torch.cat((last_num, num[..., :-1, :]), dim=-2)
     last_den = torch.cat((last_den, den[..., :-1, :]), dim=-2)
