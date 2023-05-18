@@ -117,13 +117,17 @@ __all__ = [
     "ParallelEmbedding",
     "parallelism_is_initialized",
     "Phase",
+    "pretrained_blip",
     "pretrained_clip",
     "pretrained_hubert",
     "pretrained_llama",
+    "pretrained_rwkv",
     "pretrained_sam",
+    "PretrainedBlipKey",
     "PretrainedClipSize",
     "PretrainedHubertSize",
     "PretrainedLlamaKey",
+    "PretrainedRwkvKey",
     "PretrainedSamSize",
     "project_dir_paths",
     "read_gif",
@@ -210,9 +214,11 @@ from ml.models.init import InitializationType, cast_init_type, init_
 from ml.models.lora import LoraConv1d, LoraConv2d, LoraEmbedding, LoraLinear, lora
 from ml.models.norms import NormType, cast_norm_type, get_norm_1d, get_norm_2d, get_norm_3d, get_norm_linear
 from ml.models.parallel import ColumnParallelLinear, ParallelEmbedding, RowParallelLinear
+from ml.models.pretrained.blip import PretrainedBlipKey, pretrained_blip
 from ml.models.pretrained.clip import PretrainedClipSize, pretrained_clip
 from ml.models.pretrained.hubert import PretrainedHubertSize, pretrained_hubert
 from ml.models.pretrained.llama import PretrainedLlamaKey, pretrained_llama
+from ml.models.pretrained.rwkv import PretrainedRwkvKey, pretrained_rwkv
 from ml.models.pretrained.sam import PretrainedSamSize, pretrained_sam
 from ml.optimizers.base import BaseOptimizer, BaseOptimizerConfig
 from ml.tasks.base import BaseTask, BaseTaskConfig

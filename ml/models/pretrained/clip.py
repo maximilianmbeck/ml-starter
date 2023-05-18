@@ -10,7 +10,7 @@
     visual_model = pretrained_clip("RN50", mode="visual")
     linguistic_model = pretrained_clip("RN50", mode="linguistic")
 
-    image = PIL.Image.open(url_path)
+    image = PIL.Image.open(image_path)
     image_tensorizer = visual_model.get_preprocess()
     image_tensor = image_tensorizer(image)  # (3, 224, 224)
 
@@ -1070,11 +1070,11 @@ def test_pretrained_model() -> None:
 
     # Gets an image of a peach from Wikipedia.
     peach_url = "https://upload.wikimedia.org/wikipedia/commons/9/9e/Autumn_Red_peaches.jpg"
-    url_path = Path("/tmp/peach.jpg")
-    if not url_path.exists():
-        download_url(peach_url, "/tmp", filename="peach.jpg")
+    img_path = Path("/tmp/peach.jpg")
+    if not img_path.exists():
+        download_url(peach_url, str(img_path.parent), filename=img_path.name)
 
-    peach_img = PIL.Image.open(url_path)
+    peach_img = PIL.Image.open(img_path)
     pos_desc = "A picture of an Autumn Red peach"
     neg_desc = "An Instagram photo of a cute puppy"
 

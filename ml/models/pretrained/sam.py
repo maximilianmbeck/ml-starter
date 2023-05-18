@@ -9,7 +9,7 @@
     model = pretrained_sam("ViT-B")
     predictor = model.predictor()
 
-    image = PIL.Image.open(url_path)
+    image = PIL.Image.open(img_path)
     predictor.set_image(np.array(image))
 
     predictions, _, _ = predictor.predict()
@@ -1564,14 +1564,14 @@ def test_pretrained_model() -> None:
 
     # Gets an image of a peach from Wikipedia.
     peach_url = "https://upload.wikimedia.org/wikipedia/commons/9/9e/Autumn_Red_peaches.jpg"
-    url_path = Path("/tmp/peach.jpg")
-    if not url_path.exists():
-        download_url(peach_url, "/tmp", filename="peach.jpg")
+    img_path = Path("/tmp/peach.jpg")
+    if not img_path.exists():
+        download_url(peach_url, str(img_path.parent), filename=img_path.name)
 
     model = pretrained_sam(cast(PretrainedSamSize, args.key))
     predictor = model.predictor()
 
-    peach_img = PIL.Image.open(url_path)
+    peach_img = PIL.Image.open(img_path)
     predictor.set_image(np.array(peach_img))
 
     predictions, _, _ = predictor.predict()

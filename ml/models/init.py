@@ -38,6 +38,9 @@ InitializationType = Literal[
     "kaiming_normal",
     "xavier_uniform",
     "xavier_normal",
+    "trunc_normal",
+    "dirac",
+    "constant",
     "zeros",
     "ones",
 ]
@@ -61,13 +64,20 @@ def _uniform_bias(weight: Tensor, bias: Tensor | None) -> Tensor | None:
     return bias
 
 
+def _zeros(t: Tensor | None) -> Tensor | None:
+    return None if t is None else nn.init.zeros_(t)
+
+
 def init_(
     weight: Tensor,
     bias: Tensor | None,
     init: InitializationType,
     *,
-    normal_std: float = 0.01,
-    uniform_scale: float = 0.02,
+    mean: float = 0.0,
+    std: float = 0.01,
+    scale: float = 0.02,
+    groups: int = 1,
+    trunc_clip: tuple[float, float] = (-2.0, 2.0),
 ) -> tuple[Tensor, Tensor | None]:
     """Initializes the weight and bias in-place, using an initialization key.
 
@@ -77,8 +87,11 @@ def init_(
         weight: The weight tensor
         bias: The bias tensor
         init: The initialization type to use
-        normal_std: The standard deviation for normal initialization
-        uniform_scale: The scale amount for uniform initialization
+        mean: The mean for normal initialization
+        std: The standard deviation for normal initialization
+        scale: The scale amount for uniform or constant initialization
+        groups: The number of groups, if argument is necessary
+        trunc_clip: The min and max values for trunc_normal initialization
 
     Returns:
         The initialized weight and bias (which can be discarded, since the
@@ -96,21 +109,21 @@ def init_(
         bias = bias.data
     match init:
         case "orthogonal":
-            if weight.dtype == torch.float16:
+            if weight.dtype in (torch.float16, torch.bfloat16):
                 return (
                     weight.copy_(nn.init.orthogonal_(weight.float(), gain=0.01).to(weight)),
-                    None if bias is None else nn.init.zeros_(bias),
+                    _zeros(bias),
                 )
-            return nn.init.orthogonal_(weight), None if bias is None else nn.init.zeros_(bias)
+            return nn.init.orthogonal_(weight), _zeros(bias)
         case "normal":
-            return nn.init.normal_(weight, std=normal_std), None if bias is None else nn.init.zeros_(bias)
+            return nn.init.normal_(weight, mean=mean, std=std), _zeros(bias)
         case "biased_normal":
             return (
-                nn.init.normal_(weight, std=normal_std),
-                None if bias is None else nn.init.normal_(bias, std=normal_std),
+                nn.init.normal_(weight, mean=mean, std=std),
+                None if bias is None else nn.init.normal_(bias, mean=mean, std=std),
             )
         case "uniform":
-            return nn.init.uniform_(weight, b=uniform_scale), None if bias is None else nn.init.zeros_(bias)
+            return nn.init.uniform_(weight, b=scale), _zeros(bias)
         case "kaiming_uniform":
             return nn.init.kaiming_uniform_(weight), _uniform_bias(weight, bias)
         case "kaiming_normal":
@@ -119,9 +132,16 @@ def init_(
             return nn.init.xavier_uniform_(weight), _uniform_bias(weight, bias)
         case "xavier_normal":
             return nn.init.xavier_normal_(weight), _uniform_bias(weight, bias)
+        case "trunc_normal":
+            a, b = trunc_clip
+            return nn.init.trunc_normal_(weight, mean=mean, std=std, a=a, b=b), _zeros(bias)
+        case "dirac":
+            return nn.init.dirac_(weight, groups=groups), _zeros(bias)
+        case "constant":
+            return nn.init.constant_(weight, scale), _zeros(bias)
         case "zeros":
-            return nn.init.zeros_(weight), None if bias is None else nn.init.zeros_(bias)
+            return nn.init.zeros_(weight), _zeros(bias)
         case "ones":
-            return nn.init.ones_(weight), None if bias is None else nn.init.zeros_(bias)
+            return nn.init.ones_(weight), _zeros(bias)
         case _:
             raise NotImplementedError(f"Unexpected initialization: {init}")

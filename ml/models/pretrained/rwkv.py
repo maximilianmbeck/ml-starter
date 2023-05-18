@@ -329,10 +329,6 @@ class RwkvPredictor:
     ) -> Iterator[str]:
         tokens = self.tokenizer.encode(prompt).ids
 
-        # state: list[State] | None = None
-        # for token in tokens:
-        #     probs, state = self.model(self.device.tensor_to(torch.tensor([[token]])), state)
-
         probs, state = self.model(self.device.tensor_to(torch.tensor([tokens])))
         probs = probs[:, -1:]
 
@@ -375,7 +371,7 @@ def pretrained_rwkv(key: PretrainedRwkvKey, *, device: BaseDevice | None = None)
     # Build the transformer and loads the checkpoint.
     with Timer("loading state dict", spinner=True):
         model._apply(meta_to_empty_func(device.get_device(), torch.half))
-        model.load_state_dict(ckpt, strict=False)
+        model.load_state_dict(ckpt)
 
     return model
 

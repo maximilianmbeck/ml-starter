@@ -536,7 +536,7 @@ def pretrained_llama(key: PretrainedLlamaKey) -> Llama:
     # Build the transformer and loads the checkpoint.
     with Timer("loading state dict", spinner=True):
         model._apply(meta_to_empty_func(torch.device("cuda"), torch.half))
-        model.load_state_dict(checkpoint, strict=False)
+        model.load_state_dict(checkpoint)
 
     return model
 
