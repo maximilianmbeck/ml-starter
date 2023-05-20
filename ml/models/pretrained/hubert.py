@@ -22,6 +22,7 @@ The choices for the model key are:
 """
 
 import argparse
+import functools
 from dataclasses import dataclass
 from typing import Literal, cast, get_args
 
@@ -37,6 +38,7 @@ from ml.utils.data import check_sha256
 from ml.utils.device.auto import AutoDevice
 from ml.utils.device.base import BaseDevice
 from ml.utils.logging import configure_logging
+from ml.utils.timer import Timer
 
 PretrainedHubertSize = Literal["base", "large", "extra_large"]
 
@@ -51,7 +53,6 @@ class HubertConfig:
     hidden_act: ActivationType
     hidden_dropout: float
     activation_dropout: float
-    attention_dropout: float
     feat_proj_layer_norm: bool
     feat_proj_dropout: float
     layer_norm_eps: float
@@ -72,17 +73,29 @@ class HubertConfig:
         return len(self.conv_dim)
 
 
-def apply_mask(hidden_states: Tensor, attn_mask: Tensor) -> tuple[Tensor, Tensor]:
-    # Make sure the padded tokens output 0.
-    expand_attn_mask = attn_mask.unsqueeze(-1).repeat(1, 1, hidden_states.shape[2])
-    hidden_states[~expand_attn_mask] = 0
+class _MaskBuilder:
+    def __init__(self, device: torch.device, dtype: torch.dtype) -> None:
+        self.mask = self._get_mask_impl(device, dtype, 1)
 
-    # Extends the attention mask.
-    neg_inf = torch.finfo(hidden_states.dtype).min
-    output_shape = attn_mask.shape[0], 1, attn_mask.shape[-1], attn_mask.shape[-1]
-    attn_mask = ((1.0 - attn_mask[:, None, None, :].to(hidden_states)) * neg_inf).expand(output_shape)
+    def __call__(self, tsz: int) -> Tensor:
+        if self.mask.shape[0] < tsz:
+            self.mask = self._get_mask_impl(self.mask.device, self.mask.dtype, tsz)
+        return self.mask[:tsz, :tsz]
 
-    return hidden_states, attn_mask
+    @staticmethod
+    def _get_mask_impl(device: torch.device, dtype: torch.dtype, tsz: int) -> Tensor:
+        mask = torch.full((1, 1, tsz, tsz), float("-inf"), device=device, dtype=dtype)
+        mask = torch.triu(mask, diagonal=1)
+        return mask
+
+    @functools.lru_cache()
+    @staticmethod
+    def get(device: torch.device, dtype: torch.dtype) -> "_MaskBuilder":
+        return _MaskBuilder(device, dtype)
+
+
+def get_mask(device: torch.device, dtype: torch.dtype, tsz: int) -> Tensor:
+    return _MaskBuilder.get(device, dtype)(tsz)
 
 
 class HubertSamePadLayer(nn.Module):
@@ -126,27 +139,14 @@ class HubertPositionalConvEmbedding(nn.Module):
 
 
 class HubertAttention(nn.Module):
-    """Multi-headed attention from 'Attention Is All You Need' paper."""
-
-    def __init__(
-        self,
-        embed_dim: int,
-        num_heads: int,
-        dropout: float = 0.0,
-        is_decoder: bool = False,
-        bias: bool = True,
-    ) -> None:
+    def __init__(self, embed_dim: int, num_heads: int, bias: bool = True) -> None:
         super().__init__()
         self.embed_dim = embed_dim
         self.num_heads = num_heads
-        self.dropout = dropout
         self.head_dim = embed_dim // num_heads
 
         if (self.head_dim * num_heads) != self.embed_dim:
             raise ValueError(f"`embed_dim` must be divisible by num_heads (got {self.embed_dim=} and {num_heads=}).")
-
-        self.scaling = self.head_dim**-0.5
-        self.is_decoder = is_decoder
 
         self.k_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
         self.v_proj = nn.Linear(embed_dim, embed_dim, bias=bias)
@@ -156,104 +156,27 @@ class HubertAttention(nn.Module):
     def _shape(self, tensor: Tensor, seq_len: int, bsz: int) -> Tensor:
         return tensor.view(bsz, seq_len, self.num_heads, self.head_dim).transpose(1, 2).contiguous()
 
-    def forward(
-        self,
-        hidden_states: Tensor,
-        key_value_states: Tensor | None = None,
-        past_key_value: tuple[Tensor, Tensor] | None = None,
-        attn_mask: Tensor | None = None,
-        layer_head_mask: Tensor | None = None,
-    ) -> tuple[Tensor, tuple[Tensor, Tensor] | None]:
+    def forward(self, hidden_states: Tensor, causal: bool = False) -> Tensor:
         """Runs the HuBERT attention layer.
 
         Args:
             hidden_states: Input states for the attention layer.
-            key_value_states: If provided, will use this as the key and value
-                states instead of deriving them from `hidden_states`.
-            past_key_value: If provided, will use this as the past key and
-                value states instead of deriving them from `hidden_states`.
-            attn_mask: If provided, will mask the attention probabilities.
-            layer_head_mask: If provided, will mask individual heads of the
-                attention layer.
+            causal: If set, use causal attention.
 
         Returns:
-            A tuple consisting of the attention output and the
-            updated past key and value states (if `past_key_value` is provided).
-
-        Raises:
-            ValueError: If `past_key_value` is not `None` and `key_value_states`
-                is either `None` or has a different sequence length than the
-                `past_key_value` tuple.
+            The attention outputs.
         """
         bsz, tgt_len, _ = hidden_states.size()
 
-        query_states = self.q_proj(hidden_states) * self.scaling
+        query_states = self._shape(self.q_proj(hidden_states), tgt_len, bsz)
+        key_states = self._shape(self.k_proj(hidden_states), -1, bsz)
+        value_states = self._shape(self.v_proj(hidden_states), -1, bsz)
 
-        if (
-            key_value_states is not None
-            and past_key_value is not None
-            and past_key_value[0].shape[2] == key_value_states.shape[1]
-        ):
-            key_states = past_key_value[0]
-            value_states = past_key_value[1]
+        attn_output = F.scaled_dot_product_attention(query_states, key_states, value_states, is_causal=causal)
+        attn_output = attn_output.transpose(1, 2).flatten(2)
+        final_output = self.out_proj(attn_output)
 
-        elif key_value_states is not None:
-            key_states = self._shape(self.k_proj(key_value_states), -1, bsz)
-            value_states = self._shape(self.v_proj(key_value_states), -1, bsz)
-
-        elif past_key_value is not None:
-            # reuse k, v, self_attention
-            key_states = self._shape(self.k_proj(hidden_states), -1, bsz)
-            value_states = self._shape(self.v_proj(hidden_states), -1, bsz)
-            key_states = torch.cat([past_key_value[0], key_states], dim=2)
-            value_states = torch.cat([past_key_value[1], value_states], dim=2)
-
-        else:
-            key_states = self._shape(self.k_proj(hidden_states), -1, bsz)
-            value_states = self._shape(self.v_proj(hidden_states), -1, bsz)
-
-        if self.is_decoder:
-            past_key_value = (key_states, value_states)
-
-        proj_shape = (bsz * self.num_heads, -1, self.head_dim)
-        query_states = self._shape(query_states, tgt_len, bsz).view(*proj_shape)
-        key_states = key_states.reshape(*proj_shape)
-        value_states = value_states.reshape(*proj_shape)
-
-        src_len = key_states.size(1)
-        attn_weights = torch.bmm(query_states, key_states.transpose(1, 2))
-
-        if (aw_size := attn_weights.size()) != (bsz * self.num_heads, tgt_len, src_len):
-            raise ValueError(f"Weights should have size {(bsz * self.num_heads, tgt_len, src_len)}, but are {aw_size}")
-
-        if attn_mask is not None:
-            if (am_size := attn_mask.size()) != (bsz, 1, tgt_len, src_len):
-                raise ValueError(f"Mask should have size {(bsz, 1, tgt_len, src_len)}, but is {am_size}")
-
-            attn_weights = attn_weights.view(bsz, self.num_heads, tgt_len, src_len) + attn_mask
-            attn_weights = attn_weights.view(bsz * self.num_heads, tgt_len, src_len)
-
-        attn_weights = nn.functional.softmax(attn_weights, dim=-1)
-
-        if layer_head_mask is not None:
-            if (lhm_size := layer_head_mask.size()) != (self.num_heads,):
-                raise ValueError(f"Head mask should be of size {(self.num_heads,)}, but is {lhm_size}")
-
-            attn_weights = layer_head_mask.view(1, -1, 1, 1) * attn_weights.view(bsz, self.num_heads, tgt_len, src_len)
-            attn_weights = attn_weights.view(bsz * self.num_heads, tgt_len, src_len)
-
-        attn_probs = nn.functional.dropout(attn_weights, p=self.dropout, training=self.training)
-        attn_output = torch.bmm(attn_probs, value_states)
-
-        if (ao_size := attn_output.size()) != (bsz * self.num_heads, tgt_len, self.head_dim):
-            raise ValueError(f"Expected size {(bsz * self.num_heads, tgt_len, self.head_dim)}, but is {ao_size}")
-
-        attn_output = attn_output.view(bsz, self.num_heads, tgt_len, self.head_dim)
-        attn_output = attn_output.transpose(1, 2)
-        attn_output = attn_output.reshape(bsz, tgt_len, self.embed_dim)
-        attn_output = self.out_proj(attn_output)
-
-        return attn_output, past_key_value
+        return final_output
 
 
 class HubertFeedForward(nn.Module):
@@ -282,17 +205,15 @@ class HubertEncoderLayer(nn.Module):
         self.attention = HubertAttention(
             embed_dim=config.hidden_size,
             num_heads=config.num_attention_heads,
-            dropout=config.attention_dropout,
-            is_decoder=False,
         )
         self.dropout = nn.Dropout(config.hidden_dropout)
         self.layer_norm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
         self.feed_forward = HubertFeedForward(config)
         self.final_layer_norm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
 
-    def forward(self, hidden_states: Tensor, attn_mask: Tensor | None = None) -> Tensor:
+    def forward(self, hidden_states: Tensor, causal: bool = False) -> Tensor:
         attn_residual = hidden_states
-        hidden_states, _ = self.attention(hidden_states, attn_mask=attn_mask)
+        hidden_states = self.attention(hidden_states, causal=causal)
         hidden_states = self.dropout(hidden_states)
         hidden_states = attn_residual + hidden_states
 
@@ -313,29 +234,14 @@ class HubertEncoder(nn.Module):
         self.layers = nn.ModuleList([HubertEncoderLayer(config) for _ in range(config.num_hidden_layers)])
         self.gradient_checkpointing = False
 
-    def forward(
-        self,
-        hidden_states: Tensor,
-        attn_mask: Tensor | None = None,
-        output_layer: int | None = None,
-    ) -> Tensor:
-        if attn_mask is not None:
-            # Make sure the padded tokens output 0.
-            expand_attn_mask = attn_mask.unsqueeze(-1).repeat(1, 1, hidden_states.shape[2])
-            hidden_states[~expand_attn_mask] = 0
-
-            # Extends the attention mask.
-            neg_inf = torch.finfo(hidden_states.dtype).min
-            output_shape = attn_mask.shape[0], 1, attn_mask.shape[-1], attn_mask.shape[-1]
-            attn_mask = ((1.0 - attn_mask[:, None, None, :].to(hidden_states)) * neg_inf).expand(output_shape)
-
+    def forward(self, hidden_states: Tensor, causal: bool = False, output_layer: int | None = None) -> Tensor:
         position_embeddings = self.pos_conv_embed(hidden_states)
         hidden_states = hidden_states + position_embeddings
         hidden_states = self.layer_norm(hidden_states)
         hidden_states = self.dropout(hidden_states)
 
         for i, layer in enumerate(self.layers):
-            hidden_states = layer(hidden_states, attn_mask=attn_mask)
+            hidden_states = layer(hidden_states, causal=causal)
             if output_layer is not None and i == output_layer:
                 break
 
@@ -468,18 +374,16 @@ class HubertEncoderLayerStableLayerNorm(nn.Module):
         self.attention = HubertAttention(
             embed_dim=config.hidden_size,
             num_heads=config.num_attention_heads,
-            dropout=config.attention_dropout,
-            is_decoder=False,
         )
         self.dropout = nn.Dropout(config.hidden_dropout)
         self.layer_norm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
         self.feed_forward = HubertFeedForward(config)
         self.final_layer_norm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
 
-    def forward(self, hidden_states: Tensor, attn_mask: Tensor | None = None) -> Tensor:
+    def forward(self, hidden_states: Tensor, causal: bool = False) -> Tensor:
         attn_residual = hidden_states
         hidden_states = self.layer_norm(hidden_states)
-        hidden_states, _ = self.attention(hidden_states, attn_mask=attn_mask)
+        hidden_states = self.attention(hidden_states, causal=causal)
         hidden_states = self.dropout(hidden_states)
         hidden_states = attn_residual + hidden_states
         hidden_states = hidden_states + self.feed_forward(self.final_layer_norm(hidden_states))
@@ -496,20 +400,12 @@ class HubertEncoderStableLayerNorm(nn.Module):
         layers = [HubertEncoderLayerStableLayerNorm(config) for _ in range(config.num_hidden_layers)]
         self.layers = nn.ModuleList(layers)
 
-    def forward(
-        self,
-        hidden_states: Tensor,
-        attn_mask: Tensor | None = None,
-        output_layer: int | None = None,
-    ) -> Tensor:
-        if attn_mask is not None:
-            hidden_states, attn_mask = apply_mask(hidden_states, attn_mask)
-
+    def forward(self, hidden_states: Tensor, causal: bool = False, output_layer: int | None = None) -> Tensor:
         position_embeddings = self.pos_conv_embed(hidden_states)
         hidden_states = hidden_states + position_embeddings
         hidden_states = self.dropout(hidden_states)
         for i, layer in enumerate(self.layers):
-            hidden_states = layer(hidden_states, attn_mask=attn_mask)
+            hidden_states = layer(hidden_states, causal=causal)
             if output_layer is not None and i == output_layer:
                 break
         hidden_states = self.layer_norm(hidden_states)
@@ -530,38 +426,11 @@ class Hubert(nn.Module):
         self.feature_projection = HubertFeatureProjection(config)
         self.encoder = HubertEncoderStableLayerNorm(config) if config.do_stable_layer_norm else HubertEncoder(config)
 
-    def _get_feat_extract_output_lengths(self, input_lengths: Tensor | int) -> Tensor:
-        def _conv_out_length(input_length: int | Tensor, kernel_size: int, stride: int) -> Tensor:
-            return torch.div(input_length - kernel_size, stride, rounding_mode="floor") + 1
-
-        lengths = input_lengths if isinstance(input_lengths, Tensor) else torch.tensor(input_lengths)
-        for kernel_size, stride in zip(self.conv_kernel, self.conv_stride):
-            lengths = _conv_out_length(lengths, kernel_size, stride)
-
-        return lengths
-
-    def _get_feature_vector_attn_mask(self, feature_vector_length: int, attn_mask: Tensor) -> Tensor:
-        output_lengths = self._get_feat_extract_output_lengths(attn_mask.sum(-1)).to(torch.long)
-        batch_size = attn_mask.shape[0]
-        attn_mask = torch.zeros((batch_size, feature_vector_length), dtype=attn_mask.dtype, device=attn_mask.device)
-        attn_mask[(torch.arange(attn_mask.shape[0], device=attn_mask.device), output_lengths - 1)] = 1
-        attn_mask = attn_mask.flip([-1]).cumsum(-1).flip([-1]).bool()
-        return attn_mask
-
-    def forward(
-        self,
-        input_values: Tensor | None,
-        attn_mask: Tensor | None = None,
-        output_layer: int | None = None,
-    ) -> Tensor:
+    def forward(self, input_values: Tensor | None, causal: bool = False, output_layer: int | None = None) -> Tensor:
         extract_features = self.feature_extractor(input_values)
         extract_features = extract_features.transpose(1, 2)
-
-        if attn_mask is not None:
-            attn_mask = self._get_feature_vector_attn_mask(extract_features.shape[1], attn_mask)
-
         hidden_states = self.feature_projection(extract_features)
-        hidden_states = self.encoder(hidden_states, attn_mask=attn_mask, output_layer=output_layer)
+        hidden_states = self.encoder(hidden_states, causal=causal, output_layer=output_layer)
         return hidden_states
 
     def predictor(self, *, device: BaseDevice | None = None) -> "HubertPredictor":
@@ -586,25 +455,27 @@ class HubertPredictor:
         self.model = hubert_model.eval()
         self.device.module_to(self.model)
 
-    def predict(self, waveform: np.ndarray | Tensor, output_layer: int | None = None) -> Tensor:
+    def predict(self, waveform: np.ndarray | Tensor, output_layer: int | None = None, causal: bool = False) -> Tensor:
         """Gets the hidden states for the given waveform.
 
         Args:
             waveform: The waveform to get hidden states for, with shape (B, T)
             output_layer: The layer to get hidden states from. If `None`, will
                 return the hidden states from the last layer.
+            causal: If set, use a causal attention mask.
 
         Returns:
             The hidden states for the given waveform, with shape (B, T, D)
         """
         waveform = self.device.tensor_to(waveform)
-        return self.model.forward(waveform, attn_mask=None, output_layer=output_layer)
+        return self.model.forward(waveform, causal=causal, output_layer=output_layer)
 
     def predict_in_chunks(
         self,
         waveform: Tensor | np.ndarray,
         chunk_size: int,
         output_layer: int | None = None,
+        causal: bool = False,
     ) -> Tensor:
         """Gets the hidden states for the given waveform, in chunks.
 
@@ -617,6 +488,7 @@ class HubertPredictor:
             chunk_size: The size of each chunk to process.
             output_layer: The layer to get hidden states from. If `None`, will
                 return the hidden states from the last layer.
+            causal: If set, use a causal attention mask.
 
         Returns:
             The hidden states for the given waveform, with shape (B, T, D)
@@ -631,7 +503,8 @@ class HubertPredictor:
             feat = []
             for start in range(0, x.size(1), chunk_size):
                 x_chunk = x[:, start : start + chunk_size]
-                feat_chunk = self.model.forward(x_chunk, output_layer=output_layer)
+                get_mask(x_chunk.device, x_chunk.dtype, x_chunk.shape[1]) if self.causal else None
+                feat_chunk = self.model.forward(x_chunk, causal=causal, output_layer=output_layer)
                 feat.append(feat_chunk)
 
         return torch.cat(feat, 1).squeeze(0)
@@ -646,29 +519,33 @@ def _load_pretrained_hubert(
     sha256: str,
     config: HubertConfig,
     remove_prefix: str | None = None,
+    load_weights: bool = True,
 ) -> Hubert:
-    model = Hubert(config)
-
-    model_fname = f"{size}.bin"
-    model_path = get_model_dir() / "hubert" / model_fname
-
-    # Downloads the model if it doesn't exist
-    if not model_path.is_file() or not check_sha256(model_path, sha256):
-        model_path.parent.mkdir(exist_ok=True)
-        download_url(ckpt_url, str(model_path.parent), model_fname)
-        assert model_path.is_file(), f"Failed to download {model_path}"
+    with Timer("building empty model", spinner=True):
+        model = Hubert(config)
 
     # Loads the model weights.
-    ckpt = torch.load(model_path, map_location="cpu")
-    if remove_prefix:
-        ckpt = {k[len(remove_prefix) :]: v for k, v in ckpt.items()}
-    ckpt = {k: v for k, v in ckpt.items() if k not in EXCLUDE_KEYS}
-    model.load_state_dict(ckpt)
+    if load_weights:
+        model_fname = f"{size}.bin"
+        model_path = get_model_dir() / "hubert" / model_fname
+
+        with Timer("downloading checkpoint", spinner=True):
+            if not model_path.is_file() or not check_sha256(model_path, sha256):
+                model_path.parent.mkdir(exist_ok=True)
+                download_url(ckpt_url, str(model_path.parent), model_fname)
+                assert model_path.is_file(), f"Failed to download {model_path}"
+
+        with Timer("loading checkpoint", spinner=True):
+            ckpt = torch.load(model_path, map_location="cpu")
+            if remove_prefix:
+                ckpt = {k[len(remove_prefix) :]: v for k, v in ckpt.items()}
+            ckpt = {k: v for k, v in ckpt.items() if k not in EXCLUDE_KEYS}
+            model.load_state_dict(ckpt)
 
     return model
 
 
-def pretrained_hubert(size: PretrainedHubertSize) -> Hubert:
+def pretrained_hubert(size: PretrainedHubertSize, load_weights: bool = True) -> Hubert:
     match size:
         case "base":
             return _load_pretrained_hubert(
@@ -684,7 +561,6 @@ def pretrained_hubert(size: PretrainedHubertSize) -> Hubert:
                     hidden_act="gelu",
                     hidden_dropout=0.1,
                     activation_dropout=0.1,
-                    attention_dropout=0.1,
                     feat_proj_layer_norm=True,
                     feat_proj_dropout=0.0,
                     layer_norm_eps=1e-5,
@@ -700,6 +576,7 @@ def pretrained_hubert(size: PretrainedHubertSize) -> Hubert:
                     do_stable_layer_norm=False,
                     pre_normalize=False,
                 ),
+                load_weights=load_weights,
             )
 
         case "large":
@@ -717,7 +594,6 @@ def pretrained_hubert(size: PretrainedHubertSize) -> Hubert:
                     hidden_act="gelu",
                     hidden_dropout=0.1,
                     activation_dropout=0.1,
-                    attention_dropout=0.1,
                     feat_proj_layer_norm=True,
                     feat_proj_dropout=0.0,
                     layer_norm_eps=1e-5,
@@ -733,6 +609,7 @@ def pretrained_hubert(size: PretrainedHubertSize) -> Hubert:
                     do_stable_layer_norm=True,
                     pre_normalize=True,
                 ),
+                load_weights=load_weights,
             )
 
         case "extra_large":
@@ -749,7 +626,6 @@ def pretrained_hubert(size: PretrainedHubertSize) -> Hubert:
                     hidden_act="gelu",
                     hidden_dropout=0.1,
                     activation_dropout=0.1,
-                    attention_dropout=0.1,
                     feat_proj_layer_norm=True,
                     feat_proj_dropout=0.0,
                     layer_norm_eps=1e-5,
@@ -765,23 +641,29 @@ def pretrained_hubert(size: PretrainedHubertSize) -> Hubert:
                     do_stable_layer_norm=True,
                     pre_normalize=True,
                 ),
+                load_weights=load_weights,
             )
+
+        case _:
+            raise NotImplementedError(f"Invalid size: {size}")
 
 
 def test_hubert_adhoc() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("size", type=str, choices=get_args(PretrainedHubertSize))
     parser.add_argument("-t", "--tsz", type=int, default=22400)
+    parser.add_argument("-n", "--no-load-weights", default=False, action="store_true")
+    parser.add_argument("-c", "--causal", default=False, action="store_true")
     args = parser.parse_args()
 
     configure_logging()
 
     # Loads the model and moves to the right device.
-    model = pretrained_hubert(size=cast(PretrainedHubertSize, args.size))
+    model = pretrained_hubert(size=cast(PretrainedHubertSize, args.size), load_weights=not args.no_load_weights)
     predictor = model.predictor()
 
     # Test the model on a random waveform.
-    y = predictor.predict(torch.randn(1, args.tsz))
+    y = predictor.predict(torch.randn(1, args.tsz), causal=args.causal)
     assert (args.tsz // 320) == y.shape[1] + 1
 
 
