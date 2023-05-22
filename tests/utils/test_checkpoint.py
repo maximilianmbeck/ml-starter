@@ -12,7 +12,7 @@ from ml.core.registry import register_model, register_task, register_trainer
 from ml.core.state import State
 from ml.models.base import BaseModel, BaseModelConfig
 from ml.tasks.base import BaseTask, BaseTaskConfig
-from ml.trainers.vanilla import VanillaTrainerConfig
+from ml.trainers.learning import BaseLearningTrainerConfig
 from ml.utils.checkpoint import load_model_and_task
 
 
@@ -46,7 +46,7 @@ def test_load_model_and_test(tmpdir: Path) -> None:
         {
             "model": BaseModelConfig(name="dummy"),
             "task": BaseTaskConfig(name="dummy"),
-            "trainer": VanillaTrainerConfig(
+            "trainer": BaseLearningTrainerConfig(
                 name="sl",
                 exp_name="test",
                 log_dir_name="test",

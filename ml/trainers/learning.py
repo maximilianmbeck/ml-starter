@@ -42,7 +42,7 @@ class TrainingFinishedError(Exception):
 
 
 @dataclass
-class VanillaTrainerConfig(
+class BaseLearningTrainerConfig(
     ProfilerTrainerConfig,
     GradientClippingConfig,
     MixedPrecisionTrainerConfig,
@@ -59,19 +59,19 @@ class VanillaTrainerConfig(
     detect_anomaly_check_nan: bool = conf_field(False, help="Whether to check for NaNs when detecting anomalies")
 
 
-VanillaTrainerConfigT = TypeVar("VanillaTrainerConfigT", bound=VanillaTrainerConfig)
+BaseLearningTrainerConfigT = TypeVar("BaseLearningTrainerConfigT", bound=BaseLearningTrainerConfig)
 
 
-class VanillaTrainer(
-    ProfilerTrainerMixin[VanillaTrainerConfigT, ModelT, TaskT],
-    GradientClippingTrainerMixin[VanillaTrainerConfigT, ModelT, TaskT],
-    MixedPrecisionTrainerMixin[VanillaTrainerConfigT, ModelT, TaskT],
-    GPUStatsMixin[VanillaTrainerConfigT, ModelT, TaskT],
-    CPUStatsMixin[VanillaTrainerConfigT, ModelT, TaskT],
-    CompileMixin[VanillaTrainerConfigT, ModelT, TaskT],
-    ParallelMixin[VanillaTrainerConfigT, ModelT, TaskT],
-    BaseTrainer[VanillaTrainerConfigT, ModelT, TaskT],
-    Generic[VanillaTrainerConfigT, ModelT, TaskT],
+class BaseLearningTrainer(
+    ProfilerTrainerMixin[BaseLearningTrainerConfigT, ModelT, TaskT],
+    GradientClippingTrainerMixin[BaseLearningTrainerConfigT, ModelT, TaskT],
+    MixedPrecisionTrainerMixin[BaseLearningTrainerConfigT, ModelT, TaskT],
+    GPUStatsMixin[BaseLearningTrainerConfigT, ModelT, TaskT],
+    CPUStatsMixin[BaseLearningTrainerConfigT, ModelT, TaskT],
+    CompileMixin[BaseLearningTrainerConfigT, ModelT, TaskT],
+    ParallelMixin[BaseLearningTrainerConfigT, ModelT, TaskT],
+    BaseTrainer[BaseLearningTrainerConfigT, ModelT, TaskT],
+    Generic[BaseLearningTrainerConfigT, ModelT, TaskT],
 ):
     def train_step(
         self,
@@ -207,13 +207,11 @@ class VanillaTrainer(
             lr_sched = lr_scheduler.get(optim)
         return optim, lr_sched
 
-    def _get_state(
-        self,
-        task: TaskT,
-        model: ModelT,
-        optim: Optimizer,
-        lr_sched: SchedulerAdapter,
-    ) -> State:
+    def _get_state(self, task: TaskT, model: ModelT, optim: Optimizer, lr_sched: SchedulerAdapter) -> State:
         if (ckpt_path := self.get_ckpt_path()).exists():
             return self.load_checkpoint(ckpt_path, task, model, optim, lr_sched)
+        if self.config.checkpoint.load_from_ckpt_path is not None:
+            ckpt_path = Path(self.config.checkpoint.load_from_ckpt_path)
+            assert ckpt_path.exists(), f"Checkpoint path {ckpt_path} does not exist."
+            self.load_checkpoint(ckpt_path, task, model, optim, lr_sched)
         return State.init_state()

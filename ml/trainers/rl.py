@@ -21,7 +21,7 @@ from ml.lr_schedulers.base import BaseLRScheduler
 from ml.optimizers.base import BaseOptimizer
 from ml.tasks.rl.base import ReinforcementLearningTask
 from ml.trainers.base import ModelT
-from ml.trainers.vanilla import TrainingFinishedError, VanillaTrainer, VanillaTrainerConfig
+from ml.trainers.learning import BaseLearningTrainer, BaseLearningTrainerConfig, TrainingFinishedError
 from ml.utils.timer import Timer
 
 logger = logging.getLogger(__name__)
@@ -40,7 +40,7 @@ class SamplingConfig:
 
 
 @dataclass
-class ReinforcementLearningTrainerConfig(VanillaTrainerConfig):
+class ReinforcementLearningTrainerConfig(BaseLearningTrainerConfig):
     sampling: SamplingConfig = conf_field(SamplingConfig())
 
 
@@ -53,7 +53,7 @@ ReinforcementLearningTaskT = TypeVar("ReinforcementLearningTaskT", bound=Reinfor
 
 @register_trainer("rl", ReinforcementLearningTrainerConfig)
 class ReinforcementLearningTrainer(
-    VanillaTrainer[ReinforcementLearningTrainerConfigT, ModelT, ReinforcementLearningTaskT],
+    BaseLearningTrainer[ReinforcementLearningTrainerConfigT, ModelT, ReinforcementLearningTaskT],
     Generic[ReinforcementLearningTrainerConfigT, ModelT, ReinforcementLearningTaskT],
 ):
     def train(

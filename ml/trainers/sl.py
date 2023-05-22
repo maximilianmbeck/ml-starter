@@ -25,7 +25,7 @@ from ml.lr_schedulers.base import BaseLRScheduler
 from ml.optimizers.base import BaseOptimizer
 from ml.tasks.sl.base import SupervisedLearningTask
 from ml.trainers.base import ModelT
-from ml.trainers.vanilla import TrainingFinishedError, VanillaTrainer, VanillaTrainerConfig
+from ml.trainers.learning import BaseLearningTrainer, BaseLearningTrainerConfig, TrainingFinishedError
 from ml.utils.device.base import InfinitePrefetcher
 from ml.utils.timer import Timer
 
@@ -49,7 +49,7 @@ class BatchScheduleConfig:
 
 
 @dataclass
-class SupervisedLearningTrainerConfig(VanillaTrainerConfig):
+class SupervisedLearningTrainerConfig(BaseLearningTrainerConfig):
     validation: ValidationConfig = conf_field(ValidationConfig())
     batches_per_step: int = conf_field(1, help="Batches per training step, to simulate larger effective batch sizes")
     batches_per_step_schedule: list[BatchScheduleConfig] | None = conf_field(
@@ -64,7 +64,7 @@ SupervisedLearningTaskT = TypeVar("SupervisedLearningTaskT", bound=SupervisedLea
 
 @register_trainer("sl", SupervisedLearningTrainerConfig)
 class SupervisedLearningTrainer(
-    VanillaTrainer[SupervisedLearningTrainerConfigT, ModelT, SupervisedLearningTaskT],
+    BaseLearningTrainer[SupervisedLearningTrainerConfigT, ModelT, SupervisedLearningTaskT],
     Generic[SupervisedLearningTrainerConfigT, ModelT, SupervisedLearningTaskT],
 ):
     @functools.lru_cache()

@@ -21,6 +21,8 @@ __all__ = [
     "AutoDevice",
     "BaseDevice",
     "BaseEnvironmentWorker",
+    "BaseLearningTrainer",
+    "BaseLearningTrainerConfig",
     "BaseLRScheduler",
     "BaseLRSchedulerConfig",
     "BaseModel",
@@ -168,8 +170,6 @@ __all__ = [
     "timeout",
     "Timer",
     "transforms",
-    "VanillaTrainer",
-    "VanillaTrainerConfig",
     "VideoFileDataset",
     "WorkerPool",
     "write_gif",
@@ -245,9 +245,9 @@ from ml.tasks.losses.reduce import cast_reduce_type, reduce
 from ml.tasks.rl.base import ReinforcementLearningTask, ReinforcementLearningTaskConfig
 from ml.tasks.sl.base import SupervisedLearningTask, SupervisedLearningTaskConfig
 from ml.trainers.base import BaseTrainer, BaseTrainerConfig
+from ml.trainers.learning import BaseLearningTrainer, BaseLearningTrainerConfig
 from ml.trainers.rl import ReinforcementLearningTrainer, ReinforcementLearningTrainerConfig
 from ml.trainers.sl import SupervisedLearningTrainer, SupervisedLearningTrainerConfig
-from ml.trainers.vanilla import VanillaTrainer, VanillaTrainerConfig
 from ml.utils.argparse import from_args, get_args, get_type_from_string
 from ml.utils.atomic import atomic_save, open_atomic
 from ml.utils.augmentation import get_image_mask

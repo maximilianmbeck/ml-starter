@@ -15,14 +15,14 @@ from omegaconf import OmegaConf
 from ml.core.env import set_stage_dir
 from ml.core.registry import add_project_dir, register_launcher, register_trainer
 from ml.launchers.slurm import SlurmLauncher, SlurmLauncherConfig
-from ml.trainers.vanilla import VanillaTrainerConfig
+from ml.trainers.learning import BaseLearningTrainerConfig
 
 
 @pytest.mark.slow
 def test_slurm_launcher(tmpdir: Path) -> None:
     config = OmegaConf.create(
         {
-            "trainer": VanillaTrainerConfig(
+            "trainer": BaseLearningTrainerConfig(
                 name="sl",
                 exp_name="test",
                 log_dir_name="test",

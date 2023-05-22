@@ -213,6 +213,7 @@ def save_config(config_path: Path, raw_config: DictConfig) -> None:
 class CheckpointConfig:
     save_every_n_steps: int | None = conf_field(None, help="Save a checkpoint every N steps")
     only_save_most_recent: bool = conf_field(False, help="Only keep the most recent checkpoint")
+    load_from_ckpt_path: str | None = conf_field(None, help="If set, load initial model weights from this path")
 
 
 @dataclass
