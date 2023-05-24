@@ -178,6 +178,7 @@ class BaseLearningTrainer(
         for handler in root_logger.handlers:
             if isinstance(handler, logging.FileHandler) and Path(handler.baseFilename).name == "main.log":
                 root_logger.removeHandler(handler)
+        self.log_dir.mkdir(exist_ok=True, parents=True)
         root_logger.addHandler(logging.FileHandler(str((self.log_dir / "main.log").resolve())))
 
         # Sets up environment.
