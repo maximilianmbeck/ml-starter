@@ -50,8 +50,10 @@ def cpu_count(default: int) -> int:
     return default
 
 
-OmegaConf.register_new_resolver("resolve", resolve)
-OmegaConf.register_new_resolver("cpu_count", cpu_count)
+if not OmegaConf.has_resolver("resolve"):
+    OmegaConf.register_new_resolver("resolve", resolve)
+if not OmegaConf.has_resolver("cpu_count"):
+    OmegaConf.register_new_resolver("cpu_count", cpu_count)
 
 LockType = Literal["running", "scheduled", "ckpt"]
 
