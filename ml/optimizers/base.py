@@ -13,6 +13,8 @@ from torch.optim.optimizer import Optimizer
 
 from ml.core.config import BaseConfig, BaseObject
 
+OptimizerT = TypeVar("OptimizerT", bound=Optimizer)
+
 
 @dataclass
 class BaseOptimizerConfig(BaseConfig):
@@ -22,7 +24,7 @@ class BaseOptimizerConfig(BaseConfig):
 OptimizerConfigT = TypeVar("OptimizerConfigT", bound=BaseOptimizerConfig)
 
 
-class BaseOptimizer(BaseObject[OptimizerConfigT], Generic[OptimizerConfigT], ABC):
+class BaseOptimizer(BaseObject[OptimizerConfigT], Generic[OptimizerConfigT, OptimizerT], ABC):
     """Defines the base optimizer type."""
 
     @property
@@ -30,7 +32,7 @@ class BaseOptimizer(BaseObject[OptimizerConfigT], Generic[OptimizerConfigT], ABC
         return {}
 
     @abstractmethod
-    def get(self, model: nn.Module) -> Optimizer:
+    def get(self, model: nn.Module) -> OptimizerT:
         """Given a base module, returns an optimizer.
 
         Args:

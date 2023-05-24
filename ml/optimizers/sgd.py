@@ -20,7 +20,7 @@ class SGDOptimizerConfig(BaseOptimizerConfig):
 
 
 @register_optimizer("sgd", SGDOptimizerConfig)
-class SGDOptimizer(BaseOptimizer[SGDOptimizerConfig]):
+class SGDOptimizer(BaseOptimizer[SGDOptimizerConfig, SGD]):
     def get(self, model: nn.Module) -> SGD:
         return SGD(
             model.parameters(),

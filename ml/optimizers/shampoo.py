@@ -166,7 +166,7 @@ class ShampooOptimizerConfig(BaseOptimizerConfig):
 
 
 @register_optimizer("shampoo", ShampooOptimizerConfig)
-class ShampooOptimizer(BaseOptimizer[ShampooOptimizerConfig]):
+class ShampooOptimizer(BaseOptimizer[ShampooOptimizerConfig, Shampoo]):
     def get(self, model: nn.Module) -> Shampoo:
         return Shampoo(
             model.parameters(),

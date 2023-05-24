@@ -24,7 +24,7 @@ class AdamOptimizerConfig(BaseOptimizerConfig):
 
 
 @register_optimizer("adam", AdamOptimizerConfig)
-class AdamOptimizer(BaseOptimizer[AdamOptimizerConfig]):
+class AdamOptimizer(BaseOptimizer[AdamOptimizerConfig, Adam]):
     def get(self, model: nn.Module) -> Adam:
         b1, b2 = self.config.betas
 
