@@ -52,13 +52,13 @@ So in summary, the resulting groups are:
 
 import logging
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal, overload
 
 import torch
 import torch.distributed
 from torch import Tensor
 from torch.distributed import ProcessGroup
-from torch.distributed.distributed_c10d import Backend, ReduceOp
+from torch.distributed.distributed_c10d import Backend, ReduceOp, Work, _get_default_group, is_initialized
 
 logger = logging.getLogger(__name__)
 
@@ -86,7 +86,15 @@ class _GroupInfo:
     rank: int
     world_size: int
 
-    def reduce(self, tensor: Tensor, op: Any = ReduceOp.SUM, async_op: bool = False) -> Tensor:
+    @overload
+    def reduce(self, tensor: Tensor, op: Any = ReduceOp.SUM, *, async_op: Literal[False] = False) -> Tensor:
+        ...
+
+    @overload
+    def reduce(self, tensor: Tensor, op: Any = ReduceOp.SUM, *, async_op: Literal[True]) -> Work:
+        ...
+
+    def reduce(self, tensor: Tensor, op: Any = ReduceOp.SUM, *, async_op: bool = False) -> Tensor | Work:
         """Reduces the tensor across all processes in the group.
 
         Consider two tensors in the same process group on different processes,
@@ -103,8 +111,8 @@ class _GroupInfo:
         """
         if self.world_size == 1:
             return tensor
-        torch.distributed.all_reduce(tensor, op=op, group=self.group, async_op=async_op)
-        return tensor
+        work = torch.distributed.all_reduce(tensor, op=op, group=self.group, async_op=async_op)
+        return work if async_op else tensor
 
     def split(self, tensor: Tensor, dim: int = 0) -> Tensor:
         """Splits the tensor across all processes in the group.
@@ -125,7 +133,15 @@ class _GroupInfo:
         slice_len = tensor.shape[dim] // self.world_size
         return tensor.narrow(dim, self.rank * slice_len, slice_len)
 
-    def gather(self, tensor: Tensor, dim: int = -1, async_op: bool = False) -> Tensor:
+    @overload
+    def gather(self, tensor: Tensor, dim: int = -1, *, async_op: Literal[False] = False) -> Tensor:
+        ...
+
+    @overload
+    def gather(self, tensor: Tensor, dim: int = -1, *, async_op: Literal[True]) -> Work:
+        ...
+
+    def gather(self, tensor: Tensor, dim: int = -1, *, async_op: bool = False) -> Tensor | Work:
         """Gathers the tensor across all processes in the group.
 
         Consider a tensor with shape ``[2, 4]`` split across 4 processes. After
@@ -138,13 +154,13 @@ class _GroupInfo:
             async_op: Whether to perform the operation asynchronously.
 
         Returns:
-            The gathered tensor.
+            The gathered tensor, or a work pointer if async.
         """
         if self.world_size == 1:
             return tensor
         output = [torch.empty_like(tensor) for _ in range(self.world_size)]
-        torch.distributed.all_gather(output, tensor, group=self.group, async_op=async_op)
-        return torch.cat(output, dim=dim)
+        work = torch.distributed.all_gather(output, tensor, group=self.group, async_op=async_op)
+        return work if async_op else torch.cat(output, dim=dim)
 
 
 @dataclass
@@ -155,11 +171,20 @@ class _GroupsInfos:
 
 
 _parallel_group_info: _GroupsInfos | None = None
+_default_group_info: _GroupInfo | None = None
 
 
 def parallel_group_info() -> _GroupsInfos:
     assert _parallel_group_info is not None
     return _parallel_group_info
+
+
+def default_group_info() -> _GroupInfo | None:
+    global _default_group_info
+    if _default_group_info is None and is_initialized():
+        rank, world_size = torch.distributed.get_rank(), torch.distributed.get_world_size()
+        _default_group_info = _GroupInfo(_get_default_group(), list(range(world_size)), rank, world_size)
+    return _default_group_info
 
 
 class ParallismError(Exception):
