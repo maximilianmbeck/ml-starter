@@ -7,11 +7,13 @@ around places.
 
 import logging
 from pathlib import Path
-from typing import TypeVar, cast
+from typing import Mapping, TypeVar, cast
 
 import torch
 from omegaconf import DictConfig, OmegaConf
+from torchvision.datasets.utils import download_url
 
+from ml.core.env import get_model_dir
 from ml.core.registry import Objects, register_model, register_task
 from ml.models.base import BaseModel
 from ml.tasks.base import BaseTask
@@ -141,3 +143,36 @@ def load_model_and_task(
             device.module_to(task)
 
     return model, task
+
+
+def ensure_downloaded(url: str, dname: str, fname: str, md5: str | None = None) -> Path:
+    """Ensures that a URL has been downloaded to a given directory.
+
+    Args:
+        url: The URL to download.
+        dname: The directory to download to (note that this is relative to the
+            model directory).
+        fname: The filename to download to.
+        md5: The MD5 hash of the file, if known.
+
+    Returns:
+        The path to the downloaded file.
+    """
+    (root := get_model_dir() / dname).mkdir(parents=True, exist_ok=True)
+    filepath = root / fname
+    if not filepath.exists():
+        download_url(url, root=root, filename=filepath.name, md5=md5)
+    return filepath
+
+
+def get_state_dict_prefix(state_dict: Mapping[str, T], prefix: str) -> Mapping[str, T]:
+    """Gets the state dict with a prefix removed from the keys.
+
+    Args:
+        state_dict: The state dict to get the prefix from.
+        prefix: The prefix to remove.
+
+    Returns:
+        The state dict with the prefix removed.
+    """
+    return {k[len(prefix) :]: v for k, v in state_dict.items() if k.startswith(prefix)}

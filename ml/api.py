@@ -53,6 +53,7 @@ __all__ = [
     "conf_field",
     "configure_logging",
     "DictIndex",
+    "ensure_downloaded",
     "Environment",
     "format_timedelta",
     "from_args",
@@ -82,6 +83,7 @@ __all__ = [
     "get_rank_optional",
     "get_rank",
     "get_run_dir",
+    "get_state_dict_prefix",
     "get_type_from_string",
     "get_worker_info",
     "get_world_size_optional",
@@ -252,7 +254,7 @@ from ml.utils.argparse import from_args, get_args, get_type_from_string
 from ml.utils.atomic import atomic_save, open_atomic
 from ml.utils.augmentation import get_image_mask
 from ml.utils.caching import DictIndex, cached_object
-from ml.utils.checkpoint import instantiate_config, load_model_and_task
+from ml.utils.checkpoint import ensure_downloaded, get_state_dict_prefix, instantiate_config, load_model_and_task
 from ml.utils.checks import assert_no_nans
 from ml.utils.colors import colorize
 from ml.utils.data import check_md5, check_sha256, get_dataset_split_for_phase, get_dataset_splits, get_worker_info
