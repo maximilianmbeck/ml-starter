@@ -50,9 +50,8 @@ import torch
 import torch.nn.functional as F
 import torchvision
 from torch import Tensor, nn
-from torchvision.datasets.utils import download_url
 
-from ml.core.env import get_model_dir
+from ml.utils.checkpoint import ensure_downloaded
 from ml.utils.device.auto import AutoDevice
 from ml.utils.device.base import BaseDevice
 from ml.utils.logging import configure_logging
@@ -190,10 +189,7 @@ def test_clean_func(lower: bool = True) -> Callable[[str], str]:
 
 class ClipTokenizer:
     def __init__(self) -> None:
-        vocab_file_name = "CLIP_vocabulary.txt.gz"
-        bpe_path = get_model_dir() / vocab_file_name
-        if not bpe_path.exists():
-            download_url(CLIP_VOCABULARY, get_model_dir(), filename=vocab_file_name)
+        bpe_path = ensure_downloaded(CLIP_VOCABULARY, "CLIP", "CLIP_vocabulary.txt.gz")
         self.byte_encoder = bytes_to_unicode()
         self.byte_decoder = {v: k for k, v in self.byte_encoder.items()}
         merges_unzipped = gzip.open(bpe_path).read().decode("utf-8").split("\n")
@@ -1053,12 +1049,7 @@ def get_pretrained_path(key: PretrainedClipSize) -> Path:
     if key not in PRETRAINED_MODELS:
         raise KeyError(f"Invalid CLIP model key {key}; choices are {list(PRETRAINED_MODELS.keys())}")
     model_url = PRETRAINED_MODELS[key]
-    save_path = (get_model_dir() / f"CLIP_{key}").resolve()
-    filename = "ckpt.pt"
-    filepath = save_path / filename
-    if not filepath.exists():
-        download_url(model_url, str(save_path), filename=filename)
-    return filepath
+    return ensure_downloaded(model_url, "CLIP", f"{key}_ckpt.pt")
 
 
 def test_pretrained_model() -> None:
@@ -1070,9 +1061,7 @@ def test_pretrained_model() -> None:
 
     # Gets an image of a peach from Wikipedia.
     peach_url = "https://upload.wikimedia.org/wikipedia/commons/9/9e/Autumn_Red_peaches.jpg"
-    img_path = Path("/tmp/peach.jpg")
-    if not img_path.exists():
-        download_url(peach_url, str(img_path.parent), filename=img_path.name)
+    img_path = ensure_downloaded(peach_url, "peach.jpg", is_tmp=True)
 
     peach_img = PIL.Image.open(img_path)
     pos_desc = "A picture of an Autumn Red peach"

@@ -9,8 +9,10 @@ original repository `here <https://github.com/salesforce/BLIP>`_.
     from ml.models.pretrained.blip import pretrained_blip
 
     model = pretrained_blip("ViT-B")
+    predictor = model.predictor()
 
     image = PIL.Image.open(image_path)
+    embedding = predictor.predict(image)
 
 The choices for the model key are:
 
@@ -22,7 +24,6 @@ The choices for the model key are:
 import argparse
 import logging
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Literal, Sequence, Union, get_args
 
 import numpy as np
@@ -32,13 +33,12 @@ import torch.nn.functional as F
 import torchvision.transforms.functional as V
 from omegaconf import MISSING
 from torch import Tensor, nn
-from torchvision.datasets.utils import download_url
 
 from ml.core.config import conf_field
-from ml.core.env import get_model_dir
 from ml.models.activations import ActivationType, get_activation
 from ml.models.init import init_
 from ml.models.norms import NormType, get_norm_linear
+from ml.utils.checkpoint import ensure_downloaded
 from ml.utils.device.auto import AutoDevice
 from ml.utils.device.base import BaseDevice
 from ml.utils.large_models import init_empty_weights, meta_to_empty_func
@@ -102,6 +102,22 @@ VIT_BASE = ViTParams(
     num_heads=12,
 )
 
+VIT_BASE_CAPFILT = ViTParams(
+    img_size=224,
+    patch_size=16,
+    embed_dim=768,
+    depth=12,
+    num_heads=12,
+)
+
+VIT_LARGE = ViTParams(
+    img_size=224,
+    patch_size=16,
+    embed_dim=1024,
+    depth=16,
+    num_heads=24,
+)
+
 
 PRETRAINED_MODEL_SIZES: dict[PretrainedBlipKey, ModelParams] = {
     # ViT-B models
@@ -118,7 +134,8 @@ PRETRAINED_MODEL_SIZES: dict[PretrainedBlipKey, ModelParams] = {
         vit=VIT_BASE,
     ),
     "ViT-B-VQA": ModelParams(
-        url="https://storage.googleapis.com/sfr-vision-language-research/BLIP/models/model_vqa.pth", vit=VIT_BASE
+        url="https://storage.googleapis.com/sfr-vision-language-research/BLIP/models/model_vqa.pth",
+        vit=VIT_BASE,
     ),
     "ViT-B-NLVR2": ModelParams(
         url="https://storage.googleapis.com/sfr-vision-language-research/BLIP/models/model_base_nlvr.pth",
@@ -127,25 +144,32 @@ PRETRAINED_MODEL_SIZES: dict[PretrainedBlipKey, ModelParams] = {
     # ViT-B-CapFilt models
     "ViT-B-CapFilt": ModelParams(
         url="https://storage.googleapis.com/sfr-vision-language-research/BLIP/models/model_base_capfilt_large.pth",
+        vit=VIT_BASE_CAPFILT,
     ),
     "ViT-B-CapFilt-Coco": ModelParams(
         url="https://storage.googleapis.com/sfr-vision-language-research/BLIP/models/model_base_caption_capfilt_large.pth",
+        vit=VIT_BASE_CAPFILT,
     ),
     "ViT-B-CapFilt-VQA": ModelParams(
         url="https://storage.googleapis.com/sfr-vision-language-research/BLIP/models/model_base_vqa_capfilt_large.pth",
+        vit=VIT_BASE_CAPFILT,
     ),
     # ViT-L models
     "ViT-L": ModelParams(
         url="https://storage.googleapis.com/sfr-vision-language-research/BLIP/models/model_large.pth",
+        vit=VIT_LARGE,
     ),
     "ViT-L-Coco-Retrieval": ModelParams(
         url="https://storage.googleapis.com/sfr-vision-language-research/BLIP/models/model_large_retrieval_coco.pth",
+        vit=VIT_LARGE,
     ),
     "ViT-L-Flickr30k": ModelParams(
         url="https://storage.googleapis.com/sfr-vision-language-research/BLIP/models/model_large_retrieval_flickr.pth",
+        vit=VIT_LARGE,
     ),
     "ViT-L-Coco-Captioning": ModelParams(
         url="https://storage.googleapis.com/sfr-vision-language-research/BLIP/models/model_large_caption.pth",
+        vit=VIT_LARGE,
     ),
 }
 
@@ -419,14 +443,8 @@ class BlipPredictor:
 
 def pretrained_blip(key: PretrainedBlipKey, *, device: BaseDevice | None = None) -> Blip:
     device = AutoDevice.detect_device() if device is None else device
-    ckpt_path = get_model_dir() / "BLIP" / f"{key}.pth"
     model_args = PRETRAINED_MODEL_SIZES[key]
-
-    # Downloads the checkpoint, if it doesn't exist.
-    if not ckpt_path.is_file():
-        ckpt_path.parent.mkdir(exist_ok=True)
-        download_url(model_args.url, str(ckpt_path.parent), ckpt_path.name)
-        assert ckpt_path.is_file(), f"Failed to download {ckpt_path}"
+    ckpt_path = ensure_downloaded(model_args.url, "BLIP", f"{key}.pth")
 
     with Timer("loading model checkpoint", spinner=True):
         ckpt = torch.load(ckpt_path, map_location="cpu")["model"]
@@ -457,10 +475,7 @@ def test_blip_adhoc() -> None:
 
     # Gets an image of a peach from Wikipedia.
     peach_url = "https://upload.wikimedia.org/wikipedia/commons/9/9e/Autumn_Red_peaches.jpg"
-    img_path = Path("/tmp/peach.jpg")
-    if not img_path.exists():
-        download_url(peach_url, str(img_path.parent), filename=img_path.name)
-
+    img_path = ensure_downloaded(peach_url, "peach.jpg", is_tmp=True)
     image = PIL.Image.open(img_path)
 
     model = pretrained_blip(args.key)

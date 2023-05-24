@@ -30,11 +30,9 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import Tensor, nn
-from torchvision.datasets.utils import download_url
 
-from ml.core.env import get_model_dir
 from ml.models.activations import ActivationType, get_activation
-from ml.utils.data import check_sha256
+from ml.utils.checkpoint import ensure_downloaded
 from ml.utils.device.auto import AutoDevice
 from ml.utils.device.base import BaseDevice
 from ml.utils.logging import configure_logging
@@ -527,13 +525,9 @@ def _load_pretrained_hubert(
     # Loads the model weights.
     if load_weights:
         model_fname = f"{size}.bin"
-        model_path = get_model_dir() / "hubert" / model_fname
 
         with Timer("downloading checkpoint", spinner=True):
-            if not model_path.is_file() or not check_sha256(model_path, sha256):
-                model_path.parent.mkdir(exist_ok=True)
-                download_url(ckpt_url, str(model_path.parent), model_fname)
-                assert model_path.is_file(), f"Failed to download {model_path}"
+            model_path = ensure_downloaded(ckpt_url, "hubert", model_fname, sha256=sha256)
 
         with Timer("loading checkpoint", spinner=True):
             ckpt = torch.load(model_path, map_location="cpu")

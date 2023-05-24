@@ -41,9 +41,8 @@ from typing import Any, Iterator, Literal, Sequence, get_args
 import torch
 import torch.nn.functional as F
 from torch import Tensor, nn
-from torchvision.datasets.utils import download_url
 
-from ml.core.env import get_model_dir
+from ml.utils.checkpoint import ensure_downloaded
 from ml.utils.device.auto import AutoDevice
 from ml.utils.device.base import BaseDevice
 from ml.utils.large_models import init_empty_weights, meta_to_empty_func
@@ -273,21 +272,14 @@ class Rwkv(nn.Module):
 
 
 def get_tokenizer() -> Any:
-    tokenizer_path = get_model_dir() / "RWKV" / "tokenizer.json"
-
     try:
         from tokenizers import Tokenizer
 
     except ImportError:
         raise ImportError("Please install tokenizers with: `pip install tokenizers`")
 
-    # Downloads the model if it doesn't exist
-    if not tokenizer_path.is_file():
-        tokenizer_path.parent.mkdir(exist_ok=True)
-        download_url(TOKENIZER_URL, str(tokenizer_path.parent), tokenizer_path.name)
-        assert tokenizer_path.is_file(), f"Failed to download {tokenizer_path}"
-
-    return Tokenizer.from_file(str(tokenizer_path.resolve()))
+    tokenizer_path = ensure_downloaded(TOKENIZER_URL, "RWKV", "tokenizer.json")
+    return Tokenizer.from_file(str(tokenizer_path))
 
 
 class RwkvPredictor:
@@ -349,14 +341,8 @@ class RwkvPredictor:
 
 def pretrained_rwkv(key: PretrainedRwkvKey, *, device: BaseDevice | None = None) -> Rwkv:
     device = AutoDevice.detect_device() if device is None else device
-    ckpt_path = get_model_dir() / "RWKV" / f"{key}.pth"
     model_args = PRETRAINED_MODEL_SIZES[key]
-
-    # Downloads the model if it doesn't exist
-    if not ckpt_path.is_file():
-        ckpt_path.parent.mkdir(exist_ok=True)
-        download_url(model_args.url, str(ckpt_path.parent), ckpt_path.name)
-        assert ckpt_path.is_file(), f"Failed to download {ckpt_path}"
+    ckpt_path = ensure_downloaded(model_args.url, "RWKV", f"{key}.pth")
 
     with Timer("loading model checkpoint", spinner=True):
         ckpt = torch.load(ckpt_path, map_location="cpu")

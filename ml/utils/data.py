@@ -121,18 +121,21 @@ def get_dataset_split_for_phase(
             raise ValueError(f"Invalid phase: {phase}")
 
 
-def check_md5(file_path: str | Path, hash_str: str, chunk_size: int = 2**16, use_tqdm: bool = True) -> bool:
+def check_md5(file_path: str | Path, hash_str: str | None, chunk_size: int = 2**16, use_tqdm: bool = True) -> bool:
     """Checks the MD5 of the downloaded file.
 
     Args:
         file_path: Path to the downloaded file.
-        hash_str: Expected MD5 of the file.
+        hash_str: Expected MD5 of the file; if None, return True.
         chunk_size: Size of the chunks to read from the file.
         use_tqdm: Whether to use tqdm to show progress.
 
     Returns:
         True if the MD5 matches, False otherwise.
     """
+    if hash_str is None:
+        return True
+
     md5 = hashlib.md5()
 
     with open(file_path, "rb") as f:
@@ -142,18 +145,21 @@ def check_md5(file_path: str | Path, hash_str: str, chunk_size: int = 2**16, use
     return md5.hexdigest() == hash_str
 
 
-def check_sha256(file_path: str | Path, hash_str: str, chunk_size: int = 2**16, use_tqdm: bool = True) -> bool:
+def check_sha256(file_path: str | Path, hash_str: str | None, chunk_size: int = 2**16, use_tqdm: bool = True) -> bool:
     """Checks the SHA256 of the downloaded file.
 
     Args:
         file_path: Path to the downloaded file.
-        hash_str: Expected SHA256 of the file.
+        hash_str: Expected SHA256 of the file; if None, return True.
         chunk_size: Size of the chunks to read from the file.
         use_tqdm: Whether to use tqdm to show progress.
 
     Returns:
         True if the SHA256 matches, False otherwise.
     """
+    if hash_str is None:
+        return True
+
     sha256 = hashlib.sha256()
 
     with open(file_path, "rb") as f:

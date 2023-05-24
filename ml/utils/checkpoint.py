@@ -18,6 +18,7 @@ from ml.core.registry import Objects, register_model, register_task
 from ml.models.base import BaseModel
 from ml.tasks.base import BaseTask
 from ml.trainers.base import BaseTrainer
+from ml.utils.data import check_md5, check_sha256
 from ml.utils.device.auto import AutoDevice
 from ml.utils.timer import Timer
 
@@ -40,6 +41,7 @@ def instantiate_config(config: str | Path | DictConfig | dict) -> Objects:
         config = cast(DictConfig, OmegaConf.load(config))
     elif isinstance(config, dict):
         config = OmegaConf.create(config)
+    Objects.update_config(config)
     Objects.resolve_config(config)
     return Objects.parse_raw_config(config)
 
@@ -145,23 +147,37 @@ def load_model_and_task(
     return model, task
 
 
-def ensure_downloaded(url: str, dname: str, fname: str, md5: str | None = None) -> Path:
-    """Ensures that a URL has been downloaded to a given directory.
+def ensure_downloaded(
+    url: str,
+    *dnames: str,
+    md5: str | None = None,
+    sha256: str | None = None,
+    is_tmp: bool = False,
+) -> Path:
+    """Ensures that a checkpoint URL has been downloaded.
+
+    This basically just provides a nice way of organizing pre-trained models,
+    by saving them to a consistent location.
 
     Args:
         url: The URL to download.
-        dname: The directory to download to (note that this is relative to the
-            model directory).
-        fname: The filename to download to.
+        dnames: The directory to download to (note that this is relative to the
+            model directory). The final name should be the file name
         md5: The MD5 hash of the file, if known.
+        sha256: The SHA256 hash of the file, if known.
+        is_tmp: If set, use ``tmp/`` instead of ``get_model_dir()``
 
     Returns:
         The path to the downloaded file.
     """
-    (root := get_model_dir() / dname).mkdir(parents=True, exist_ok=True)
-    filepath = root / fname
-    if not filepath.exists():
+    assert len(dnames) >= 1, "Must provide at least 1 directory name"
+    filepath = Path("tmp") if is_tmp else get_model_dir()
+    for dname in dnames:
+        filepath = filepath / dname
+    (root := filepath.parent).mkdir(parents=True, exist_ok=True)
+    if not filepath.exists() or not check_sha256(filepath, sha256) or not check_md5(filepath, md5):
         download_url(url, root=root, filename=filepath.name, md5=md5)
+        assert filepath.is_file(), f"Failed to download {url} to {filepath}"
     return filepath
 
 

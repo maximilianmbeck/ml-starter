@@ -34,10 +34,9 @@ import PIL.Image
 import torch
 import torch.nn.functional as F
 from torch import Tensor, nn
-from torchvision.datasets.utils import download_url
 from torchvision.transforms.functional import resize, to_pil_image
 
-from ml.core.env import get_model_dir
+from ml.utils.checkpoint import ensure_downloaded
 from ml.utils.device.auto import AutoDevice
 from ml.utils.device.base import BaseDevice
 from ml.utils.logging import configure_logging
@@ -1494,11 +1493,7 @@ def get_pretrained_path(key: PretrainedSamSize) -> Path:
     if key not in PRETRAINED_MODELS:
         raise KeyError(f"Invalid CLIP model key {key}; choices are {list(PRETRAINED_MODELS.keys())}")
     model_url = PRETRAINED_MODELS[key].url
-    save_path = (get_model_dir() / f"SAM_{key}").resolve()
-    filename = "ckpt.pt"
-    filepath = save_path / filename
-    if not filepath.exists():
-        download_url(model_url, str(save_path), filename=filename)
+    filepath = ensure_downloaded(model_url, "SAM", f"{key}_ckpt.pt")
     return filepath
 
 
@@ -1564,9 +1559,7 @@ def test_pretrained_model() -> None:
 
     # Gets an image of a peach from Wikipedia.
     peach_url = "https://upload.wikimedia.org/wikipedia/commons/9/9e/Autumn_Red_peaches.jpg"
-    img_path = Path("/tmp/peach.jpg")
-    if not img_path.exists():
-        download_url(peach_url, str(img_path.parent), filename=img_path.name)
+    img_path = ensure_downloaded(peach_url, "peach.jpg", is_tmp=True)
 
     model = pretrained_sam(cast(PretrainedSamSize, args.key))
     predictor = model.predictor()
