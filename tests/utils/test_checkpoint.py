@@ -8,12 +8,11 @@ import torch
 from omegaconf import OmegaConf
 from torch import Tensor, nn
 
-from ml.core.registry import register_model, register_task, register_trainer
+from ml.core.registry import register_model, register_task
 from ml.core.state import State
 from ml.models.base import BaseModel, BaseModelConfig
 from ml.tasks.base import BaseTask, BaseTaskConfig
-from ml.trainers.learning import BaseLearningTrainerConfig
-from ml.utils.checkpoint import load_model_and_task
+from ml.utils.checkpoint import instantiate_config, load_model_and_task
 
 
 @pytest.mark.slow
@@ -44,23 +43,24 @@ def test_load_model_and_test(tmpdir: Path) -> None:
 
     config = OmegaConf.create(
         {
-            "model": BaseModelConfig(name="dummy"),
-            "task": BaseTaskConfig(name="dummy"),
-            "trainer": BaseLearningTrainerConfig(
-                name="sl",
-                exp_name="test",
-                log_dir_name="test",
-                base_run_dir=str(tmpdir),
-                run_id=0,
-            ),
+            "model": {"name": "dummy"},
+            "task": {"name": "dummy"},
+            "trainer": {
+                "name": "sl",
+                "exp_name": "test",
+                "log_dir_name": "test",
+                "base_run_dir": str(tmpdir),
+                "run_id": 0,
+            },
         },
     )
 
     # Instantiates the model, task and trainer (the trainer is only used
     # to save the model).
-    model = register_model.build_entry_non_null(config)
-    task = register_task.build_entry_non_null(config)
-    trainer = register_trainer.build_entry_non_null(config)
+    objs = instantiate_config(config)
+    assert (model := objs.model) is not None
+    assert (task := objs.task) is not None
+    assert (trainer := objs.trainer) is not None
 
     cast(DummyModel, model).weight.data = torch.tensor([2.0])
 
