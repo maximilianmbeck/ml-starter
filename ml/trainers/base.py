@@ -40,7 +40,7 @@ from ml.utils.timer import Timer
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-def resolve(path: str) -> str:
+def abs_path(path: str) -> str:
     return str(Path(path).resolve())
 
 
@@ -50,10 +50,8 @@ def cpu_count(default: int) -> int:
     return default
 
 
-if not OmegaConf.has_resolver("resolve"):
-    OmegaConf.register_new_resolver("resolve", resolve)
-if not OmegaConf.has_resolver("cpu_count"):
-    OmegaConf.register_new_resolver("cpu_count", cpu_count)
+OmegaConf.register_new_resolver("ml.abs_path", abs_path, replace=True)
+OmegaConf.register_new_resolver("ml.cpu_count", cpu_count, replace=True)
 
 LockType = Literal["running", "scheduled", "ckpt"]
 
@@ -222,9 +220,9 @@ class CheckpointConfig:
 class BaseTrainerConfig(BaseConfig):
     """Defines the base config for all trainers."""
 
-    exp_name: str = conf_field(II("exp_name:null"), help="The name of the training job")
+    exp_name: str = conf_field(II("ml.exp_name:null"), help="The name of the training job")
     log_dir_name: str = conf_field("logs", help="Name of the subdirectory which contains logs")
-    base_run_dir: str = conf_field(II("resolve:${oc.env:RUN_DIR}"), help="The base directory for all runs")
+    base_run_dir: str = conf_field(II("ml.abs_path:${oc.env:RUN_DIR}"), help="The base directory for all runs")
     run_id: int = conf_field(MISSING, help="The run ID to use")
     use_double_weight_precision: bool = conf_field(False, help="If set, use doubles for weights instead of floats")
     checkpoint: CheckpointConfig = conf_field(CheckpointConfig())

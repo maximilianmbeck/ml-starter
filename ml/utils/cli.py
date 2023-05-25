@@ -82,8 +82,7 @@ def parse_cli(args: list[str]) -> DictConfig:
         argument_parts += [f"{k.split('.')[-1]}_{v}" for k, v in sorted(split_args) if k not in IGNORE_ARGS]
 
     # Registers an OmegaConf resolver with the job name.
-    if not OmegaConf.has_resolver("exp_name"):
-        OmegaConf.register_new_resolver("exp_name", partial(get_exp_name, args=argument_parts))
+    OmegaConf.register_new_resolver("ml.exp_name", partial(get_exp_name, args=argument_parts), replace=True)
     set_exp_name(get_exp_name(args=argument_parts))
 
     # Finally, builds the config.
