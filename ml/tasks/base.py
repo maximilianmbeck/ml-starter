@@ -13,6 +13,7 @@ class.
 
 import functools
 import logging
+import os
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, is_dataclass
@@ -21,7 +22,7 @@ from typing import Any, Generic, Mapping, Sequence, Sized, TypeVar
 
 import numpy as np
 import torch
-from omegaconf import II, MISSING
+from omegaconf import II, MISSING, OmegaConf
 from torch import Tensor, nn
 from torch.optim.optimizer import Optimizer
 from torch.utils.data.dataloader import DataLoader
@@ -31,7 +32,7 @@ from torch.utils.data.sampler import Sampler
 from ml.core.common_types import Batch, Loss, Output
 from ml.core.config import BaseConfig, BaseObject, conf_field
 from ml.core.env import is_debugging
-from ml.core.state import Phase, State, cast_phase
+from ml.core.state import Phase, State
 from ml.loggers.multi import MultiLogger
 from ml.lr_schedulers.base import SchedulerAdapter
 from ml.models.base import BaseModel
@@ -46,6 +47,16 @@ from ml.utils.device.base import BaseDevice
 from ml.utils.random import set_random_seed
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+
+def num_workers(default: int) -> int:
+    if (cpu_count := os.cpu_count()) is None:
+        return default
+    # This is a somewhat arbitrary heuristic, but seems to be a fine default.
+    return min(cpu_count * 2, 8)
+
+
+OmegaConf.register_new_resolver("ml.num_workers", num_workers, replace=True)
 
 
 class CumulativeTimer:
@@ -152,31 +163,40 @@ class DataLoaderConfig:
     seed: int = conf_field(1337, help="Dataloader random seed")
 
 
-DEFAULT_DATALOADER_CONFIGS: dict[str, DataLoaderConfig] = {
-    "train": DataLoaderConfig(
-        shuffle=True,
-        num_workers=8,
-        pin_memory=True,
-        drop_last=True,
-        persistent_workers=True,
-    ),
-    "valid": DataLoaderConfig(
-        batch_size=II("task.dataloader.train.batch_size"),
-        shuffle=True,
-        num_workers=0,
-        pin_memory=False,
-        drop_last=False,
-        persistent_workers=False,
-    ),
-    "test": DataLoaderConfig(
-        batch_size=II("task.dataloader.valid.batch_size"),
-        shuffle=False,
-        num_workers=0,
-        pin_memory=False,
-        drop_last=False,
-        persistent_workers=False,
-    ),
-}
+@dataclass
+class DataLoaderConfigs:
+    train_dl: DataLoaderConfig = conf_field(
+        DataLoaderConfig(
+            shuffle=True,
+            num_workers=II("ml.num_workers:8"),
+            pin_memory=True,
+            drop_last=True,
+            persistent_workers=True,
+        ),
+        help="Train dataloader config",
+    )
+    valid_dl: DataLoaderConfig = conf_field(
+        DataLoaderConfig(
+            batch_size=II("task.train_dl.batch_size"),
+            shuffle=True,
+            num_workers=0,
+            pin_memory=False,
+            drop_last=False,
+            persistent_workers=False,
+        ),
+        help="Valid dataloader config",
+    )
+    test_dl: DataLoaderConfig = conf_field(
+        DataLoaderConfig(
+            batch_size=II("task.valid_dl.batch_size"),
+            shuffle=False,
+            num_workers=0,
+            pin_memory=False,
+            drop_last=False,
+            persistent_workers=False,
+        ),
+        help="Test dataloader config",
+    )
 
 
 @dataclass
@@ -188,17 +208,14 @@ class FinishTrainingConfig:
 
 @dataclass
 class LossConfig:
-    reduce_type: str = conf_field("sum", help="Loss reduction type to use")
+    loss_reduce_type: str = conf_field("sum", help="Loss reduction type to use")
 
 
 @dataclass
-class BaseTaskConfig(BaseConfig):
+class BaseTaskConfig(BaseConfig, DataLoaderConfigs, FinishTrainingConfig, LossConfig):
     """Defines the base config for all tasks."""
 
-    finished: FinishTrainingConfig = conf_field(FinishTrainingConfig(), help="Finish training config")
-    error_handling: ErrorHandlingConfig = conf_field(ErrorHandlingConfig(), help="Error handling config")
-    dataloader: dict[str, DataLoaderConfig] = conf_field(DEFAULT_DATALOADER_CONFIGS, help="Dataloader config")
-    loss: LossConfig = conf_field(LossConfig(), help="Loss config")
+    errors: ErrorHandlingConfig = conf_field(ErrorHandlingConfig(), help="Error handling config")
 
 
 BaseTaskConfigT = TypeVar("BaseTaskConfigT", bound=BaseTaskConfig)
@@ -218,7 +235,9 @@ class BaseTask(
         BaseObject.__init__(self, config)
 
         self.dataloader_configs: dict[Phase, DataLoaderConfig] = {
-            cast_phase(k): v for k, v in config.dataloader.items()
+            "train": self.config.train_dl,
+            "valid": self.config.valid_dl,
+            "test": self.config.test_dl,
         }
 
         # This flag can be toggled to end training from anywhere in the task.
@@ -233,7 +252,7 @@ class BaseTask(
         self.logger = MultiLogger(default_namespace="task")
 
         # Final loss reduce type.
-        self.__final_loss_reduce_type = cast_reduce_type(self.config.loss.reduce_type)
+        self.__final_loss_reduce_type = cast_reduce_type(self.config.loss_reduce_type)
 
     @functools.cached_property
     @torch.jit.ignore

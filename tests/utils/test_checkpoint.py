@@ -16,7 +16,7 @@ from ml.utils.checkpoint import instantiate_config, load_model_and_task
 
 
 @pytest.mark.slow
-def test_load_model_and_test(tmpdir: Path) -> None:
+def test_load_model_and_task(tmpdir: Path) -> None:
     """Tests saving and loading a model and task.
 
     Args:
