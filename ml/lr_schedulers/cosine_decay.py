@@ -13,7 +13,7 @@ from ml.lr_schedulers.base import BaseLRScheduler, BaseLRSchedulerConfig
 
 @dataclass
 class CosineDecayLRSchedulerConfig(BaseLRSchedulerConfig):
-    total_steps: int = conf_field(II("task.finished.max_steps"), help="Total number of steps to run")
+    total_steps: int = conf_field(II("task.max_steps"), help="Total number of steps to run")
     num_resets: int = conf_field(0, help="Number of times to reset learning")
     phase: int = conf_field(MISSING, help="Number of steps in a phase")
     ramp_up_percent: float = conf_field(0.05, help="Percent of phase to spend ramping up")

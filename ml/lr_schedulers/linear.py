@@ -17,7 +17,7 @@ from ml.lr_schedulers.base import BaseLRScheduler, BaseLRSchedulerConfig
 @dataclass
 class LinearLRSchedulerConfig(BaseLRSchedulerConfig):
     warmup_steps: int = conf_field(MISSING, help="Number of warmup steps")
-    total_steps: int = conf_field(II("task.finished.max_steps"), help="Total number of steps to run")
+    total_steps: int = conf_field(II("task.max_steps"), help="Total number of steps to run")
     warmup_percent: float = conf_field(0.01, help="Percentage of total steps to use as warmup steps, if not specified")
     min_scale: float = conf_field(1e-4, help="Minimum learning rate scale")
     decay: bool = conf_field(True, help="Whether to decay the learning rate after warmup")
