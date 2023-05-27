@@ -359,13 +359,12 @@ class BaseTask(
 
     def get_remaining_percent(self, state: State) -> float | None:
         remaining_percents: list[float] = []
-        cfg = self.config.finished
-        if cfg.max_epochs is not None:
-            remaining_percents.append((cfg.max_epochs - state.num_epochs) / cfg.max_epochs)
-        if cfg.max_steps is not None:
-            remaining_percents.append((cfg.max_steps - state.num_steps) / cfg.max_steps)
-        if cfg.max_samples is not None:
-            remaining_percents.append((cfg.max_samples - state.num_samples) / cfg.max_samples)
+        if self.config.max_epochs is not None:
+            remaining_percents.append((self.config.max_epochs - state.num_epochs) / self.config.max_epochs)
+        if self.config.max_steps is not None:
+            remaining_percents.append((self.config.max_steps - state.num_steps) / self.config.max_steps)
+        if self.config.max_samples is not None:
+            remaining_percents.append((self.config.max_samples - state.num_samples) / self.config.max_samples)
         return None if len(remaining_percents) == 0 else min(remaining_percents)
 
     def is_training_over(self, state: State) -> bool:
@@ -420,8 +419,8 @@ class BaseTask(
             logger.warning("Parallel dataloaders disabled in debugging mode")
 
         # Wraps the dataset in an error-handling dataset.
-        if self.config.error_handling.enabled:
-            dataset = get_error_handling_dataset(dataset, self.config.error_handling)
+        if self.config.errors.enabled:
+            dataset = get_error_handling_dataset(dataset, self.config.errors)
 
         # Arguments shared by all dataloaders.
         common_kwargs = {
