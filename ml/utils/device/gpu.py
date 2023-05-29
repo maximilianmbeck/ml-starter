@@ -43,13 +43,10 @@ class GPUDevice(BaseDevice):
         use_fp32 = get_env_bool("USE_FP32")
         use_fp64 = get_env_bool("USE_FP64")
         if use_fp64:
-            logger.info("Using FP64")
             return torch.float64
         elif use_fp32:
-            logger.info("Using FP32")
             return torch.float32
         elif use_bf16:
-            logger.info("Using BF16")
             return torch.bfloat16
         else:
             return torch.float16
