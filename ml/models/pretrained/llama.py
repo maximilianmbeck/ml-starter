@@ -582,7 +582,7 @@ def setup() -> None:
 
 
 def test_pretrained_model() -> None:
-    parser = argparse.ArgumentParser(description="Tests a pretrained SAM model")
+    parser = argparse.ArgumentParser(description="Tests a pretrained LLaMA model")
     parser.add_argument("key", type=str, choices=get_args(PretrainedLlamaKey))
     parser.add_argument("prompt", type=str)
     parser.add_argument("-m", "--max-gen-len", type=int, default=256)
