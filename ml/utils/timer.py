@@ -76,16 +76,16 @@ class Spinner:
             self._flag.wait()
             start_time = time.time()
             while not self._spinner_stop:
+                time.sleep(0.1)
                 max_line_len = 0
-                for char in chars:
-                    elapsed_secs = time.time() - start_time
-                    line = f"[ {char} {elapsed_secs:.1f} ] {self._text}\r"
-                    max_line_len = max(max_line_len, len(line))
-                    sys.stderr.write(line)
-                    sys.stderr.flush()
-                    time.sleep(0.25)
-                sys.stderr.write(" " * (max_line_len + 1) + "\r")
+                char = chars[int((time.time() * 10) % len(chars))]
+                elapsed_secs = time.time() - start_time
+                line = f"[ {char} {elapsed_secs:.1f} ] {self._text}\r"
+                max_line_len = max(max_line_len, len(line))
+                sys.stderr.write(line)
                 sys.stderr.flush()
+            sys.stderr.write(" " * (max_line_len + 1) + "\r")
+            sys.stderr.flush()
             self._flag.clear()
 
 
