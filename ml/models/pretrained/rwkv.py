@@ -278,7 +278,7 @@ def get_tokenizer() -> Any:
     except ImportError:
         raise ImportError("Please install tokenizers with: `pip install tokenizers`")
 
-    tokenizer_path = ensure_downloaded(TOKENIZER_URL, "RWKV", "tokenizer.json")
+    tokenizer_path = ensure_downloaded(TOKENIZER_URL, "rwkv", "tokenizer.json")
     return Tokenizer.from_file(str(tokenizer_path))
 
 
@@ -309,7 +309,7 @@ class RwkvPredictor:
         next_token = torch.gather(probs_idx, -1, next_token[..., None, :, :]).squeeze(-1)
         return next_token
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def generate(
         self,
         prompt: str,

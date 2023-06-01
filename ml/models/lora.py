@@ -36,7 +36,7 @@ can be tuned to improve performance.
 import math
 import warnings
 import weakref
-from typing import Any, TypeVar, cast, overload
+from typing import Any, TypeVar, Union, cast, overload
 
 import torch.nn.functional as F
 from torch import Tensor, nn
@@ -44,7 +44,16 @@ from torch.nn.modules.module import _IncompatibleKeys
 
 T = TypeVar("T")
 
-SupportedModule = nn.Embedding | nn.Linear | nn.Conv1d | nn.Conv2d | nn.LSTM | nn.GRU
+SupportedModule = Union[
+    nn.Embedding,
+    nn.Linear,
+    nn.Conv1d,
+    nn.ConvTranspose1d,
+    nn.Conv2d,
+    nn.ConvTranspose2d,
+    nn.LSTM,
+    nn.GRU,
+]
 
 
 def _lora_post_hook(module: "_Lora", incompatible_keys: _IncompatibleKeys) -> None:
@@ -307,6 +316,109 @@ class LoraConv1d(nn.Conv1d, _Lora):
         return F.conv1d(x, self.weight, self.bias, self.stride, self.padding, self.dilation, self.groups)
 
 
+class LoraConvTranspose1d(nn.ConvTranspose1d, _Lora):
+    __constants__ = nn.ConvTranspose1d.__constants__ + ["r", "lora_alpha", "scaling", "merge", "merged"]
+
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        kernel_size: int | tuple[int],
+        r: int,
+        lora_alpha: float = 1.0,
+        lora_dropout: float = 0.0,
+        merge: bool = False,
+        stride: int | tuple[int] = 1,
+        padding: int | tuple[int] = 0,
+        output_padding: int | tuple[int] = 0,
+        dilation: int | tuple[int] = 1,
+        groups: int = 1,
+        bias: bool = True,
+    ) -> None:
+        super().__init__(
+            in_channels,
+            out_channels,
+            kernel_size,
+            stride=stride,
+            padding=padding,
+            output_padding=output_padding,
+            dilation=dilation,
+            groups=groups,
+            bias=bias,
+        )
+
+        assert r > 0
+
+        self.r = r
+        self.lora_alpha = lora_alpha
+        self.scaling = self.lora_alpha / self.r
+        self.merge = merge
+
+        self.dropout = nn.Identity() if lora_dropout == 0.0 else nn.Dropout(p=lora_dropout)
+        self.merged = False
+
+        self.lora_a = nn.Parameter(self.weight.new_empty((in_channels, r, *self.kernel_size)))
+        self.lora_b = nn.Parameter(self.weight.new_empty((r, out_channels, 1)))
+        self.weight.requires_grad = False
+
+        self.reset_parameters()
+
+    def reset_parameters(self) -> None:
+        super().reset_parameters()
+
+        if hasattr(self, "lora_a") and hasattr(self, "lora_b"):
+            nn.init.kaiming_uniform_(self.lora_a, a=math.sqrt(5))
+            nn.init.zeros_(self.lora_b)
+
+    def train(self, mode: bool = True) -> "LoraConvTranspose1d":
+        super().train()
+
+        if mode:
+            if self.merge and self.merged:
+                # Make sure that the weights are not merged
+                if self.lora_a is not None and self.lora_b is not None:
+                    self.weight.data -= self.lora_b @ self.lora_a * self.scaling
+                self.merged = False
+
+        elif self.merge and not self.merged:
+            # Merge the weights and mark it
+            if self.lora_a is not None and self.lora_b is not None:
+                self.weight.data += self.lora_b @ self.lora_a * self.scaling
+            self.merged = True
+
+        return self
+
+    def forward(self, x: Tensor, output_size: list[int] | None = None) -> Tensor:
+        assert isinstance(self.padding, tuple)
+
+        if self.lora_a is not None and self.lora_b is not None and not self.merged:
+            result = F.conv_transpose1d(
+                x,
+                self.weight,
+                self.bias,
+                self.stride,
+                self.padding,
+                self.output_padding,
+                self.groups,
+                self.dilation,
+            )
+            mm_a = F.conv_transpose1d(
+                self.dropout(x),
+                self.lora_a,
+                None,
+                self.stride,
+                self.padding,
+                self.output_padding,
+                self.groups,
+                self.dilation,
+            )
+            mm = F.conv_transpose1d(mm_a, self.lora_b)
+            result += mm * self.scaling
+            return result
+
+        return F.conv_transpose1d(x, self.weight, self.bias, self.stride, self.padding, self.dilation, self.groups)
+
+
 class LoraConv2d(nn.Conv2d, _Lora):
     __constants__ = nn.Conv2d.__constants__ + ["r", "lora_alpha", "scaling", "merge", "merged"]
 
@@ -386,6 +498,118 @@ class LoraConv2d(nn.Conv2d, _Lora):
             return result
 
         return F.conv2d(x, self.weight, self.bias, self.stride, self.padding, self.dilation, self.groups)
+
+
+class LoraConvTranspose2d(nn.ConvTranspose2d, _Lora):
+    __constants__ = nn.ConvTranspose2d.__constants__ + ["r", "lora_alpha", "scaling", "merge", "merged"]
+
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        kernel_size: int | tuple[int, int],
+        r: int,
+        lora_alpha: float = 1.0,
+        lora_dropout: float = 0.0,
+        merge: bool = False,
+        stride: int | tuple[int, int] = (1, 1),
+        padding: int | tuple[int, int] = (0, 0),
+        output_padding: int | tuple[int, int] = (0, 0),
+        dilation: int | tuple[int, int] = (1, 1),
+        groups: int = 1,
+        bias: bool = True,
+    ) -> None:
+        super().__init__(
+            in_channels,
+            out_channels,
+            kernel_size,
+            stride=stride,
+            padding=padding,
+            output_padding=output_padding,
+            dilation=dilation,
+            groups=groups,
+            bias=bias,
+        )
+
+        assert r > 0
+
+        self.r = r
+        self.lora_alpha = lora_alpha
+        self.scaling = self.lora_alpha / self.r
+        self.merge = merge
+
+        self.dropout = nn.Identity() if lora_dropout == 0.0 else nn.Dropout(p=lora_dropout)
+        self.merged = False
+
+        self.lora_a = nn.Parameter(self.weight.new_empty((in_channels, r, *self.kernel_size)))
+        self.lora_b = nn.Parameter(self.weight.new_empty((r, out_channels, 1, 1)))
+        self.weight.requires_grad = False
+
+        self.reset_parameters()
+
+    def reset_parameters(self) -> None:
+        super().reset_parameters()
+
+        if hasattr(self, "lora_a") and hasattr(self, "lora_b"):
+            nn.init.kaiming_uniform_(self.lora_a, a=math.sqrt(5))
+            nn.init.zeros_(self.lora_b)
+
+    def train(self, mode: bool = True) -> "LoraConvTranspose2d":
+        super().train()
+
+        if mode:
+            if self.merge and self.merged:
+                # Make sure that the weights are not merged
+                if self.lora_a is not None and self.lora_b is not None:
+                    self.weight.data -= self.lora_b @ self.lora_a * self.scaling
+                self.merged = False
+
+        elif self.merge and not self.merged:
+            # Merge the weights and mark it
+            if self.lora_a is not None and self.lora_b is not None:
+                self.weight.data += self.lora_b @ self.lora_a * self.scaling
+            self.merged = True
+
+        return self
+
+    def forward(self, x: Tensor, output_size: list[int] | None = None) -> Tensor:
+        assert isinstance(self.padding, tuple)
+
+        if self.lora_a is not None and self.lora_b is not None and not self.merged:
+            result = F.conv_transpose2d(
+                x,
+                self.weight,
+                self.bias,
+                self.stride,
+                self.padding,
+                self.output_padding,
+                self.groups,
+                self.dilation,
+            )
+            mm_a = F.conv_transpose2d(
+                self.dropout(x),
+                self.lora_a,
+                None,
+                self.stride,
+                self.padding,
+                self.output_padding,
+                self.groups,
+                self.dilation,
+            )
+            mm = F.conv_transpose2d(mm_a, self.lora_b)
+            result += mm * self.scaling
+            return result
+
+        return F.conv_transpose2d(
+            x,
+            self.weight,
+            self.bias,
+            self.stride,
+            self.padding,
+            self.output_padding,
+            self.groups,
+            self.dilation,
+        )
 
 
 class _LoraRNN(nn.RNNBase, _Lora):
@@ -567,7 +791,21 @@ def lora(module: nn.Conv1d, r: int, alpha: float = 1.0, dropout: float = 0.0, me
 
 
 @overload
+def lora(
+    module: nn.ConvTranspose1d, r: int, alpha: float = 1.0, dropout: float = 0.0, merge: bool = False
+) -> LoraConv1d:
+    ...
+
+
+@overload
 def lora(module: nn.Conv2d, r: int, alpha: float = 1.0, dropout: float = 0.0, merge: bool = False) -> LoraConv2d:
+    ...
+
+
+@overload
+def lora(
+    module: nn.ConvTranspose2d, r: int, alpha: float = 1.0, dropout: float = 0.0, merge: bool = False
+) -> LoraConv2d:
     ...
 
 
@@ -578,6 +816,11 @@ def lora(module: nn.LSTM, r: int, alpha: float = 1.0, dropout: float = 0.0, merg
 
 @overload
 def lora(module: nn.GRU, r: int, alpha: float = 1.0, dropout: float = 0.0, merge: bool = False) -> LoraGRU:
+    ...
+
+
+@overload
+def lora(module: SupportedModule, r: int, alpha: float = 1.0, dropout: float = 0.0, merge: bool = False) -> nn.Module:
     ...
 
 
@@ -649,7 +892,7 @@ def lora(module: SupportedModule, r: int, alpha: float = 1.0, dropout: float = 0
             lora_dropout=dropout,
             merge=merge,
             stride=cast(tuple[int], module.stride),
-            padding=cast(tuple[int], module.padding),
+            padding=cast(str | tuple[int], module.padding),
             dilation=cast(tuple[int], module.dilation),
             groups=module.groups,
             bias=module.bias is not None,
@@ -658,6 +901,27 @@ def lora(module: SupportedModule, r: int, alpha: float = 1.0, dropout: float = 0
         if module.bias is not None and conv_1d.bias is not None:
             conv_1d.bias.data.copy_(module.bias.data)
         return conv_1d
+
+    if isinstance(module, nn.ConvTranspose1d):
+        conv_transpose_1d = LoraConvTranspose1d(
+            module.in_channels,
+            module.out_channels,
+            cast(tuple[int], module.kernel_size),
+            r=r,
+            lora_alpha=alpha,
+            lora_dropout=dropout,
+            merge=merge,
+            stride=cast(tuple[int], module.stride),
+            padding=cast(tuple[int], module.padding),
+            output_padding=cast(tuple[int], module.output_padding),
+            dilation=cast(tuple[int], module.dilation),
+            groups=module.groups,
+            bias=module.bias is not None,
+        )
+        conv_transpose_1d.weight.data.copy_(module.weight.data)
+        if module.bias is not None and conv_transpose_1d.bias is not None:
+            conv_transpose_1d.bias.data.copy_(module.bias.data)
+        return conv_transpose_1d
 
     if isinstance(module, nn.Conv2d):
         conv_2d = LoraConv2d(
@@ -669,7 +933,7 @@ def lora(module: SupportedModule, r: int, alpha: float = 1.0, dropout: float = 0
             lora_dropout=dropout,
             merge=merge,
             stride=cast(tuple[int, int], module.stride),
-            padding=cast(tuple[int, int], module.padding),
+            padding=cast(str | tuple[int, int], module.padding),
             dilation=cast(tuple[int, int], module.dilation),
             groups=module.groups,
             bias=module.bias is not None,
@@ -678,6 +942,27 @@ def lora(module: SupportedModule, r: int, alpha: float = 1.0, dropout: float = 0
         if module.bias is not None and conv_2d.bias is not None:
             conv_2d.bias.data.copy_(module.bias.data)
         return conv_2d
+
+    if isinstance(module, nn.ConvTranspose2d):
+        conv_transpose_2d = LoraConvTranspose2d(
+            module.in_channels,
+            module.out_channels,
+            cast(tuple[int, int], module.kernel_size),
+            r=r,
+            lora_alpha=alpha,
+            lora_dropout=dropout,
+            merge=merge,
+            stride=cast(tuple[int, int], module.stride),
+            padding=cast(tuple[int, int], module.padding),
+            output_padding=cast(tuple[int, int], module.output_padding),
+            dilation=cast(tuple[int, int], module.dilation),
+            groups=module.groups,
+            bias=module.bias is not None,
+        )
+        conv_transpose_2d.weight.data.copy_(module.weight.data)
+        if module.bias is not None and conv_transpose_2d.bias is not None:
+            conv_transpose_2d.bias.data.copy_(module.bias.data)
+        return conv_transpose_2d
 
     if isinstance(module, nn.LSTM):
         if dropout > 0.0:

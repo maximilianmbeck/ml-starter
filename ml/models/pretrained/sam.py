@@ -1,4 +1,3 @@
-# pylint: disable=too-many-lines
 """Defines a simple API for using Meta's pretrained Segment Anything model.
 
 .. highlight:: python
@@ -1493,7 +1492,7 @@ def get_pretrained_path(key: PretrainedSamSize) -> Path:
     if key not in PRETRAINED_MODELS:
         raise KeyError(f"Invalid CLIP model key {key}; choices are {list(PRETRAINED_MODELS.keys())}")
     model_url = PRETRAINED_MODELS[key].url
-    filepath = ensure_downloaded(model_url, "SAM", f"{key}_ckpt.pt")
+    filepath = ensure_downloaded(model_url, "sam", f"{key}_ckpt.pt")
     return filepath
 
 

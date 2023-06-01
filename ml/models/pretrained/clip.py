@@ -166,7 +166,7 @@ def get_pairs(word: tuple[str, ...]) -> set[tuple[str, str]]:
 
 
 @functools.lru_cache()
-def test_clean_func(lower: bool = True) -> Callable[[str], str]:
+def text_clean_func(lower: bool = True) -> Callable[[str], str]:
     try:
         import ftfy
 
@@ -189,7 +189,7 @@ def test_clean_func(lower: bool = True) -> Callable[[str], str]:
 
 class ClipTokenizer:
     def __init__(self) -> None:
-        bpe_path = ensure_downloaded(CLIP_VOCABULARY, "CLIP", "CLIP_vocabulary.txt.gz")
+        bpe_path = ensure_downloaded(CLIP_VOCABULARY, "clip", "CLIP_vocabulary.txt.gz")
         self.byte_encoder = bytes_to_unicode()
         self.byte_decoder = {v: k for k, v in self.byte_encoder.items()}
         merges_unzipped = gzip.open(bpe_path).read().decode("utf-8").split("\n")
@@ -251,7 +251,7 @@ class ClipTokenizer:
 
     def encode(self, text: str) -> list[int]:
         bpe_tokens: list[int] = []
-        text = test_clean_func()(text)
+        text = text_clean_func()(text)
         for token in re.findall(self.pat, text):
             token = "".join(self.byte_encoder[b] for b in token.encode("utf-8"))
             bpe_tokens.extend(self.encoder[bpe_token] for bpe_token in self.bpe(token).split(" "))
@@ -1049,7 +1049,7 @@ def get_pretrained_path(key: PretrainedClipSize) -> Path:
     if key not in PRETRAINED_MODELS:
         raise KeyError(f"Invalid CLIP model key {key}; choices are {list(PRETRAINED_MODELS.keys())}")
     model_url = PRETRAINED_MODELS[key]
-    return ensure_downloaded(model_url, "CLIP", f"{key}_ckpt.pt")
+    return ensure_downloaded(model_url, "clip", f"{key}_ckpt.pt")
 
 
 def test_pretrained_model() -> None:

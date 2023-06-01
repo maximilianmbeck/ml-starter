@@ -35,11 +35,10 @@ import json
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, get_args
+from typing import Iterator, Literal, get_args
 
 import torch
 import torch.nn.functional as F
-import tqdm
 from omegaconf import MISSING
 from torch import Tensor, nn
 
@@ -309,8 +308,7 @@ class Llama(nn.Module):
         temperature: float,
         top_p: float,
         eos_id: int | None = None,
-        use_tqdm: bool = True,
-    ) -> tuple[Tensor, Tensor]:
+    ) -> Iterator[tuple[Tensor, Tensor]]:
         """Runs model inference for a token sequence.
 
         Args:
@@ -320,9 +318,8 @@ class Llama(nn.Module):
             top_p: The top-p sampling threshold.
             eos_id: The EOS token ID; if not provided, generate as many tokens
                 as possible.
-            use_tqdm: Whether to use tqdm to display the generation progress.
 
-        Returns:
+        Yields:
             The generated token sequence, with shape (T + N), along with the
             associated logits, with shape (N, V).
         """
@@ -338,9 +335,9 @@ class Llama(nn.Module):
             x, cache = layer(x, freqs_cis, seqlen > 1)
             caches.append(cache)
         x = self.norm(x)
-        all_logits = logits = self.output(x[:, -1:])
+        logits = self.output(x[:, -1:])
 
-        for i in tqdm.trange(max_gen_len, disable=not use_tqdm):
+        for i in range(max_gen_len):
             # Samples the next token from the sequence.
             if temperature > 0:
                 probs = torch.softmax(logits / temperature, dim=-1)
@@ -363,9 +360,7 @@ class Llama(nn.Module):
             logits = self.output(x[:, -1:, :])
             caches = next_caches
 
-            all_logits = torch.cat((all_logits, logits), dim=1)
-
-        return tokens.squeeze(0), all_logits
+            yield next_token, logits
 
     def predictor(self) -> "LlamaPredictor":
         return LlamaPredictor(self)
@@ -393,28 +388,27 @@ class LlamaPredictor:
         self.tokenizer = tokenizer
         self.model = llama_model
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def generate(
         self,
         prompt: str | None = None,
         max_gen_len: int = 256,
         temperature: float = 0.8,
         top_p: float = 0.95,
-    ) -> str:
+    ) -> Iterator[str]:
         if prompt is None:
             prompt_tokens = torch.full((1, 1), self.tokenizer.bos_id, dtype=torch.long)
         else:
             prompt_tokens = torch.tensor(self.tokenizer.encode(prompt, bos=True, eos=False))
 
-        pred_tokens, _ = self.model.infer(
+        for pred_token, _ in self.model.infer(
             self.device.tensor_to(prompt_tokens),
             max_gen_len=max_gen_len,
             temperature=temperature,
             top_p=top_p,
             eos_id=self.tokenizer.eos_id,
-        )
-
-        return self.tokenizer.decode(pred_tokens.tolist())
+        ):
+            yield self.tokenizer.decode(pred_token.tolist())[0]
 
     @torch.no_grad()
     def unit_test_forward_matches_infer(self, prompt: str) -> bool:
@@ -434,13 +428,16 @@ class LlamaPredictor:
         test_tokens = self.device.tensor_to(test_tokens)
         seqlen = test_tokens.shape[0]
 
-        pred_tokens, pred_logits = self.model.infer(
+        inferred_tokens = self.model.infer(
             test_tokens,
             max_gen_len=16,
             temperature=0.0,
             top_p=0.0,
             eos_id=None,
         )
+
+        pred_tokens_list, pred_logits_list = zip(*inferred_tokens)
+        pred_tokens, pred_logits = torch.cat(pred_tokens_list, dim=1), torch.cat(pred_logits_list, dim=1)
 
         fwd_logits, _ = self.model.forward(pred_tokens.unsqueeze(0))
 
@@ -460,7 +457,7 @@ def sample_top_p(probs: Tensor, p: float) -> Tensor:
 
 
 def get_ckpt_and_tokenizer_path(key: PretrainedLlamaKey) -> tuple[Path, Path]:
-    root_dir = get_model_dir() / "LLaMa"
+    root_dir = get_model_dir() / "llama"
     ckpt_dir = root_dir / key
     tokenizer_path = root_dir / "tokenizer.model"
     return ckpt_dir, tokenizer_path
@@ -541,7 +538,7 @@ def pretrained_llama(key: PretrainedLlamaKey) -> Llama:
     return model
 
 
-def worker(
+def test_worker(
     key: PretrainedLlamaKey,
     prompt: str,
     max_gen_len: int,
@@ -560,14 +557,15 @@ def worker(
     if run_unit_test and not predictor.unit_test_forward_matches_infer(prompt):
         raise RuntimeError("Unit test failed!")
 
-    generated = predictor.generate(
+    print(prompt, end="")
+    for token in predictor.generate(
         prompt=prompt,
         max_gen_len=max_gen_len,
         temperature=temperature,
         top_p=top_p,
-    )
-
-    logger.info("Generated: %s", generated)
+    ):
+        print(token, end="", flush=True)
+    print()
 
 
 def setup() -> None:
@@ -599,7 +597,7 @@ def test_pretrained_model() -> None:
     world_size = PRETRAINED_MODEL_SIZES[key].mp_size
 
     launch_subprocesses(
-        functools.partial(worker, key, *all_args),
+        functools.partial(test_worker, key, *all_args),
         MultiprocessConfig(
             world_size=world_size,
             model_parallelism=world_size,
@@ -609,5 +607,5 @@ def test_pretrained_model() -> None:
 
 
 if __name__ == "__main__":
-    # python -m ml.models.pretrained.llama
+    # python -m ml.models.pretrained.llama 7B 'The meaning of life is'
     test_pretrained_model()

@@ -59,6 +59,7 @@ __all__ = [
     "from_args",
     "get_activation",
     "get_args",
+    "get_audio_props",
     "get_cache_dir",
     "get_data_dir",
     "get_dataset_split_for_phase",
@@ -123,10 +124,13 @@ __all__ = [
     "Phase",
     "pretrained_blip",
     "pretrained_clip",
+    "pretrained_hifigan",
     "pretrained_hubert",
     "pretrained_llama",
     "pretrained_rwkv",
     "pretrained_sam",
+    "pretrained_tacotron2_tts",
+    "pretrained_tacotron2",
     "PretrainedBlipKey",
     "PretrainedClipSize",
     "PretrainedHubertSize",
@@ -134,6 +138,7 @@ __all__ = [
     "PretrainedRwkvKey",
     "PretrainedSamSize",
     "project_dir_paths",
+    "read_audio",
     "read_gif",
     "read_video",
     "reduce",
@@ -174,6 +179,7 @@ __all__ = [
     "transforms",
     "VideoFileDataset",
     "WorkerPool",
+    "write_audio",
     "write_gif",
     "write_video",
 ]
@@ -222,6 +228,7 @@ from ml.models.pretrained.hubert import PretrainedHubertSize, pretrained_hubert
 from ml.models.pretrained.llama import PretrainedLlamaKey, pretrained_llama
 from ml.models.pretrained.rwkv import PretrainedRwkvKey, pretrained_rwkv
 from ml.models.pretrained.sam import PretrainedSamSize, pretrained_sam
+from ml.models.pretrained.tacotron2 import pretrained_hifigan, pretrained_tacotron2, pretrained_tacotron2_tts
 from ml.optimizers.base import BaseOptimizer, BaseOptimizerConfig
 from ml.tasks.base import BaseTask, BaseTaskConfig
 from ml.tasks.datasets import transforms
@@ -252,6 +259,7 @@ from ml.trainers.rl import ReinforcementLearningTrainer, ReinforcementLearningTr
 from ml.trainers.sl import SupervisedLearningTrainer, SupervisedLearningTrainerConfig
 from ml.utils.argparse import from_args, get_args, get_type_from_string
 from ml.utils.atomic import atomic_save, open_atomic
+from ml.utils.audio import get_audio_props, read_audio, write_audio
 from ml.utils.augmentation import get_image_mask
 from ml.utils.caching import DictIndex, cached_object
 from ml.utils.checkpoint import ensure_downloaded, get_state_dict_prefix, instantiate_config, load_model_and_task

@@ -83,8 +83,9 @@ class Spinner:
                     max_line_len = max(max_line_len, len(line))
                     sys.stderr.write(line)
                     sys.stderr.flush()
-                    time.sleep(0.05)
+                    time.sleep(0.25)
                 sys.stderr.write(" " * (max_line_len + 1) + "\r")
+                sys.stderr.flush()
             self._flag.clear()
 
 

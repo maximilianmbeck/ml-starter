@@ -24,6 +24,7 @@ from fractions import Fraction
 from pathlib import Path
 from typing import AsyncGenerator, Iterator, Literal
 
+import av
 import cv2
 import ffmpeg
 import matplotlib.animation as ani
@@ -70,13 +71,36 @@ class VideoProps:
         raise ValueError(f"Could not parse video properties from video in {fpath}")
 
 
+def read_video_av(
+    in_file: str | Path,
+    *,
+    target_dims: tuple[int | None, int | None] | None = None,
+) -> Iterator[np.ndarray]:
+    """Function that reads a video file to a stream of numpy arrays using PyAV.
+
+    Args:
+        in_file: The input video to read
+        target_dims: If not None, resize each frame to this size
+
+    Yields:
+        Frames from the video as numpy arrays with shape (H, W, C)
+    """
+    container = av.open(str(in_file))
+
+    for frame in container.decode(video=0):
+        frame = frame.to_rgb().to_ndarray()
+        if target_dims is not None:
+            frame = cv2.resize(frame, target_dims[::-1])
+        yield as_uint8(frame)
+
+
 def read_video_ffmpeg(
     in_file: str | Path,
     *,
     output_fmt: str = "rgb24",
     channels: int = 3,
 ) -> Iterator[np.ndarray]:
-    """Function that reads a video to a stream of numpy arrays using FFMPEG.
+    """Function that reads a video file to a stream of numpy arrays using FFMPEG.
 
     Args:
         in_file: The input video to read
@@ -237,6 +261,53 @@ def write_video_opencv(
     cv2.destroyAllWindows()
 
 
+def write_video_av(
+    itr: Iterator[np.ndarray | Tensor],
+    out_file: str | Path,
+    *,
+    keep_resolution: bool = False,
+    fps: int | Fraction = 30,
+    codec: str = "libx264",
+    input_fmt: str = "rgb24",
+    output_fmt: str = "yuv420p",
+) -> None:
+    """Function that writes an video from a stream of numpy arrays using PyAV.
+
+    Args:
+        itr: The image iterator, yielding images with shape (H, W, C).
+        out_file: The path to the output file.
+        keep_resolution: If set, don't change the image resolution, otherwise
+            resize to a human-friendly resolution.
+        fps: Frames per second for the video.
+        codec: The video codec to use for the output video
+        input_fmt: The input pixel format
+        output_fmt: The output pixel format
+    """
+    Path(out_file).parent.mkdir(exist_ok=True, parents=True)
+
+    first_img = standardize_image(next(itr), keep_resolution=keep_resolution)
+
+    output = av.open(out_file, "w", format="mp4")
+    stream = output.add_stream(codec, rate=fps)
+    stream.pix_fmt = output_fmt
+
+    def write_frame(img: np.ndarray) -> None:
+        frame = av.VideoFrame.from_ndarray(as_uint8(img), format=input_fmt)
+        packet = stream.encode(frame)
+        if packet is not None:
+            output.mux(packet)
+
+    write_frame(first_img)
+    for img in itr:
+        write_frame(standardize_image(img, keep_resolution=keep_resolution))
+
+    packet = stream.encode()
+    if packet is not None:
+        output.mux(packet)
+
+    output.close()
+
+
 def write_video_ffmpeg(
     itr: Iterator[np.ndarray | Tensor],
     out_file: str | Path,
@@ -346,17 +417,29 @@ def write_video_matplotlib(
             mpl_writer.grab_frame()
 
 
-Reader = Literal["ffmpeg", "opencv"]
-Writer = Literal["ffmpeg", "matplotlib", "opencv"]
+Reader = Literal["ffmpeg", "av", "opencv"]
+Writer = Literal["ffmpeg", "matplotlib", "av", "opencv"]
 
 
 def read_video(in_file: str | Path, *, reader: Reader = "ffmpeg") -> Iterator[np.ndarray]:
+    """Function that reads a video from a file to a stream of Numpy arrays.
+
+    Args:
+        in_file: The path to the input file.
+        reader: The video reader to use.
+
+    Yields:
+        The video frames as Numpy arrays.
+    """
     if reader == "ffmpeg":
         if not shutil.which("ffmpeg"):
-            warnings.warn("FFMPEG is not available in the system. Falling back to OpenCV.")
-            reader = "opencv"
+            warnings.warn("FFMPEG is not available in the system.")
+            reader = "av"
         else:
             return read_video_ffmpeg(in_file)
+
+    if reader == "av":
+        return read_video_av(in_file)
 
     if reader == "opencv":
         return read_video_opencv(in_file)
@@ -387,19 +470,23 @@ def write_video(
     """
     if writer == "ffmpeg":
         if not shutil.which("ffmpeg"):
-            warnings.warn("FFMPEG is not available in the system. Falling back to OpenCV.")
-            writer = "opencv"
+            warnings.warn("FFMPEG is not available in the system.")
+            writer = "av"
         else:
             write_video_ffmpeg(itr, out_file, fps=fps, keep_resolution=keep_resolution)
             return
 
     if writer == "matplotlib":
         if not shutil.which("ffmpeg"):
-            warnings.warn("FFMPEG is not available in the system. Falling back to OpenCV.")
-            writer = "opencv"
+            warnings.warn("FFMPEG is not available in the system.")
+            writer = "av"
         else:
             write_video_matplotlib(itr, out_file, fps=fps, keep_resolution=keep_resolution)
             return
+
+    if writer == "av":
+        write_video_av(itr, out_file, fps=fps, keep_resolution=keep_resolution)
+        return
 
     if writer == "opencv":
         write_video_opencv(itr, out_file, fps=fps, keep_resolution=keep_resolution)
