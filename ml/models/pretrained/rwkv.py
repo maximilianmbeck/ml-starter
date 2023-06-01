@@ -30,7 +30,6 @@ The choices for the model key are:
 - ``"3b"``
 - ``"7b"``
 - ``"14b"``
-- ``raven``
 """
 
 import argparse
@@ -51,7 +50,7 @@ from ml.utils.timer import Timer
 
 logger = logging.getLogger(__name__)
 
-PretrainedRwkvKey = Literal["169m", "430m", "1.5b", "3b", "7b", "14b", "raven"]
+PretrainedRwkvKey = Literal["169m", "430m", "1.5b", "3b", "7b", "14b"]
 
 AttentionState = tuple[Tensor, Tensor, Tensor]
 FeedForwardState = Tensor
@@ -61,15 +60,47 @@ State = tuple[AttentionState, FeedForwardState]
 @dataclass
 class ModelArgs:
     url: str
+    sha256: str
     emb_dim: int
     num_layers: int
 
 
 PRETRAINED_MODEL_SIZES: dict[PretrainedRwkvKey, ModelArgs] = {
+    "169m": ModelArgs(
+        url="https://huggingface.co/BlinkDL/rwkv-4-pile-169m/resolve/main/RWKV-4-Pile-169M-20220807-8023.pth",
+        sha256="713c6f6137a08d3a86ab57df4f09ea03563329beb3bbabc23509d6c57aa0f9e2",
+        emb_dim=768,
+        num_layers=12,
+    ),
     "430m": ModelArgs(
         url="https://huggingface.co/BlinkDL/rwkv-4-pile-430m/resolve/main/RWKV-4-Pile-430M-20220808-8066.pth",
+        sha256="261e6b8fef1c7c9e08a4dde31bf5caf8e79c4da38126d77977a4707de82a7f64",
         emb_dim=1024,
         num_layers=24,
+    ),
+    "1.5b": ModelArgs(
+        url="https://huggingface.co/BlinkDL/rwkv-4-pile-1b5/resolve/main/RWKV-4-Pile-1B5-20220929-ctx4096.pth",
+        sha256="6c97043e1bb0867368249290c97a2fe8ffc5ec12ceb1b5251f4ee911f9982c23",
+        emb_dim=2048,
+        num_layers=24,
+    ),
+    "3b": ModelArgs(
+        url="https://huggingface.co/BlinkDL/rwkv-4-pile-3b/resolve/main/RWKV-4-Pile-3B-20221110-ctx4096.pth",
+        sha256="9500633f23d86fbae3cb3cbe7908b97b971e9561edf583c2c5c60b10b02bcc27",
+        emb_dim=2560,
+        num_layers=32,
+    ),
+    "7b": ModelArgs(
+        url="https://huggingface.co/BlinkDL/rwkv-4-pile-7b/resolve/main/RWKV-4-Pile-7B-20230109-ctx4096.pth",
+        sha256="9ea1271b25deb6c72bd29f629147d5013cc7d7c69f9715192f6b6b92fca08f64",
+        emb_dim=4096,
+        num_layers=32,
+    ),
+    "14b": ModelArgs(
+        url="https://huggingface.co/BlinkDL/rwkv-4-pile-14b/resolve/main/RWKV-4-Pile-14B-20230313-ctx8192-test1050.pth",
+        sha256="9e1b9b44f2a98124d86fe35e298f230e3a4fa7b60431962da282817ae1b0bf32",
+        emb_dim=5120,
+        num_layers=40,
     ),
 }
 
@@ -309,7 +340,7 @@ class RwkvPredictor:
         next_token = torch.gather(probs_idx, -1, next_token[..., None, :, :]).squeeze(-1)
         return next_token
 
-    @torch.inference_mode()
+    @torch.no_grad()
     def generate(
         self,
         prompt: str,
@@ -342,7 +373,7 @@ class RwkvPredictor:
 def pretrained_rwkv(key: PretrainedRwkvKey, *, device: BaseDevice | None = None) -> Rwkv:
     device = AutoDevice.detect_device() if device is None else device
     model_args = PRETRAINED_MODEL_SIZES[key]
-    ckpt_path = ensure_downloaded(model_args.url, "RWKV", f"{key}.pth")
+    ckpt_path = ensure_downloaded(model_args.url, "rwkv", f"{key}.pth", sha256=model_args.sha256)
 
     with Timer("loading model checkpoint", spinner=True):
         ckpt = torch.load(ckpt_path, map_location="cpu")
