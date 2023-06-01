@@ -105,9 +105,14 @@ __all__ = [
     "lora",
     "LoraConv1d",
     "LoraConv2d",
+    "LoraConvTranspose1d",
+    "LoraConvTranspose2d",
     "LoraEmbedding",
+    "LoraGRU",
     "LoraLinear",
+    "LoraLSTM",
     "Loss",
+    "maybe_lora",
     "meta_to_empty_func",
     "MultiIterDataset",
     "MultiprocessConfig",
@@ -124,13 +129,13 @@ __all__ = [
     "Phase",
     "pretrained_blip",
     "pretrained_clip",
-    "pretrained_hifigan",
     "pretrained_hubert",
     "pretrained_llama",
     "pretrained_rwkv",
     "pretrained_sam",
     "pretrained_tacotron2_tts",
     "pretrained_tacotron2",
+    "pretrained_vocoder",
     "PretrainedBlipKey",
     "PretrainedClipSize",
     "PretrainedHubertSize",
@@ -219,7 +224,18 @@ from ml.models.embeddings import (
     get_positional_embeddings,
 )
 from ml.models.init import InitializationType, cast_init_type, init_
-from ml.models.lora import LoraConv1d, LoraConv2d, LoraEmbedding, LoraLinear, lora
+from ml.models.lora import (
+    LoraConv1d,
+    LoraConv2d,
+    LoraConvTranspose1d,
+    LoraConvTranspose2d,
+    LoraEmbedding,
+    LoraGRU,
+    LoraLinear,
+    LoraLSTM,
+    lora,
+    maybe_lora,
+)
 from ml.models.norms import NormType, cast_norm_type, get_norm_1d, get_norm_2d, get_norm_3d, get_norm_linear
 from ml.models.parallel import ColumnParallelLinear, ParallelEmbedding, RowParallelLinear
 from ml.models.pretrained.blip import PretrainedBlipKey, pretrained_blip
@@ -228,7 +244,7 @@ from ml.models.pretrained.hubert import PretrainedHubertSize, pretrained_hubert
 from ml.models.pretrained.llama import PretrainedLlamaKey, pretrained_llama
 from ml.models.pretrained.rwkv import PretrainedRwkvKey, pretrained_rwkv
 from ml.models.pretrained.sam import PretrainedSamSize, pretrained_sam
-from ml.models.pretrained.tacotron2 import pretrained_hifigan, pretrained_tacotron2, pretrained_tacotron2_tts
+from ml.models.pretrained.tacotron2 import pretrained_tacotron2, pretrained_tacotron2_tts, pretrained_vocoder
 from ml.optimizers.base import BaseOptimizer, BaseOptimizerConfig
 from ml.tasks.base import BaseTask, BaseTaskConfig
 from ml.tasks.datasets import transforms

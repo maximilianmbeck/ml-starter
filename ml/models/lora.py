@@ -1005,3 +1005,16 @@ def lora(module: SupportedModule, r: int, alpha: float = 1.0, dropout: float = 0
         return gru
 
     raise ValueError(f"Unsupported module type {type(module)}")
+
+
+T_module = TypeVar("T_module", bound=SupportedModule)
+
+
+def maybe_lora(
+    module: T_module,
+    r: int | None,
+    alpha: float = 1.0,
+    dropout: float = 0.0,
+    merge: bool = False,
+) -> T_module:
+    return module if r is None else lora(module, r, alpha, dropout, merge)

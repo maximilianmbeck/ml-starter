@@ -170,13 +170,15 @@ def text_clean_func(lower: bool = True) -> Callable[[str], str]:
     try:
         import ftfy
 
+        ftfy_fix: Callable[[str], str] = ftfy.fix_text
     except ImportError:
         logger.warning("Please install ftfy: pip install ftfy")
-        ftfy = None
+
+        def ftfy_fix(x: str) -> str:
+            return x
 
     def _clean(text: str) -> str:
-        if ftfy is not None:
-            text = ftfy.fix_text(text)
+        text = ftfy_fix(text)
         text = html.unescape(html.unescape(text))
         text = re.sub(r"\s+", " ", text)
         text = text.strip()

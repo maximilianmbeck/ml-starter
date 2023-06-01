@@ -42,18 +42,18 @@ from dataclasses import dataclass
 from math import sqrt
 from numbers import Number
 from pathlib import Path
-from typing import Callable, NamedTuple, TypeVar, cast
+from typing import Callable, NamedTuple, cast
 
 import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import Tensor, nn
-from torch.nn.utils import remove_weight_norm, weight_norm
 from torch.nn.utils.rnn import pad_sequence
 
 from ml.core.config import conf_field
 from ml.models.base import BaseModel, BaseModelConfig
-from ml.models.lora import SupportedModule as LoraModule, lora
+from ml.models.lora import lora
+from ml.models.pretrained.vocoder import Vocoder, VocoderType, pretrained_vocoder
 from ml.utils.audio import write_audio
 from ml.utils.checkpoint import ensure_downloaded
 from ml.utils.device.auto import AutoDevice
@@ -65,8 +65,6 @@ from ml.utils.timer import Timer
 logger = logging.getLogger(__name__)
 
 TACOTRON_CKPT_URL = "https://drive.google.com/open?id=1c5ZTuT7J08wLUoVZ2KkUs_VdZuJ86ZqA"
-
-HIFIGAN_CKPT_URL = "https://huggingface.co/jaketae/hifigan-lj-v1/resolve/main/pytorch_model.bin"
 
 
 class Normalizer:
@@ -172,9 +170,13 @@ class Normalizer:
 def text_clean_func(lower: bool = True) -> Callable[[str], str]:
     try:
         import ftfy
+
+        ftfy_fix: Callable[[str], str] = ftfy.fix_text
     except ImportError:
         logger.warning("Please install ftfy: pip install ftfy")
-        ftfy = None
+
+        def ftfy_fix(x: str) -> str:
+            return x
 
     try:
         normalizer: Callable[[str], str] = Normalizer()
@@ -185,8 +187,7 @@ def text_clean_func(lower: bool = True) -> Callable[[str], str]:
             return x
 
     def _clean(text: str) -> str:
-        if ftfy is not None:
-            text = ftfy.fix_text(text)
+        text = ftfy_fix(text)
         text = html.unescape(html.unescape(text))
         text = re.sub(r"\s+", " ", text)
         text = text.strip()
@@ -200,8 +201,9 @@ def text_clean_func(lower: bool = True) -> Callable[[str], str]:
 
 def get_mask_from_lengths(lengths: Tensor) -> Tensor:
     max_len = torch.max(lengths).item()
-    ids = torch.arange(0, max_len, dtype=torch.long, device=lengths.device)
-    mask = (ids < lengths.unsqueeze(1)).bool()
+    ids = torch.arange(0, max_len, dtype=torch.int32, device=lengths.device)
+    mask = (ids < lengths.unsqueeze(1)).byte()
+    mask = mask <= 0
     return mask
 
 
@@ -330,7 +332,7 @@ class Attention(nn.Module):
     def get_alignment_energies(self, query: Tensor, processed_memory: Tensor, attention_weights_cat: Tensor) -> Tensor:
         processed_query = self.query_layer(query.unsqueeze(1))
         processed_attention_weights = self.location_layer(attention_weights_cat)
-        energies = self.v((processed_query + processed_attention_weights + processed_memory).tanh())
+        energies = self.v(torch.tanh(processed_query + processed_attention_weights + processed_memory))
         energies = energies.squeeze(-1)
         return energies
 
@@ -345,7 +347,7 @@ class Attention(nn.Module):
         alignment = self.get_alignment_energies(attn_hid_state, proc_memory, attn_weights_cat)
 
         if mask is not None:
-            alignment.data.masked_fill_(mask, self.score_mask_value)
+            alignment = alignment.masked_fill(mask, self.score_mask_value)
 
         attention_weights = F.softmax(alignment, dim=1)
         attention_context = torch.bmm(attention_weights.unsqueeze(1), memory)
@@ -355,13 +357,15 @@ class Attention(nn.Module):
 
 
 class Prenet(nn.Module):
+    __constants__ = ["dropout", "dropout_always_on"]
+
     def __init__(
         self,
-        in_dim: int,
-        sizes: list[int],
-        dropout: float = 0.0,
+        in_dim: int = 80,
+        sizes: list[int] = [256, 256],
+        dropout: float = 0.5,
         lora_rank: int | None = None,
-        dropout_always_on: bool = False,
+        dropout_always_on: bool = True,
     ) -> None:
         super().__init__()
 
@@ -376,9 +380,7 @@ class Prenet(nn.Module):
 
     def forward(self, x: Tensor) -> Tensor:
         for linear in self.layers:
-            x = F.relu(linear(x))
-            if self.dropout > 0.0:
-                x = F.dropout(x, p=0.0, training=self.training or self.dropout_always_on)
+            x = F.dropout(F.relu(linear(x)), p=self.dropout, training=self.training or self.dropout_always_on)
         return x
 
 
@@ -388,15 +390,12 @@ class PostnetConfig:
     emb_dim: int = conf_field(512, help="Postnet embedding dimension")
     kernel_size: int = conf_field(5, help="Postnet kernel size")
     n_convolutions: int = conf_field(5, help="Number of postnet convolutions")
-    dropout_always_on: bool = conf_field(False, help="If set, dropout is always on")
     lora_rank: int | None = conf_field(None, help="LoRA rank")
 
 
 class Postnet(nn.Module):
     def __init__(self, config: PostnetConfig) -> None:
         super().__init__()
-
-        self.dropout_always_on = config.dropout_always_on
 
         self.convolutions = nn.ModuleList()
 
@@ -450,9 +449,11 @@ class Postnet(nn.Module):
         )
 
     def forward(self, x: Tensor) -> Tensor:
-        for i in range(len(self.convolutions) - 1):
-            x = F.dropout(torch.tanh(self.convolutions[i](x)), 0.5, training=self.training or self.dropout_always_on)
-        x = F.dropout(self.convolutions[-1](x), 0.5, training=self.training or self.dropout_always_on)
+        for i, conv in enumerate(self.convolutions):
+            if i < len(self.convolutions) - 1:
+                x = F.dropout(torch.tanh(conv(x)), 0.5, training=self.training)
+            else:
+                x = F.dropout(conv(x), 0.5, training=self.training)
         return x
 
 
@@ -461,15 +462,12 @@ class EncoderConfig:
     emb_dim: int = conf_field(512, help="Encoder embedding dimension")
     kernel_size: int = conf_field(5, help="Encoder kernel size")
     n_convolutions: int = conf_field(3, help="Number of encoder convolutions")
-    dropout_always_on: bool = conf_field(False, help="If set, dropout is always on")
     lora_rank: int | None = conf_field(None, help="LoRA rank")
 
 
 class Encoder(nn.Module):
     def __init__(self, config: EncoderConfig) -> None:
         super().__init__()
-
-        self.dropout_always_on = config.dropout_always_on
 
         convolutions = []
         for _ in range(config.n_convolutions):
@@ -499,7 +497,7 @@ class Encoder(nn.Module):
 
     def forward(self, x: Tensor, input_lengths: Tensor) -> Tensor:
         for conv in self.convolutions:
-            x = F.dropout(F.relu(conv(x)), 0.5, self.training or self.dropout_always_on)
+            x = F.dropout(F.relu(conv(x)), 0.5, self.training)
 
         x = x.transpose(1, 2)
 
@@ -515,14 +513,12 @@ class Encoder(nn.Module):
 
     def infer(self, x: Tensor, input_lengths: Tensor) -> Tensor:
         for conv in self.convolutions:
-            x = F.dropout(F.relu(conv(x)), 0.5, self.training or self.dropout_always_on)
+            x = F.dropout(F.relu(conv(x)), 0.5, self.training)
 
         x = x.transpose(1, 2)
 
         input_lengths = input_lengths.cpu().numpy()
         x = nn.utils.rnn.pack_padded_sequence(x, input_lengths, batch_first=True)
-
-        self.lstm.flatten_parameters()
         outputs, _ = self.lstm(x)
 
         outputs, _ = nn.utils.rnn.pad_packed_sequence(outputs, batch_first=True)
@@ -541,12 +537,12 @@ class DecoderConfig:
     attention_rnn_dim: int = conf_field(1024, help="Attention RNN dimension")
     decoder_rnn_dim: int = conf_field(1024, help="Decoder RNN dimension")
     prenet_dim: int = conf_field(256, help="Prenet dimension")
-    prenet_dropout: bool = conf_field(True, help="Whether to use dropout in prenet layers")
-    max_decoder_steps: int = conf_field(100, help="Maximum decoder steps during inference")
+    prenet_dropout: bool = conf_field(0.5, help="Whether to use dropout in prenet layers")
+    max_decoder_steps: int = conf_field(1000, help="Maximum decoder steps during inference")
     gate_threshold: float = conf_field(0.5, help="Probability threshold for stop token")
     p_attention_dropout: float = conf_field(0.1, help="Dropout probability for attention LSTM")
     p_decoder_dropout: float = conf_field(0.1, help="Dropout probability for decoder LSTM")
-    dropout_always_on: bool = conf_field(False, help="If set, dropout is always on")
+    prenet_dropout_always_on: bool = conf_field(True, help="If set, prenet dropout is always on")
     lora_rank: int | None = conf_field(None, help="LoRA rank")
 
 
@@ -577,14 +573,13 @@ class Decoder(nn.Module):
         self.gate_threshold = config.gate_threshold
         self.p_attention_dropout = config.p_attention_dropout
         self.p_decoder_dropout = config.p_decoder_dropout
-        self.dropout_always_on = config.dropout_always_on
 
         self.prenet = Prenet(
             config.n_mel_channels * config.n_frames_per_step,
             [config.prenet_dim, config.prenet_dim],
             config.prenet_dropout,
             lora_rank=config.lora_rank,
-            dropout_always_on=config.dropout_always_on,
+            dropout_always_on=config.prenet_dropout_always_on,
         )
 
         self.attention_rnn = nn.LSTMCell(config.prenet_dim + config.encoder_emb_dim, config.attention_rnn_dim)
@@ -619,9 +614,7 @@ class Decoder(nn.Module):
         )
 
     def get_go_frame(self, memory: Tensor) -> Tensor:
-        bsz, *_ = memory.size()
-        decoder_input = nn.Parameter(memory.data.new(bsz, self.n_mel_channels * self.n_frames_per_step).zero_())
-        return decoder_input
+        return memory.new_zeros(memory.shape[0], self.n_mel_channels * self.n_frames_per_step)
 
     def initialize_decoder_states(self, memory: Tensor, mask: Tensor | None) -> DecoderStates:
         bsz, max_tsz, *_ = memory.size()
@@ -669,12 +662,9 @@ class Decoder(nn.Module):
         gate_outputs: list[Tensor],
         alignments: list[Tensor],
     ) -> tuple[Tensor, Tensor, Tensor]:
-        alignments = torch.stack(alignments).transpose(0, 1)  # (tsz_out, bsz) -> (bsz, tsz_out)
-        gate_outputs = torch.stack(gate_outputs).transpose(0, 1)  # (tsz_out, bsz) -> (bsz, tsz_out)
-        gate_outputs = gate_outputs.contiguous()  # (tsz_out, bsz, n_mel_channels) -> (bsz, tsz_out, n_mel_channels)
-        mel_outputs = torch.stack(mel_outputs).transpose(0, 1).contiguous()
-        mel_outputs = mel_outputs.view(mel_outputs.size(0), -1, self.n_mel_channels)  # decouple frames per step
-        mel_outputs = mel_outputs.transpose(1, 2)  # (bsz, tsz_out, n_mel_channels) -> (bsz, n_mel_channels, tsz_out)
+        alignments = torch.stack(alignments, dim=1)
+        gate_outputs = torch.stack(gate_outputs, dim=1)
+        mel_outputs = torch.stack(mel_outputs, dim=-1)
         return mel_outputs, gate_outputs, alignments
 
     def decode(self, decoder_input: Tensor, states: DecoderStates) -> tuple[Tensor, Tensor, Tensor, DecoderStates]:
@@ -682,21 +672,15 @@ class Decoder(nn.Module):
 
         cell_input = torch.cat((decoder_input, attn_ctx), -1)
         attn_h, attn_c = self.attention_rnn(cell_input, (attn_h, attn_c))
-        attn_h = F.dropout(attn_h, self.p_attention_dropout, self.training or self.dropout_always_on)
+        attn_h = F.dropout(attn_h, self.p_attention_dropout, self.training)
 
         attn_weights_cat = torch.cat((attn_weights.unsqueeze(1), attn_weights_cum.unsqueeze(1)), dim=1)
-        attn_ctx, attn_weights = self.attention_layer(
-            attn_h,
-            memory,
-            processed_memory,
-            attn_weights_cat,
-            mask,
-        )
+        attn_ctx, attn_weights = self.attention_layer(attn_h, memory, processed_memory, attn_weights_cat, mask)
 
-        attn_weights_cum = attn_weights + attn_weights_cum
+        attn_weights_cum = attn_weights_cum + attn_weights
         decoder_input = torch.cat((attn_h, attn_ctx), -1)
         dec_h, dec_c = self.decoder_rnn(decoder_input, (dec_h, dec_c))
-        dec_h = F.dropout(dec_h, self.p_decoder_dropout, self.training or self.dropout_always_on)
+        dec_h = F.dropout(dec_h, self.p_decoder_dropout, self.training)
 
         dec_h_attn_ctx = torch.cat((dec_h, attn_ctx), dim=1)
         dec_out = self.linear_projection(dec_h_attn_ctx)
@@ -722,16 +706,16 @@ class Decoder(nn.Module):
         dec_in = self.get_go_frame(memory).unsqueeze(0)
         dec_ins = self.parse_decoder_inputs(dec_ins)
         dec_ins = torch.cat((dec_in, dec_ins), dim=0)
-        dec_ins = self.prenet(dec_ins)
+        prenet_ins = self.prenet(dec_ins)
 
-        states = self.initialize_decoder_states(memory, mask=~get_mask_from_lengths(memory_lengths))
+        states = self.initialize_decoder_states(memory, mask=get_mask_from_lengths(memory_lengths))
 
         mel_outs: list[Tensor] = []
         gate_outs: list[Tensor] = []
         alignments: list[Tensor] = []
-        while len(mel_outs) < dec_ins.size(0) - 1:
-            dec_in = dec_ins[len(mel_outs)]
-            mel_out, gate_out, attn_weights, states = self.decode(dec_in, states)
+        while len(mel_outs) < prenet_ins.size(0) - 1:
+            prenet_in = prenet_ins[len(mel_outs)]
+            mel_out, gate_out, attn_weights, states = self.decode(prenet_in, states)
             mel_outs += [mel_out.squeeze(1)]
             gate_outs += [gate_out.squeeze(1)]
             alignments += [attn_weights]
@@ -740,19 +724,18 @@ class Decoder(nn.Module):
 
     def infer(self, memory: Tensor, memory_lengths: Tensor) -> tuple[Tensor, Tensor, Tensor]:
         dec_in = self.get_go_frame(memory)
-
-        states = self.initialize_decoder_states(memory, mask=~get_mask_from_lengths(memory_lengths))
+        states = self.initialize_decoder_states(memory, mask=get_mask_from_lengths(memory_lengths))
 
         mel_outs: list[Tensor] = []
         gate_outs: list[Tensor] = []
         alignments: list[Tensor] = []
         while True:
-            dec_in = self.prenet(dec_in)
-            mel_out, gate_out, alignment, states = self.decode(dec_in, states)
+            prenet_in = self.prenet(dec_in)
+            mel_out, gate_out, alignment, states = self.decode(prenet_in, states)
             mel_outs += [mel_out.squeeze(1)]
             gate_outs += [gate_out]
             alignments += [alignment]
-            if (torch.sigmoid(gate_out.data) > self.gate_threshold).all():
+            if (torch.sigmoid(gate_out) > self.gate_threshold).all():
                 break
             elif len(mel_outs) == self.max_decoder_steps:
                 logger.warning("Warning! Reached max decoder steps %d", self.max_decoder_steps)
@@ -1046,16 +1029,14 @@ class Tacotron(BaseModel):
         embedded_inputs = self.embedding(text_inputs).transpose(1, 2)
         encoder_outputs = self.encoder(embedded_inputs, text_lengths)
         mel_outputs, gate_outputs, alignments = self.decoder(encoder_outputs, mels, memory_lengths=text_lengths)
-        mel_outputs_postnet = self.postnet(mel_outputs)
-        mel_outputs_postnet = mel_outputs + mel_outputs_postnet
+        mel_outputs_postnet = mel_outputs + self.postnet(mel_outputs)
         return self.parse_output((mel_outputs, mel_outputs_postnet, gate_outputs, alignments), output_lengths)
 
     def infer(self, inputs: Tensor, input_lengths: Tensor) -> tuple[Tensor, Tensor, Tensor, Tensor]:
         embedded_inputs = self.embedding(inputs).transpose(1, 2)
         encoder_outputs = self.encoder.infer(embedded_inputs, input_lengths)
         mel_outputs, gate_outputs, alignments = self.decoder.infer(encoder_outputs, input_lengths)
-        mel_outputs_postnet = self.postnet(mel_outputs)
-        mel_outputs_postnet = mel_outputs + mel_outputs_postnet
+        mel_outputs_postnet = mel_outputs + self.postnet(mel_outputs)
         return self.parse_output((mel_outputs, mel_outputs_postnet, gate_outputs, alignments))
 
 
@@ -1108,225 +1089,34 @@ class Tokenizer:
             sequence += _arpabet_to_sequence(m.group(2))
             text = m.group(3)
 
-        return torch.tensor(sequence, dtype=torch.long)
-
-
-@dataclass
-class HiFiGANConfig:
-    resblock_kernel_sizes: list[int] = conf_field([3, 7, 11], help="Kernel sizes of ResBlock.")
-    resblock_dilation_sizes: list[tuple[int, int, int]] = conf_field(
-        [(1, 3, 5), (1, 3, 5), (1, 3, 5)],
-        help="Dilation sizes of ResBlock.",
-    )
-    upsample_rates: list[int] = conf_field([8, 8, 2, 2], help="Upsample rates of each layer.")
-    upsample_initial_channel: int = conf_field(512, help="Initial channel of upsampling layers.")
-    upsample_kernel_sizes: list[int] = conf_field([16, 16, 4, 4], help="Kernel sizes of upsampling layers.")
-    model_in_dim: int = conf_field(80, help="Input dimension of model.")
-    sampling_rate: int = conf_field(22050, help="Sampling rate of model.")
-    lrelu_slope: float = conf_field(0.1, help="Slope of leaky relu.")
-
-
-def init_hifigan_weights(m: nn.Module, mean: float = 0.0, std: float = 0.01) -> None:
-    if isinstance(m, (nn.Conv1d, nn.ConvTranspose1d)):
-        m.weight.data.normal_(mean, std)
-
-
-T_module = TypeVar("T_module", bound=LoraModule)
-
-
-def lora_weight_norm(module: T_module, lora_rank: int | None) -> T_module:
-    return weight_norm(module if lora_rank is None else lora(module, r=lora_rank))
-
-
-class ResBlock(nn.Module):
-    __constants__ = ["lrelu_slope"]
-
-    def __init__(
-        self,
-        channels: int,
-        kernel_size: int = 3,
-        dilation: tuple[int, int, int] = (1, 3, 5),
-        lrelu_slope: float = 0.1,
-        lora_rank: int | None = None,
-    ) -> None:
-        super().__init__()
-
-        def get_padding(kernel_size: int, dilation: int = 1) -> int:
-            return (kernel_size * dilation - dilation) // 2
-
-        self.convs1 = nn.ModuleList(
-            [
-                lora_weight_norm(
-                    nn.Conv1d(
-                        channels,
-                        channels,
-                        kernel_size,
-                        1,
-                        dilation=dilation[0],
-                        padding=get_padding(kernel_size, dilation[0]),
-                    ),
-                    lora_rank,
-                ),
-                lora_weight_norm(
-                    nn.Conv1d(
-                        channels,
-                        channels,
-                        kernel_size,
-                        1,
-                        dilation=dilation[1],
-                        padding=get_padding(kernel_size, dilation[1]),
-                    ),
-                    lora_rank,
-                ),
-                lora_weight_norm(
-                    nn.Conv1d(
-                        channels,
-                        channels,
-                        kernel_size,
-                        1,
-                        dilation=dilation[2],
-                        padding=get_padding(kernel_size, dilation[2]),
-                    ),
-                    lora_rank,
-                ),
-            ]
-        )
-        self.convs1.apply(init_hifigan_weights)
-
-        self.convs2 = nn.ModuleList(
-            [
-                lora_weight_norm(
-                    nn.Conv1d(
-                        channels,
-                        channels,
-                        kernel_size,
-                        1,
-                        dilation=1,
-                        padding=get_padding(kernel_size, 1),
-                    ),
-                    lora_rank,
-                ),
-                lora_weight_norm(
-                    nn.Conv1d(
-                        channels,
-                        channels,
-                        kernel_size,
-                        1,
-                        dilation=1,
-                        padding=get_padding(kernel_size, 1),
-                    ),
-                    lora_rank,
-                ),
-                lora_weight_norm(
-                    nn.Conv1d(
-                        channels,
-                        channels,
-                        kernel_size,
-                        1,
-                        dilation=1,
-                        padding=get_padding(kernel_size, 1),
-                    ),
-                    lora_rank,
-                ),
-            ]
-        )
-        self.convs2.apply(init_hifigan_weights)
-
-        self.lrelu_slope = lrelu_slope
-
-    def forward(self, x: Tensor) -> Tensor:
-        for c1, c2 in zip(self.convs1, self.convs2):
-            xt = F.leaky_relu(x, self.lrelu_slope)
-            xt = c1(xt)
-            xt = F.leaky_relu(xt, self.lrelu_slope)
-            xt = c2(xt)
-            x = xt + x
-        return x
-
-    def remove_weight_norm(self) -> None:
-        for layer in self.convs1:
-            remove_weight_norm(layer)
-        for layer in self.convs2:
-            remove_weight_norm(layer)
-
-
-class HiFiGAN(nn.Module):
-    def __init__(self, config: HiFiGANConfig, lora_rank: int | None = None) -> None:
-        super().__init__()
-
-        self.sampling_rate = config.sampling_rate
-        self.num_kernels = len(config.resblock_kernel_sizes)
-        self.num_upsamples = len(config.upsample_rates)
-        self.lrelu_slope = config.lrelu_slope
-        conv_pre = nn.Conv1d(config.model_in_dim, config.upsample_initial_channel, 7, 1, padding=3)
-        self.conv_pre = lora_weight_norm(conv_pre, lora_rank)
-
-        assert len(config.upsample_rates) == len(config.upsample_kernel_sizes)
-
-        self.ups = nn.ModuleList()
-        for i, (u, k) in enumerate(zip(config.upsample_rates, config.upsample_kernel_sizes)):
-            module = nn.ConvTranspose1d(
-                config.upsample_initial_channel // (2**i),
-                config.upsample_initial_channel // (2 ** (i + 1)),
-                k,
-                u,
-                padding=(k - u) // 2,
-            )
-            self.ups.append(lora_weight_norm(module, lora_rank))
-
-        self.resblocks = cast(list[ResBlock], nn.ModuleList())
-        for i in range(len(self.ups)):
-            ch = config.upsample_initial_channel // (2 ** (i + 1))
-            for k, d in zip(config.resblock_kernel_sizes, config.resblock_dilation_sizes):
-                self.resblocks.append(ResBlock(ch, k, d, config.lrelu_slope, lora_rank))
-
-        self.conv_post = lora_weight_norm(nn.Conv1d(ch, 1, 7, 1, padding=3), lora_rank)
-        self.ups.apply(init_hifigan_weights)
-        self.conv_post.apply(init_hifigan_weights)
-
-    def forward(self, x: Tensor) -> Tensor:
-        x = self.conv_pre(x)
-        for i, up in enumerate(self.ups):
-            x = F.leaky_relu(x, self.lrelu_slope)
-            x = up(x)
-            xs = None
-            for j in range(self.num_kernels):
-                if xs is None:
-                    xs = self.resblocks[i * self.num_kernels + j](x)
-                else:
-                    xs += self.resblocks[i * self.num_kernels + j](x)
-            assert xs is not None
-            x = xs / self.num_kernels
-        x = F.leaky_relu(x)
-        x = self.conv_post(x)
-        x = torch.tanh(x)
-
-        return x
-
-    def remove_weight_norm(self) -> None:
-        for layer in self.ups:
-            remove_weight_norm(layer)
-        for layer in self.resblocks:
-            layer.remove_weight_norm()
-        remove_weight_norm(self.conv_pre)
-        remove_weight_norm(self.conv_post)
+        return torch.tensor(sequence, dtype=torch.int32)
 
 
 def ensure_tacotron_downloaded() -> Path:
     return ensure_downloaded(TACOTRON_CKPT_URL, "tacotron2", "weights_tacotron.pth")
 
 
-def pretrained_tacotron2(*, pretrained: bool = True, device: torch.device | None = None) -> Tacotron:
+def pretrained_tacotron2(
+    *,
+    pretrained: bool = True,
+    lora_rank: int | None = None,
+    device: torch.device | None = None,
+) -> Tacotron:
     """Loads the pretrained Tacotron2 model.
 
     Args:
         pretrained: Whether to load the pretrained weights.
+        lora_rank: The LoRA rank to use, if LoRA is desired.
         device: The device to load the weights onto.
 
     Returns:
         The pretrained Tacotron model.
     """
     config = TacotronConfig()
+    config.encoder.lora_rank = lora_rank
+    config.decoder.lora_rank = lora_rank
+    config.postnet.lora_rank = lora_rank
+
     if not pretrained:
         return Tacotron(config)
 
@@ -1384,41 +1174,14 @@ def tacotron_tokenizer() -> Tokenizer:
     return Tokenizer()
 
 
-def pretrained_hifigan(*, pretrained: bool = True, device: torch.device | None = None) -> HiFiGAN:
-    """Loads the pretrained HiFi-GAN model.
-
-    Args:
-        pretrained: Whether to load the pretrained weights.
-        device: The device to load the weights onto.
-
-    Returns:
-        The pretrained HiFi-GAN model.
-    """
-    config = HiFiGANConfig()
-
-    if not pretrained:
-        return HiFiGAN(config)
-
-    # Can't initialize empty weights because of weight norm.
-    # with Timer("initializing model", spinner=True), init_empty_weights():
-    with Timer("initializing model", spinner=True):
-        model = HiFiGAN(config)
-
-    with Timer("downloading checkpoint", spinner=True):
-        model_path = ensure_downloaded(HIFIGAN_CKPT_URL, "hifigan", "weights_hifigan.pth")
-
-    with Timer("loading checkpoint", spinner=True):
-        if device is None:
-            device = torch.device("cpu")
-        ckpt = torch.load(model_path, map_location=device)
-        model.to(device)
-        model.load_state_dict(ckpt)
-
-    return model
-
-
 class TTS:
-    def __init__(self, tacotron: Tacotron, hifigan: HiFiGAN, *, device: BaseDevice | None = None) -> None:
+    def __init__(
+        self,
+        tacotron: Tacotron,
+        vocoder: Vocoder,
+        *,
+        device: BaseDevice | None = None,
+    ) -> None:
         """Provides an API for doing text-to-speech.
 
         Note that this module is not an `nn.Module`, so you can use it in your
@@ -1426,29 +1189,29 @@ class TTS:
 
         Args:
             tacotron: The Tacotron model.
-            hifigan: The HiFi-GAN model.
+            vocoder: The vocoder model.
             device: The device to load the weights onto.
         """
         super().__init__()
 
         self.device = AutoDevice.detect_device() if device is None else device
         self.tacotron = tacotron.eval()
-        self.hifigan = hifigan.eval()
-        self.hifigan.remove_weight_norm()
+        self.vocoder = vocoder.eval()
+        self.vocoder.remove_weight_norm()
+        self.sampling_rate = self.vocoder.sampling_rate
         self.device.module_to(self.tacotron)
-        self.device.module_to(self.hifigan)
+        self.device.module_to(self.vocoder)
         self.tokenizer = Tokenizer()
-        self.sampling_rate = self.hifigan.sampling_rate
 
     @torch.inference_mode()
     def generate_mels(self, text: str | list[str], postnet: bool = True) -> Tensor:
         if isinstance(text, str):
             tokens = self.tokenizer(text).unsqueeze(0)
-            token_lengths = tokens.new_full((1,), tokens.shape[1], dtype=torch.long)
+            token_lengths = tokens.new_full((1,), tokens.shape[1], dtype=torch.int32)
         else:
             token_list = [self.tokenizer(t) for t in text]
             tokens = pad_sequence(token_list, batch_first=True, padding_value=0)
-            token_lengths = tokens.new_empty((tokens.shape[0],), dtype=torch.long)
+            token_lengths = tokens.new_empty((tokens.shape[0],), dtype=torch.int32)
             for i, t in enumerate(token_list):
                 token_lengths[i] = t.shape[0]
         tokens, token_lengths = self.device.tensor_to(tokens), self.device.tensor_to(token_lengths)
@@ -1457,7 +1220,7 @@ class TTS:
 
     @torch.inference_mode()
     def generate_wave(self, mels: Tensor) -> Tensor:
-        return self.hifigan(mels)
+        return self.vocoder.infer(mels)
 
     @torch.inference_mode()
     def generate(self, text: str | list[str], postnet: bool = True) -> Tensor:
@@ -1466,37 +1229,50 @@ class TTS:
         return audio
 
 
-def pretrained_tacotron2_tts(*, device: BaseDevice | None = None) -> TTS:
+def pretrained_tacotron2_tts(vocoder_type: VocoderType = "hifigan", *, device: BaseDevice | None = None) -> TTS:
     tacotron = pretrained_tacotron2()
-    hifigan = pretrained_hifigan()
-    return TTS(tacotron, hifigan, device=device)
+    vocoder = pretrained_vocoder(vocoder_type)
+    tts = TTS(tacotron, vocoder, device=device)
+    return tts
 
 
 def test_tacotron_adhoc() -> None:
     configure_logging()
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("text", type=str, help="The text to synthesize.")
+    parser.add_argument("text", type=str, nargs="?", help="The text to synthesize.")
     parser.add_argument("-o", "--out-file", type=str, default=None, help="The output file.")
     args = parser.parse_args()
 
     tts = pretrained_tacotron2_tts()
-    audio = tts.generate(args.text).cpu()
 
-    if args.out_file is None:
-        try:
-            import sounddevice as sd
-        except ImportError:
-            raise ImportError("Please install sounddevice to play audio: pip install sounddevice")
+    def generate_for_text(text: str) -> None:
+        audio = tts.generate(text, postnet=True).cpu()
 
-        # Converts audio to the format that sounddevice is expecting.
-        audio = audio.numpy().T
+        if args.out_file is None:
+            try:
+                import sounddevice as sd
+            except ImportError:
+                raise ImportError("Please install sounddevice to play audio: pip install sounddevice")
 
-        sd.play(audio, tts.sampling_rate, blocking=True)
+            # Converts audio to the format that sounddevice is expecting.
+            audio = audio.numpy().T
+
+            sd.play(audio, tts.sampling_rate, blocking=True)
+
+        else:
+            out_path = Path(args.out_file)
+            out_path.parent.mkdir(exist_ok=True)
+            write_audio(iter([audio]), out_path, tts.sampling_rate)
+
+    if args.text:
+        generate_for_text(args.text)
+
     else:
-        out_path = Path(args.out_file)
-        out_path.parent.mkdir(exist_ok=True)
-        write_audio(iter([audio]), out_path, tts.sampling_rate)
+        text = input("Text: ")
+        while text:
+            generate_for_text(text)
+            text = input("Text: ")
 
 
 if __name__ == "__main__":
