@@ -127,21 +127,6 @@ __all__ = [
     "ParallelEmbedding",
     "parallelism_is_initialized",
     "Phase",
-    "pretrained_blip",
-    "pretrained_clip",
-    "pretrained_hubert",
-    "pretrained_llama",
-    "pretrained_rwkv",
-    "pretrained_sam",
-    "pretrained_tacotron2_tts",
-    "pretrained_tacotron2",
-    "pretrained_vocoder",
-    "PretrainedBlipKey",
-    "PretrainedClipSize",
-    "PretrainedHubertSize",
-    "PretrainedLlamaKey",
-    "PretrainedRwkvKey",
-    "PretrainedSamSize",
     "project_dir_paths",
     "read_audio",
     "read_gif",
@@ -238,13 +223,6 @@ from ml.models.lora import (
 )
 from ml.models.norms import NormType, cast_norm_type, get_norm_1d, get_norm_2d, get_norm_3d, get_norm_linear
 from ml.models.parallel import ColumnParallelLinear, ParallelEmbedding, RowParallelLinear
-from ml.models.pretrained.blip import PretrainedBlipKey, pretrained_blip
-from ml.models.pretrained.clip import PretrainedClipSize, pretrained_clip
-from ml.models.pretrained.hubert import PretrainedHubertSize, pretrained_hubert
-from ml.models.pretrained.llama import PretrainedLlamaKey, pretrained_llama
-from ml.models.pretrained.rwkv import PretrainedRwkvKey, pretrained_rwkv
-from ml.models.pretrained.sam import PretrainedSamSize, pretrained_sam
-from ml.models.pretrained.tacotron2 import pretrained_tacotron2, pretrained_tacotron2_tts, pretrained_vocoder
 from ml.optimizers.base import BaseOptimizer, BaseOptimizerConfig
 from ml.tasks.base import BaseTask, BaseTaskConfig
 from ml.tasks.datasets import transforms
