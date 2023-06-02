@@ -6,6 +6,7 @@ around places.
 """
 
 import logging
+import tempfile
 from pathlib import Path
 from typing import Mapping, TypeVar, cast
 
@@ -171,7 +172,7 @@ def ensure_downloaded(
         The path to the downloaded file.
     """
     assert len(dnames) >= 1, "Must provide at least 1 directory name"
-    filepath = Path("tmp") if is_tmp else get_model_dir()
+    filepath = Path(tempfile.mkdtemp("models")) if is_tmp else get_model_dir()
     for dname in dnames:
         filepath = filepath / dname
     (root := filepath.parent).mkdir(parents=True, exist_ok=True)
