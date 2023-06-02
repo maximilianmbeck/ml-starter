@@ -97,16 +97,16 @@ Debugging = _BoolEnvVar("DEBUG")
 is_debugging = Debugging.get
 
 # Where to store miscellaneous cache artifacts.
-CacheDir = _PathEnvVar("CACHE_DIR", default=Path.home() / ".cache", suffix="model-artifacts")
+CacheDir = _PathEnvVar("CACHE_DIR", default=Path.home() / ".cache" / "ml-starter", suffix="model-artifacts")
 get_cache_dir = CacheDir.get
 
 # Root directory for training runs.
-RunDir = _PathEnvVar("RUN_DIR")
+RunDir = _PathEnvVar("RUN_DIR", default=Path.cwd(), suffix="runs")
 get_run_dir = RunDir.get
 set_run_dir = RunDir.set
 
 # Root directory for evaluation runs.
-EvalRunDir = _PathEnvVar("EVAL_RUN_DIR")
+EvalRunDir = _PathEnvVar("EVAL_RUN_DIR", default=Path.cwd(), suffix="eval")
 get_eval_run_dir = EvalRunDir.get
 set_eval_run_dir = EvalRunDir.set
 
@@ -116,12 +116,12 @@ get_exp_name = ExpName.get
 set_exp_name = ExpName.set
 
 # Base directory where various datasets are stored.
-DataDir = _PathEnvVar("DATA_DIR")
+DataDir = _PathEnvVar("DATA_DIR", default=Path.home() / ".cache" / "ml-starter", suffix="datasets")
 get_data_dir = DataDir.get
 set_data_dir = DataDir.set
 
 # Base directory where various pretrained models are stored.
-ModelDir = _PathEnvVar("MODEL_DIR")
+ModelDir = _PathEnvVar("MODEL_DIR", default=Path.home() / ".cache" / "ml-starter", suffix="pretrained-models")
 get_model_dir = ModelDir.get
 set_model_dir = ModelDir.set
 
@@ -131,7 +131,7 @@ get_env_random_seed = RandomSeed.get
 set_env_random_seed = RandomSeed.set
 
 # Directory where code is staged before running large-scale experiments.
-StageDir = _PathEnvVar("STAGE_DIR")
+StageDir = _PathEnvVar("STAGE_DIR", default=Path.home() / ".cache" / "ml-starter", suffix="staging")
 get_stage_dir = StageDir.get
 set_stage_dir = StageDir.set
 
