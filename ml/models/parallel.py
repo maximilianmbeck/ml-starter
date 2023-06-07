@@ -229,6 +229,7 @@ class ParallelEmbedding(nn.Module):
         embedding_dim: int,
         padding_idx: int | None = None,
         max_norm: float | None = None,
+        norm_type: float = 2.0,
         scale_grad_by_freq: bool = False,
         sparse: bool = False,
         init_type: InitializationType = "xavier_normal",
@@ -243,6 +244,7 @@ class ParallelEmbedding(nn.Module):
                 model-parallel size.
             padding_idx: See ``nn.Embedding``.
             max_norm: See ``nn.Embedding``.
+            norm_type: See ``nn.Embedding``.
             scale_grad_by_freq: See ``nn.Embedding``.
             sparse: See ``nn.Embedding``.
             init_type: Initialization type.
@@ -253,7 +255,7 @@ class ParallelEmbedding(nn.Module):
         self.embedding_dim = embedding_dim
         self.padding_idx = padding_idx
         self.max_norm = max_norm
-        self.norm_type = scale_grad_by_freq
+        self.norm_type = norm_type
         self.scale_grad_by_freq = scale_grad_by_freq
         self.sparse = sparse
         self.init_type = init_type
@@ -297,9 +299,7 @@ class ParallelEmbedding(nn.Module):
             self.sparse,
         )
 
-        output = mp_gather(output_parallel)
-
-        return output
+        return mp_gather(output_parallel)
 
 
 class ColumnParallelLinear(nn.Module):
@@ -328,6 +328,7 @@ class ColumnParallelLinear(nn.Module):
                 parallel GPUs.
             init_type: Initialization type.
             stride: Stride for the initialization.
+            lora_rank: The LoRA rank to use, if any.
         """
         super().__init__()
 

@@ -24,9 +24,14 @@ The modules which can be wrapped with LoRA modules are:
 - ``nn.Embedding``
 - ``nn.Linear``
 - ``nn.Conv1d``
+- ``nn.ConvTranspose1d``
 - ``nn.Conv2d``
+- ``nn.ConvTranspose2d``
 - ``nn.LSTM``
 - ``nn.GRU``
+- ``ColumnParallelLinear``
+- ``RowParallelLinear``
+- ``ParallelEmbedding``
 
 In the paper, the authors typically use values of 1, 2, 4, or 8 for the
 ``r`` parameter. The ``lora_alpha`` parameter is typically set to 1.0, but
@@ -42,9 +47,20 @@ import torch.nn.functional as F
 from torch import Tensor, nn
 from torch.nn.modules.module import _IncompatibleKeys
 
+from ml.models.init import InitializationType
+from ml.models.parallel import (
+    ColumnParallelLinear,
+    ParallelEmbedding,
+    RowParallelLinear,
+    mp_copy,
+    mp_gather,
+    mp_reduce,
+    mp_scatter,
+)
+
 T = TypeVar("T")
 
-SupportedModule = Union[
+SupportedModuleNonParallel = Union[
     nn.Embedding,
     nn.Linear,
     nn.Conv1d,
@@ -53,6 +69,13 @@ SupportedModule = Union[
     nn.ConvTranspose2d,
     nn.LSTM,
     nn.GRU,
+]
+
+SupportedModule = Union[
+    SupportedModuleNonParallel,
+    ColumnParallelLinear,
+    RowParallelLinear,
+    ParallelEmbedding,
 ]
 
 
@@ -123,7 +146,7 @@ class LoraEmbedding(nn.Embedding, _Lora):
             nn.init.normal_(self.lora_b)
 
     def train(self, mode: bool = True) -> "LoraEmbedding":
-        super().train()
+        super().train(mode)
 
         if mode:
             if self.merge and self.merged:
@@ -208,7 +231,7 @@ class LoraLinear(nn.Linear, _Lora):
         return w.transpose(0, 1) if self.fan_in_fan_out else w
 
     def train(self, mode: bool = True) -> "LoraLinear":
-        super().train()
+        super().train(mode)
 
         if mode:
             if self.merge and self.merged:
@@ -288,7 +311,7 @@ class LoraConv1d(nn.Conv1d, _Lora):
             nn.init.zeros_(self.lora_b)
 
     def train(self, mode: bool = True) -> "LoraConv1d":
-        super().train()
+        super().train(mode)
 
         if mode:
             if self.merge and self.merged:
@@ -371,7 +394,7 @@ class LoraConvTranspose1d(nn.ConvTranspose1d, _Lora):
             nn.init.zeros_(self.lora_b)
 
     def train(self, mode: bool = True) -> "LoraConvTranspose1d":
-        super().train()
+        super().train(mode)
 
         if mode:
             if self.merge and self.merged:
@@ -472,7 +495,7 @@ class LoraConv2d(nn.Conv2d, _Lora):
             nn.init.zeros_(self.lora_b)
 
     def train(self, mode: bool = True) -> "LoraConv2d":
-        super().train()
+        super().train(mode)
 
         if mode:
             if self.merge and self.merged:
@@ -555,7 +578,7 @@ class LoraConvTranspose2d(nn.ConvTranspose2d, _Lora):
             nn.init.zeros_(self.lora_b)
 
     def train(self, mode: bool = True) -> "LoraConvTranspose2d":
-        super().train()
+        super().train(mode)
 
         if mode:
             if self.merge and self.merged:
@@ -775,6 +798,294 @@ class LoraGRU(nn.GRU, _LoraRNN):
         )
 
 
+class LoraParallelEmbedding(ParallelEmbedding, _Lora):
+    __constants__ = ParallelEmbedding.__constants__ + ["r", "lora_alpha", "merge", "scaling", "merged"]
+
+    def __init__(
+        self,
+        num_embeddings: int,
+        embedding_dim: int,
+        r: int,
+        lora_alpha: float = 1.0,
+        lora_dropout: float = 0.0,
+        merge: bool = False,
+        padding_idx: int | None = None,
+        max_norm: float | None = None,
+        norm_type: float = 2.0,
+        scale_grad_by_freq: bool = False,
+        sparse: bool = False,
+        init_type: InitializationType = "xavier_normal",
+    ) -> None:
+        super().__init__(
+            num_embeddings=num_embeddings,
+            embedding_dim=embedding_dim,
+            padding_idx=padding_idx,
+            max_norm=max_norm,
+            norm_type=norm_type,
+            scale_grad_by_freq=scale_grad_by_freq,
+            sparse=sparse,
+            init_type=init_type,
+        )
+
+        assert r > 0
+
+        self.r = r
+        self.lora_alpha = lora_alpha
+        self.scaling = self.lora_alpha / self.r
+        self.merge = merge
+
+        self.dropout = nn.Identity() if lora_dropout == 0.0 else nn.Dropout(p=lora_dropout)
+        self.merged = False
+
+        self.lora_a = nn.Parameter(self.weight.new_empty((r, num_embeddings)))
+        self.lora_b = nn.Parameter(self.weight.new_empty((self.embedding_dim_per_rank, r)))
+        self.weight.requires_grad = False
+
+        self.reset_parameters()
+
+    def reset_parameters(self) -> None:
+        super().reset_parameters()
+
+        if hasattr(self, "lora_a") and hasattr(self, "lora_b"):
+            nn.init.zeros_(self.lora_a)
+            nn.init.normal_(self.lora_b)
+
+    def train(self, mode: bool = True) -> "LoraParallelEmbedding":
+        super().train(mode)
+
+        if mode:
+            if self.merge and self.merged:
+                # Make sure that the weights are not merged
+                if self.lora_a is not None and self.lora_b is not None:
+                    self.weight.data -= (self.lora_b @ self.lora_a).transpose(0, 1) * self.scaling
+                self.merged = False
+        elif self.merge and not self.merged:
+            # Merge the weights and mark it
+            if self.lora_a is not None and self.lora_b is not None:
+                self.weight.data += (self.lora_b @ self.lora_a).transpose(0, 1) * self.scaling
+            self.merged = True
+
+        return self
+
+    def forward(self, x: Tensor) -> Tensor:
+        x = mp_copy(x)
+
+        if self.lora_a is not None and self.lora_b is not None and not self.merged:
+            output_parallel = F.embedding(
+                x,
+                self.weight,
+                self.padding_idx,
+                self.max_norm,
+                self.norm_type,
+                self.scale_grad_by_freq,
+                self.sparse,
+            )
+
+            after_a_parallel = F.embedding(
+                x,
+                self.lora_a.transpose(0, 1),
+                self.padding_idx,
+                self.max_norm,
+                self.norm_type,
+                self.scale_grad_by_freq,
+                self.sparse,
+            )
+
+            output_parallel += (after_a_parallel @ self.lora_b.transpose(0, 1)) * self.scaling
+
+            return mp_gather(output_parallel)
+
+        return mp_gather(output_parallel)
+
+
+class LoraColumnParallelLinear(ColumnParallelLinear, _Lora):
+    __constants__ = ColumnParallelLinear.__constants__ + [
+        "r",
+        "lora_alpha",
+        "scaling",
+        "merge",
+        "fan_in_fan_out",
+        "merged",
+    ]
+
+    def __init__(
+        self,
+        in_features: int,
+        out_features: int,
+        r: int,
+        lora_alpha: float = 1.0,
+        lora_dropout: float = 0.0,
+        fan_in_fan_out: bool = False,
+        merge: bool = False,
+        bias: bool = True,
+        gather_output: bool = True,
+        init_type: InitializationType = "xavier_normal",
+        stride: int = 1,
+    ) -> None:
+        super().__init__(
+            in_features=in_features,
+            out_features=out_features,
+            bias=bias,
+            gather_output=gather_output,
+            init_type=init_type,
+            stride=stride,
+        )
+
+        assert r > 0
+
+        self.r = r
+        self.lora_alpha = lora_alpha
+        self.scaling = self.lora_alpha / self.r
+        self.merge = merge
+        self.fan_in_fan_out = fan_in_fan_out
+
+        self.dropout = nn.Identity() if lora_dropout == 0.0 else nn.Dropout(p=lora_dropout)
+        self.merged = False
+
+        self.lora_a = nn.Parameter(self.weight.new_empty((r, in_features)))
+        self.lora_b = nn.Parameter(self.weight.new_empty((self.output_size_per_partition, r)))
+        self.weight.requires_grad = False
+
+        self.reset_parameters()
+
+        if fan_in_fan_out:
+            self.weight.data = self.weight.data.transpose(0, 1)
+
+    def reset_parameters(self) -> None:
+        super().reset_parameters()
+
+        if hasattr(self, "lora_a") and hasattr(self, "lora_b"):
+            nn.init.kaiming_uniform_(self.lora_a, a=math.sqrt(5))
+            nn.init.zeros_(self.lora_b)
+
+    def _t(self, w: Tensor) -> Tensor:
+        return w.transpose(0, 1) if self.fan_in_fan_out else w
+
+    def train(self, mode: bool = True) -> "LoraColumnParallelLinear":
+        super().train(mode)
+
+        if mode:
+            if self.merge and self.merged:
+                # Make sure that the weights are not merged
+                if self.lora_a is not None and self.lora_b is not None:
+                    self.weight.data -= self._t(self.lora_b @ self.lora_a) * self.scaling
+                self.merged = False
+
+        elif self.merge and not self.merged:
+            # Merge the weights and mark it
+            if self.lora_a is not None and self.lora_b is not None:
+                self.weight.data += self._t(self.lora_b @ self.lora_a) * self.scaling
+            self.merged = True
+
+        return self
+
+    def forward(self, x: Tensor) -> Tensor:
+        input_parallel = mp_copy(x)
+
+        if self.lora_a is not None and self.lora_b is not None and not self.merged:
+            output_parallel = F.linear(input_parallel, self._t(self.weight), bias=self.bias)
+            mm = self.dropout(input_parallel) @ self.lora_a.transpose(0, 1) @ self.lora_b.transpose(0, 1)
+            output_parallel += mm * self.scaling
+            return mp_gather(output_parallel) if self.gather_output else output_parallel
+
+        output_parallel = F.linear(input_parallel, self.weight, self.bias)
+        return mp_gather(output_parallel) if self.gather_output else output_parallel
+
+
+class LoraRowParallelLinear(RowParallelLinear, _Lora):
+    __constants__ = RowParallelLinear.__constants__ + [
+        "r",
+        "lora_alpha",
+        "scaling",
+        "merge",
+        "fan_in_fan_out",
+        "merged",
+    ]
+
+    def __init__(
+        self,
+        in_features: int,
+        out_features: int,
+        r: int,
+        lora_alpha: float = 1.0,
+        lora_dropout: float = 0.0,
+        fan_in_fan_out: bool = False,
+        merge: bool = False,
+        bias: bool = True,
+        input_is_parallel: bool = False,
+        init_type: InitializationType = "xavier_normal",
+        stride: int = 1,
+    ) -> None:
+        super().__init__(
+            in_features=in_features,
+            out_features=out_features,
+            bias=bias,
+            input_is_parallel=input_is_parallel,
+            init_type=init_type,
+            stride=stride,
+        )
+
+        self.r = r
+        self.lora_alpha = lora_alpha
+        self.scaling = self.lora_alpha / self.r
+        self.merge = merge
+        self.fan_in_fan_out = fan_in_fan_out
+
+        self.dropout = nn.Identity() if lora_dropout == 0.0 else nn.Dropout(p=lora_dropout)
+        self.merged = False
+
+        self.lora_a = nn.Parameter(self.weight.new_empty((r, self.input_size_per_partition)))
+        self.lora_b = nn.Parameter(self.weight.new_empty((out_features, r)))
+        self.weight.requires_grad = False
+
+        self.reset_parameters()
+
+        if fan_in_fan_out:
+            self.weight.data = self.weight.data.transpose(0, 1)
+
+    def reset_parameters(self) -> None:
+        super().reset_parameters()
+
+        if hasattr(self, "lora_a") and hasattr(self, "lora_b"):
+            nn.init.kaiming_uniform_(self.lora_a, a=math.sqrt(5))
+            nn.init.zeros_(self.lora_b)
+
+    def _t(self, w: Tensor) -> Tensor:
+        return w.transpose(0, 1) if self.fan_in_fan_out else w
+
+    def train(self, mode: bool = True) -> "LoraRowParallelLinear":
+        super().train(mode)
+
+        if mode:
+            if self.merge and self.merged:
+                # Make sure that the weights are not merged
+                if self.lora_a is not None and self.lora_b is not None:
+                    self.weight.data -= self._t(self.lora_b @ self.lora_a) * self.scaling
+                self.merged = False
+
+        elif self.merge and not self.merged:
+            # Merge the weights and mark it
+            if self.lora_a is not None and self.lora_b is not None:
+                self.weight.data += self._t(self.lora_b @ self.lora_a) * self.scaling
+            self.merged = True
+
+        return self
+
+    def forward(self, x: Tensor) -> Tensor:
+        input_parallel = x if self.input_is_parallel else mp_scatter(x)
+
+        if self.lora_a is not None and self.lora_b is not None and not self.merged:
+            output_parallel = F.linear(input_parallel, self._t(self.weight), bias=self.bias)
+            mm = self.dropout(input_parallel) @ self.lora_a.transpose(0, 1) @ self.lora_b.transpose(0, 1)
+            output_parallel += mm * self.scaling
+            output = mp_reduce(output_parallel)
+            return output if self.bias is None else output + self.bias
+
+        output_parallel = F.linear(input_parallel, self.weight, self.bias)
+        output = mp_reduce(output_parallel)
+        return output if self.bias is None else output + self.bias
+
+
 @overload
 def lora(module: nn.Embedding, r: int, alpha: float = 1.0, dropout: float = 0.0, merge: bool = False) -> LoraEmbedding:
     ...
@@ -792,7 +1103,11 @@ def lora(module: nn.Conv1d, r: int, alpha: float = 1.0, dropout: float = 0.0, me
 
 @overload
 def lora(
-    module: nn.ConvTranspose1d, r: int, alpha: float = 1.0, dropout: float = 0.0, merge: bool = False
+    module: nn.ConvTranspose1d,
+    r: int,
+    alpha: float = 1.0,
+    dropout: float = 0.0,
+    merge: bool = False,
 ) -> LoraConv1d:
     ...
 
@@ -804,7 +1119,11 @@ def lora(module: nn.Conv2d, r: int, alpha: float = 1.0, dropout: float = 0.0, me
 
 @overload
 def lora(
-    module: nn.ConvTranspose2d, r: int, alpha: float = 1.0, dropout: float = 0.0, merge: bool = False
+    module: nn.ConvTranspose2d,
+    r: int,
+    alpha: float = 1.0,
+    dropout: float = 0.0,
+    merge: bool = False,
 ) -> LoraConv2d:
     ...
 
@@ -816,6 +1135,39 @@ def lora(module: nn.LSTM, r: int, alpha: float = 1.0, dropout: float = 0.0, merg
 
 @overload
 def lora(module: nn.GRU, r: int, alpha: float = 1.0, dropout: float = 0.0, merge: bool = False) -> LoraGRU:
+    ...
+
+
+@overload
+def lora(
+    module: ParallelEmbedding,
+    r: int,
+    alpha: float = 1.0,
+    dropout: float = 0.0,
+    merge: bool = False,
+) -> LoraParallelEmbedding:
+    ...
+
+
+@overload
+def lora(
+    module: ColumnParallelLinear,
+    r: int,
+    alpha: float = 1.0,
+    dropout: float = 0.0,
+    merge: bool = False,
+) -> LoraColumnParallelLinear:
+    ...
+
+
+@overload
+def lora(
+    module: RowParallelLinear,
+    r: int,
+    alpha: float = 1.0,
+    dropout: float = 0.0,
+    merge: bool = False,
+) -> LoraRowParallelLinear:
     ...
 
 
@@ -1003,6 +1355,53 @@ def lora(module: SupportedModule, r: int, alpha: float = 1.0, dropout: float = 0
         for param_name, param_value in module.named_parameters():
             getattr(gru, param_name).data.copy_(param_value.data)
         return gru
+
+    if isinstance(module, ParallelEmbedding):
+        parallel_embedding = LoraParallelEmbedding(
+            module.num_embeddings,
+            module.embedding_dim,
+            r=r,
+            lora_alpha=alpha,
+            lora_dropout=dropout,
+            merge=merge,
+            padding_idx=module.padding_idx,
+            max_norm=module.max_norm,
+            norm_type=module.norm_type,
+            scale_grad_by_freq=module.scale_grad_by_freq,
+            sparse=module.sparse,
+        )
+        parallel_embedding.weight.data.copy_(module.weight.data)
+        return parallel_embedding
+
+    if isinstance(module, RowParallelLinear):
+        row_parallel_linear = LoraRowParallelLinear(
+            module.in_features,
+            module.out_features,
+            r=r,
+            lora_alpha=alpha,
+            lora_dropout=dropout,
+            merge=merge,
+            bias=module.bias is not None,
+        )
+        row_parallel_linear.weight.data.copy_(module.weight.data)
+        if module.bias is not None and row_parallel_linear.bias is not None:
+            row_parallel_linear.bias.data.copy_(module.bias.data)
+        return row_parallel_linear
+
+    if isinstance(module, ColumnParallelLinear):
+        column_parallel_linear = LoraColumnParallelLinear(
+            module.in_features,
+            module.out_features,
+            r=r,
+            lora_alpha=alpha,
+            lora_dropout=dropout,
+            merge=merge,
+            bias=module.bias is not None,
+        )
+        column_parallel_linear.weight.data.copy_(module.weight.data)
+        if module.bias is not None and column_parallel_linear.bias is not None:
+            column_parallel_linear.bias.data.copy_(module.bias.data)
+        return column_parallel_linear
 
     raise ValueError(f"Unsupported module type {type(module)}")
 

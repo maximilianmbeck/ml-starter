@@ -8,6 +8,7 @@ import torch
 import torch.nn.functional as F
 from torch import Tensor, nn
 
+from ml.models.lora import maybe_lora
 from ml.models.parallel import ColumnParallelLinear, ParallelEmbedding, RowParallelLinear
 from ml.trainers.mixins.data_parallel import ParallelConfig, ddp
 from ml.utils.logging import configure_logging
@@ -18,13 +19,13 @@ logger = logging.getLogger(__name__)
 
 
 class DummyModel(nn.Module):
-    def __init__(self) -> None:
+    def __init__(self, lora_rank: int | None) -> None:
         super().__init__()
 
         # A simple embedding layer plus two-layer MLP.
-        self.emb = ParallelEmbedding(10, 12)
-        self.l1 = ColumnParallelLinear(12, 16, bias=False)
-        self.l2 = RowParallelLinear(16, 8, bias=False)
+        self.emb = maybe_lora(ParallelEmbedding(10, 12), lora_rank)
+        self.l1 = maybe_lora(ColumnParallelLinear(12, 16, bias=False), lora_rank)
+        self.l2 = maybe_lora(RowParallelLinear(16, 8, bias=False), lora_rank)
 
     def forward(self, x: Tensor) -> tuple[Tensor, Tensor]:
         y1 = self.l2(self.l1(self.emb(x)))
@@ -45,8 +46,7 @@ def setup() -> None:
 
 def func() -> None:
     config = ParallelConfig(use_fsdp=False)
-    model = ddp(DummyModel(), config)
-    model.eval()
+    model = ddp(DummyModel(None), config)
     base_model = cast(DummyModel, model.module)
 
     def get_grad(g: Tensor | None) -> Tensor:
@@ -82,13 +82,28 @@ def func() -> None:
     assert torch.allclose(l2_grad_parallel, l2_grad_full, atol=1e-3)
 
 
+def lora_func() -> None:
+    config = ParallelConfig(use_fsdp=False)
+    model = ddp(DummyModel(2), config)
+
+    x = torch.randint(0, 10 - 1, (4, 12))
+
+    # Tests that the forward passes for both models match.
+    output_parallel, output_full = model(x)
+    assert torch.allclose(output_parallel, output_full, atol=1e-3)
+
+
 @pytest.mark.slow
-def test_parallel_model() -> None:
+@pytest.mark.parametrize("use_lora", [True, False])
+def test_parallel_model(use_lora: bool) -> None:
     """Tests model parallelism primitives.
 
     This function launches 4 processes, partitioned into 2 model parallel and
     2 data parallel groups. We check that the partitioned model outputs and
     gradients match the full model.
+
+    Args:
+        use_lora: Whether to use LoRA or not.
     """
     configure_logging()
 
@@ -104,9 +119,9 @@ def test_parallel_model() -> None:
         pipeline_parallelism=1,
     )
 
-    launch_subprocesses(func, config, setup=setup)
+    launch_subprocesses(lora_func if use_lora else func, config, setup=setup)
 
 
 if __name__ == "__main__":
     # python -m tests.utils.test_parallel
-    test_parallel_model()
+    test_parallel_model(False)
