@@ -19,7 +19,6 @@ The typical flow for using this module is:
 
 import contextlib
 import functools
-import threading
 from abc import ABC, abstractmethod
 from dataclasses import is_dataclass
 from typing import Any, Callable, ContextManager, Iterable, Iterator, Mapping, Sequence
@@ -79,23 +78,13 @@ class Prefetcher(Iterable[Batch]):
         self.next_sample = None
         self.get_batch_time = 0.0
         self.to_device_time = 0.0
-
-        # Start the dataloader in a separate thread.
-        self._dataloader_iter_ready = threading.Event()
         self._dataloader_iter: _BaseDataLoaderIter | None = None
-        threading.Thread(target=self.start_dataloader).start()
-
-    def start_dataloader(self) -> None:
-        self._dataloader_iter = iter(self.dataloader)
-        self._dataloader_iter_ready.set()
-        self.prefetch()
 
     @property
     def dataloader_iter(self) -> _BaseDataLoaderIter:
         if self._dataloader_iter is None:
             with Timer("starting dataloader", spinner=True):
-                self._dataloader_iter_ready.wait()
-                assert self._dataloader_iter is not None
+                self._dataloader_iter = iter(self.dataloader)
         return self._dataloader_iter
 
     def prefetch(self) -> None:

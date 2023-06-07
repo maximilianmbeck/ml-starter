@@ -37,6 +37,7 @@ def allow_spinners() -> bool:
 class Spinner:
     def __init__(self, text: str | None = None) -> None:
         self._text = "" if text is None else text
+        self._max_line_len = 0
         self._spinner_stop = False
         self._spinner_close = False
         self._flag = threading.Event()
@@ -53,6 +54,9 @@ class Spinner:
         sys.breakpointhook(*args, **kwargs)
 
     def set_text(self, text: str) -> "Spinner":
+        sys.stderr.write(" " * (self._max_line_len + 1) + "\r")
+        sys.stderr.flush()
+        self._max_line_len = 0
         self._text = colorize(text, "grey")
         return self
 
@@ -77,14 +81,13 @@ class Spinner:
             start_time = time.time()
             while not self._spinner_stop:
                 time.sleep(0.1)
-                max_line_len = 0
                 char = chars[int((time.time() * 10) % len(chars))]
                 elapsed_secs = time.time() - start_time
                 line = f"[ {char} {elapsed_secs:.1f} ] {self._text}\r"
-                max_line_len = max(max_line_len, len(line))
+                self._max_line_len = max(self._max_line_len, len(line))
                 sys.stderr.write(line)
                 sys.stderr.flush()
-            sys.stderr.write(" " * (max_line_len + 1) + "\r")
+            sys.stderr.write(" " * (self._max_line_len + 1) + "\r")
             sys.stderr.flush()
             self._flag.clear()
 
