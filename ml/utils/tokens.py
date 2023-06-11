@@ -280,8 +280,6 @@ class TokenReader:
             # Breaks down the slice into start, stop, and step.
             start = 0 if seq_slice.start is None else make_positive(seq_slice.start)
             stop = seq_len if seq_slice.stop is None else make_positive(seq_slice.stop)
-            if seq_slice.step is not None:
-                raise ValueError("step is not supported")
 
             with gzip.open(self._path, "rb") if self._compressed else open(self._path, "rb") as f:
                 f.seek(offset + self._lengths_fmt_size)
@@ -297,6 +295,9 @@ class TokenReader:
                 # Reads the data.
                 byte_data = f.read(end_byte - start_byte)
 
-            return _bytes_to_arr(byte_data, stop - start, self._num_tokens, offset=start_offset)
+            arr = _bytes_to_arr(byte_data, stop - start, self._num_tokens, offset=start_offset)
+            if seq_slice.step is not None:
+                arr = arr[:: seq_slice.step]
+            return arr
 
         raise TypeError("Index must be an integer or a tuple of an integer and a slice")
