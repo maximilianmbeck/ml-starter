@@ -87,14 +87,32 @@ class _GroupInfo:
     world_size: int
 
     @overload
-    def reduce(self, tensor: Tensor, op: Any = ReduceOp.SUM, *, async_op: Literal[False] = False) -> Tensor:
+    def reduce(
+        self,
+        tensor: Tensor,
+        op: Any = ReduceOp.SUM,  # noqa: ANN401
+        *,
+        async_op: Literal[False] = False,
+    ) -> Tensor:
         ...
 
     @overload
-    def reduce(self, tensor: Tensor, op: Any = ReduceOp.SUM, *, async_op: Literal[True]) -> Work:
+    def reduce(
+        self,
+        tensor: Tensor,
+        op: Any = ReduceOp.SUM,  # noqa: ANN401
+        *,
+        async_op: Literal[True],
+    ) -> Work:
         ...
 
-    def reduce(self, tensor: Tensor, op: Any = ReduceOp.SUM, *, async_op: bool = False) -> Tensor | Work:
+    def reduce(
+        self,
+        tensor: Tensor,
+        op: Any = ReduceOp.SUM,
+        *,
+        async_op: bool = False,
+    ) -> Tensor | Work:  # noqa: ANN401
         """Reduces the tensor across all processes in the group.
 
         Consider two tensors in the same process group on different processes,

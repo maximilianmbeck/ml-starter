@@ -10,7 +10,7 @@ import logging
 import math
 import re
 from collections import defaultdict
-from typing import Any, Callable, Iterator, Literal, Sequence, TypeVar
+from typing import Callable, Iterator, Literal, Sequence, TypeVar
 
 import torch
 import torch.nn.functional as F
@@ -25,6 +25,7 @@ from ml.utils.logging import IntervalTicker
 
 logger = logging.getLogger(__name__)
 
+T = TypeVar("T")
 LogT = TypeVar("LogT")
 Number = int | float | Tensor
 
@@ -542,9 +543,9 @@ def make_square_image_or_video(
     return new_image[..., a : new_image.shape[-2] - b, a : new_image.shape[-1] - b]
 
 
-def cast_fp32(value: Any) -> Any:
+def cast_fp32(value: T) -> T:
     if isinstance(value, Tensor) and value.is_floating_point():
-        value = value.detach().float().cpu()
+        return value.detach().float().cpu()  # type: ignore[return-value]
     return value
 
 

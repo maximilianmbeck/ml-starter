@@ -48,7 +48,7 @@ class Spinner:
         # the breakpoint.
         self._original_breakpointhook = sys.breakpointhook
 
-    def _breakpointhook(self, *args: Any, **kwargs: Any) -> None:
+    def _breakpointhook(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
         warnings.warn("Breakpoint hit inside spinner; run `up 1` to see where it was hit")
         self.stop()
         sys.breakpointhook(*args, **kwargs)
@@ -125,7 +125,7 @@ class Timer:
             spinner().set_text(self.description).start()
         return self
 
-    def __exit__(self, *args: Any, **kwargs: Any) -> None:
+    def __exit__(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
         assert self._start_time is not None
         self._elapsed_time = time.time() - self._start_time
         if self._elapsed_time > self.min_seconds_to_print:
@@ -147,11 +147,11 @@ def timeout(seconds: int, error_message: str = os.strerror(errno.ETIME)) -> Call
     """
 
     def decorator(func: TimeoutFunc) -> TimeoutFunc:
-        def _handle_timeout(*_: Any) -> None:
+        def _handle_timeout(*_: Any) -> None:  # noqa: ANN401
             raise TimeoutError(error_message)
 
         @functools.wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
+        def wrapper(*args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
             signal.signal(signal.SIGALRM, _handle_timeout)
             signal.alarm(seconds)
             try:

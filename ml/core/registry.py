@@ -664,7 +664,7 @@ class Objects:
         return objs
 
     @classmethod
-    def from_config_file(cls, config_path: str | Path, **overrides: Any) -> "Objects":
+    def from_config_file(cls, config_path: str | Path, **overrides: Any) -> "Objects":  # noqa: ANN401
         config = OmegaConf.load(config_path)
         config = OmegaConf.merge(config, DictConfig(overrides))
         return cls.parse_raw_config(cast(DictConfig, config))

@@ -36,7 +36,7 @@ def format_number(value: int | float, precision: int) -> str:
     return f"{value:.{precision}g}"
 
 
-def as_str(value: Any, precision: int) -> str:
+def as_str(value: Any, precision: int) -> str:  # noqa: ANN401
     if isinstance(value, str):
         return f'"{value}"'
     if isinstance(value, Tensor):

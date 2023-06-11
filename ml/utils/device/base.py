@@ -21,7 +21,7 @@ import contextlib
 import functools
 from abc import ABC, abstractmethod
 from dataclasses import is_dataclass
-from typing import Any, Callable, ContextManager, Iterable, Iterator, Mapping, Sequence
+from typing import Any, Callable, ContextManager, Iterable, Iterator, Mapping, Sequence, TypeVar
 
 import numpy as np
 import torch
@@ -31,12 +31,14 @@ from torch.utils.data.dataloader import DataLoader, _BaseDataLoaderIter
 from ml.core.common_types import Batch
 from ml.utils.timer import Timer
 
+T = TypeVar("T")
+
 
 def allow_nonblocking(device_a: torch.device, device_b: torch.device) -> bool:
     return device_a.type in ("cpu", "cuda") and device_b.type in ("cpu", "cuda")
 
 
-def recursive_apply(item: Any, func: Callable[[Tensor], Tensor]) -> Any:
+def recursive_apply(item: Any, func: Callable[[Tensor], Tensor]) -> Any:  # noqa: ANN401
     """Applies a function recursively to tensors in an item.
 
     Args:
@@ -49,7 +51,7 @@ def recursive_apply(item: Any, func: Callable[[Tensor], Tensor]) -> Any:
     if isinstance(item, (str, int, float)):
         return item
     if isinstance(item, np.ndarray):
-        item = torch.from_numpy(item)
+        return func(torch.from_numpy(item))
     if isinstance(item, Tensor):
         return func(item)
     if is_dataclass(item):
@@ -98,7 +100,7 @@ class Prefetcher(Iterable[Batch]):
         except StopIteration:
             self.next_sample = None
 
-    def recursive_chunk(self, item: Any, chunks: int) -> list[Any]:
+    def recursive_chunk(self, item: Any, chunks: int) -> list[Any]:  # noqa: ANN401
         """Applies a function recursively to tensors in an item.
 
         Args:
@@ -128,7 +130,7 @@ class Prefetcher(Iterable[Batch]):
         return item
 
     @classmethod
-    def recursive_apply(cls, item: Any, func: Callable[[Tensor], Tensor]) -> Any:
+    def recursive_apply(cls, item: Any, func: Callable[[Tensor], Tensor]) -> Any:  # noqa: ANN401
         return recursive_apply(item, func)
 
     def __iter__(self) -> Iterator[Batch]:
@@ -202,7 +204,7 @@ class BaseDevice(ABC):
         """
 
     @classmethod
-    def sample_to_device(cls, sample: Any) -> Any:
+    def sample_to_device(cls, sample: T) -> T:
         device = cls.get_device()
         dtype_fp = cls.get_floating_point_type()
         return Prefetcher.recursive_apply(
@@ -232,13 +234,10 @@ class BaseDevice(ABC):
         return tensor.to(device)
 
     @classmethod
-    def recursive_apply(cls, item: Any) -> Any:
-        def func(i: Any) -> Any:
+    def recursive_apply(cls, item: T) -> T:
+        def func(i: Tensor) -> Tensor:
             if isinstance(i, Tensor):
                 return cls.tensor_to(i)
-            if isinstance(i, nn.Module):
-                cls.module_to(i)
-                return i
             return i
 
         return recursive_apply(item, func)

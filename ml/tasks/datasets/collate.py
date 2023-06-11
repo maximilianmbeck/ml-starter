@@ -12,7 +12,7 @@ from torch import Tensor
 CollateMode = Literal["stack", "concat"]
 
 
-def is_named_tuple(obj: Any) -> bool:
+def is_named_tuple(obj: Any) -> bool:  # noqa: ANN401
     return isinstance(obj, tuple) and hasattr(obj, "_asdict") and hasattr(obj, "_fields")
 
 
@@ -211,7 +211,7 @@ def collate_non_null(
     *,
     mode: CollateMode | Callable[[list[Tensor]], Tensor] = "stack",
     pad: bool | Callable[[list[Tensor]], list[Tensor]] = False,
-) -> Any:
+) -> Any:  # noqa: ANN401
     collated = collate(items, mode=mode, pad=pad)
     assert collated is not None
     return collated

@@ -136,12 +136,12 @@ def diff_configs(
         Two lists of lines describing the diff between the two configs
     """
 
-    def get_diff_string(prefix: str | None, val: Any) -> str:
+    def get_diff_string(prefix: str | None, val: Any) -> str:  # noqa: ANN401
         if isinstance(val, (str, float, int)):
             return f"{prefix}={val}"
         return f"{prefix}= ... ({type(val)})"
 
-    def cast_enums(k: Any) -> Any:
+    def cast_enums(k: Any) -> Any:  # noqa: ANN401
         return k.name if isinstance(k, enum.Enum) else k
 
     new_first: list[str] = []

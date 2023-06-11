@@ -52,7 +52,7 @@ class cached_object:  # noqa: N801
         """
 
         @functools.wraps(func)
-        def call_function_cached(*args: Any, **kwargs: Any) -> Object:
+        def call_function_cached(*args: Any, **kwargs: Any) -> Object:  # noqa: ANN401
             if self.obj is not None:
                 return self.obj
 

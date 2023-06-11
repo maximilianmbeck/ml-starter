@@ -73,7 +73,11 @@ from ml.utils.parallel import parallel_group_info
 
 class _ModelParallelCopy(torch.autograd.Function):
     @staticmethod
-    def forward(ctx: FunctionCtx, x: Tensor, op: Any) -> Tensor:  # type: ignore[override]
+    def forward(  # type: ignore[override]
+        ctx: FunctionCtx,
+        x: Tensor,
+        op: Any,  # noqa: ANN401
+    ) -> Tensor:
         ctx.op = op
         return x
 
@@ -82,7 +86,7 @@ class _ModelParallelCopy(torch.autograd.Function):
         return parallel_group_info().mp.reduce(grad, op=ctx.op), None
 
 
-def mp_copy(x: Tensor, op: Any = ReduceOp.SUM) -> Tensor:
+def mp_copy(x: Tensor, op: Any = ReduceOp.SUM) -> Tensor:  # noqa: ANN401
     """Copies the input to the model parallel region.
 
     Forward this is a no-op, but backward it reduces the gradient across
@@ -100,7 +104,11 @@ def mp_copy(x: Tensor, op: Any = ReduceOp.SUM) -> Tensor:
 
 class _ModelParallelReduce(torch.autograd.Function):
     @staticmethod
-    def forward(ctx: FunctionCtx, x: Tensor, op: Any) -> Tensor:  # type: ignore[override]
+    def forward(  # type: ignore[override]
+        ctx: FunctionCtx,
+        x: Tensor,
+        op: Any,  # noqa: ANN401
+    ) -> Tensor:
         ctx.mark_dirty(x)
         return parallel_group_info().mp.reduce(x, op=op)
 
@@ -109,7 +117,7 @@ class _ModelParallelReduce(torch.autograd.Function):
         return grad, None
 
 
-def mp_reduce(x: Tensor, op: Any = ReduceOp.SUM) -> Tensor:
+def mp_reduce(x: Tensor, op: Any = ReduceOp.SUM) -> Tensor:  # noqa: ANN401
     """Reduces the input from the model parallel region.
 
     Forward this reduces the input across model parallel replicas (i.e., it is

@@ -5,7 +5,7 @@ from typing import Any
 from omegaconf import MISSING, Container, OmegaConf
 
 
-def is_missing(cfg: Any, key: str) -> bool:
+def is_missing(cfg: Any, key: str) -> bool:  # noqa: ANN401
     """Utility function for checking if a config key is missing.
 
     This is for cases when you are using a raw dataclass rather than an

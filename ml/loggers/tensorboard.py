@@ -44,7 +44,7 @@ T = TypeVar("T")
 WRITE_PROC_TEXT_EVERY_N_SECONDS: int = 60 * 2
 
 
-def format_as_string(value: Any) -> str:
+def format_as_string(value: Any) -> str:  # noqa: ANN401
     if isinstance(value, str):
         return value
     if isinstance(value, Tensor):

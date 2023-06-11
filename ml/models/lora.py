@@ -86,7 +86,7 @@ def _lora_post_hook(module: "_Lora", incompatible_keys: _IncompatibleKeys) -> No
 
 
 class _Lora(nn.Module):
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
         super().__init__(*args, **kwargs)
 
         # This allows modules to use LoRA layers as drop-in replacements for
