@@ -3,8 +3,8 @@
 This file provides helper methods for reading and writing compressed datasets
 of tokens. This compresses the tokens into ``ceil(log2(num_tokens))`` bits per
 token, with padding at the end of each line to ensure that each line is a
-multiple of 8 bits. It also optionally compresses each line independently using
-zlib.
+multiple of 8 bits. This optimizes for making the file size as small as
+possible while still being efficient to read from.
 
 Here's an example of how to use the API:
 
