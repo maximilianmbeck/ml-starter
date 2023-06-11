@@ -12,9 +12,13 @@ def test_arr_to_bytes_to_arr() -> None:
     values = [1, 2, 3, 4, 5, 6, 7]
     assert _bytes_to_arr(_arr_to_bytes(values, 100), len(values), 100) == values
 
-    values = [1, 2, 3, 4, 5, 253, 254]
+    values += [253, 254]
     assert _bytes_to_arr(_arr_to_bytes(values, 255), len(values), 255) == values
+
+    values += [510, 511]
     assert _bytes_to_arr(_arr_to_bytes(values, 512), len(values), 512) == values
+
+    values += [50_000, 99_999]
     assert _bytes_to_arr(_arr_to_bytes(values, 100_000), len(values), 100_000) == values
 
 
@@ -57,3 +61,5 @@ def test_read_write(num_tokens: int, compressed: bool, use_offsets_file: bool, t
     assert reader[1, 3:101] == all_tokens[1][3:]
     assert reader[2, :5] == all_tokens[2][:5]
     assert reader[3, 5:] == all_tokens[3][5:]
+    assert reader[4, :-5] == all_tokens[4][:-5]
+    assert reader[5, -5:] == all_tokens[5][-5:]
