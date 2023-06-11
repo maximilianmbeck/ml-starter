@@ -34,10 +34,23 @@ in the dataset:
 .. code-block:: python
 
     reader = TokenReader(file_path, offsets_path="/path/to/offsets.bin")
+
+You can also read some subset of the tokens in a line using slicing syntax.
+This syntax will only read the required tokens from the file, rather than
+reading the entire line and then slicing it. Here is an example:
+
+.. highlight:: python
+.. code-block:: python
+
+    reader = TokenReader(file_path)
+    print(reader[0])  # Prints the first line.
+    print(reader[0, 1:3])  # Prints the first line, but only the second and third tokens.
 """
 
+import functools
 import gzip
 import logging
+import math
 import struct
 from pathlib import Path
 from typing import BinaryIO, Literal, Sequence
@@ -65,16 +78,21 @@ def _arr_to_bytes(tokens: Sequence[int], num_tokens: int) -> bytes:
     return bytes(byte_arr)
 
 
-def _bytes_to_arr(data: bytes, num_tokens: int) -> list[int]:
+def _bytes_to_arr(data: bytes, seq_len: int, num_tokens: int, offset: int = 0) -> list[int]:
     num_bits = (num_tokens - 1).bit_length()
     arr: list[int] = []
     cur_token = ""
     for byte in data:
         cur_token += f"{byte:08b}"
+        if offset != 0:
+            cur_token = cur_token[offset:]
+            offset = 0
         while len(cur_token) >= num_bits:
             arr.append(int(cur_token[:num_bits], 2))
+            if len(arr) == seq_len:
+                return arr
             cur_token = cur_token[num_bits:]
-    return arr
+    raise ValueError("Not enough bytes to fill sequence")
 
 
 class TokenWriter:
@@ -144,8 +162,7 @@ class TokenWriter:
         byte_data = _arr_to_bytes(tokens, self._num_tokens)
 
         # Writes the binary data
-        num_bytes = len(byte_data)
-        self._fp.write(struct.pack(self._lengths_fmt, num_bytes))
+        self._fp.write(struct.pack(self._lengths_fmt, len(tokens)))
         self._fp.write(byte_data)
 
 
@@ -164,7 +181,7 @@ class TokenReader:
 
     def __init__(self, path: str | Path, offsets_path: str | Path | None) -> None:
         self._path = Path(path)
-        self._offests_path = Path(offsets_path) if offsets_path is not None else None
+        self._offsets_path = Path(offsets_path) if offsets_path is not None else None
 
         # Check the magic number against GZIP magic number to determine if
         # the file is compressed.
@@ -181,43 +198,105 @@ class TokenReader:
             self._offset_fmt = fmt_strings[2]
             self._num_tokens = struct.unpack(self._num_tokens_fmt, f.read(struct.calcsize(self._num_tokens_fmt)))[0]
 
-            def read_offsets() -> list[int]:
+            self._lengths_fmt_size = struct.calcsize(self._lengths_fmt)
+
+            def read_offsets() -> tuple[list[int], int]:
                 offsets: list[int] = []
                 while True:
                     offset = f.tell()
-                    if (len_bytes := f.read(struct.calcsize(self._lengths_fmt))) is None or len(len_bytes) == 0:
+                    if (sq_bytes := f.read(self._lengths_fmt_size)) is None or len(sq_bytes) == 0:
                         break
                     offsets.append(offset)
-                    len_int = struct.unpack(self._lengths_fmt, len_bytes)[0]
-                    f.seek(len_int, 1)
-                return offsets
+                    seq_len_int = struct.unpack(self._lengths_fmt, sq_bytes)[0]
+                    f.seek((seq_len_int * self.bits_per_token + 7) // 8, 1)
+                return offsets, f.tell()
 
-            if self._offests_path is not None:
-                if self._offests_path.exists():
-                    with open(self._offests_path, "rb") as ofr:
+            if self._offsets_path is not None:
+                if self._offsets_path.exists():
+                    with open(self._offsets_path, "rb") as ofr:
                         magic = ofr.read(len(OFFSET_MAGIC))
                         if magic != OFFSET_MAGIC:
                             raise ValueError("Invalid offsets file")
+                        offset_num_bytes = struct.calcsize(self._offset_fmt)
+                        self._total_length = struct.unpack(self._offset_fmt, ofr.read(offset_num_bytes))[0]
                         num_offsets_bytes = ofr.read(struct.calcsize(self._num_tokens_fmt))
                         num_offsets = struct.unpack(self._num_tokens_fmt, num_offsets_bytes)[0]
-                        of_bytes = ofr.read(num_offsets * struct.calcsize(self._offset_fmt))
+                        of_bytes = ofr.read(num_offsets * offset_num_bytes)
                         self._offsets = list(struct.unpack(f"{num_offsets}{self._offset_fmt}", of_bytes))
                 else:
-                    self._offsets = read_offsets()
-                    with open(self._offests_path, "wb") as ofw:
+                    self._offsets, self._total_length = read_offsets()
+                    with open(self._offsets_path, "wb") as ofw:
                         ofw.write(OFFSET_MAGIC)
+                        ofw.write(struct.pack(self._offset_fmt, self._total_length))
                         ofw.write(struct.pack(self._num_tokens_fmt, len(self._offsets)))
                         ofw.write(struct.pack(f"{len(self._offsets)}{self._offset_fmt}", *self._offsets))
             else:
-                self._offsets = read_offsets()
+                self._offsets, self._total_length = read_offsets()
+
+    @functools.cached_property
+    def bits_per_token(self) -> int:
+        return math.ceil(math.log2(self._num_tokens))
+
+    def byte_length(self, index: int) -> int:
+        start = self._offsets[index]
+        end = self._offsets[index + 1] if (index + 1) < len(self._offsets) else self._total_length
+        return end - start
+
+    def length(self, index: int) -> int:
+        return ((self.byte_length(index) - self._lengths_fmt_size) * 8) // self.bits_per_token
+
+    @property
+    def byte_lengths(self) -> list[int]:
+        return [self.byte_length(i) for i in range(len(self._offsets))]
+
+    @property
+    def lengths(self) -> list[int]:
+        return [self.length(i) for i in range(len(self._offsets))]
+
+    @property
+    def offsets(self) -> list[int]:
+        return self._offsets
 
     def __len__(self) -> int:
         return len(self._offsets)
 
-    def __getitem__(self, index: int) -> list[int]:
-        offset = self._offsets[index]
-        with gzip.open(self._path, "rb") if self._compressed else open(self._path, "rb") as f:
-            f.seek(offset)
-            num_bytes = struct.unpack(self._lengths_fmt, f.read(struct.calcsize(self._lengths_fmt)))[0]
-            byte_data = f.read(num_bytes)
-        return _bytes_to_arr(byte_data, self._num_tokens)
+    def __getitem__(self, index: int | tuple[int, slice]) -> list[int]:
+        if isinstance(index, int):
+            offset = self._offsets[index]
+            with gzip.open(self._path, "rb") if self._compressed else open(self._path, "rb") as f:
+                f.seek(offset + self._lengths_fmt_size)
+                seq_len = self.length(index)
+                byte_data = f.read((seq_len * self.bits_per_token + 7) // 8)
+            return _bytes_to_arr(byte_data, seq_len, self._num_tokens)
+
+        if isinstance(index, tuple) and len(index) == 2 and isinstance(index[0], int) and isinstance(index[1], slice):
+            index, seq_slice = index
+            offset = self._offsets[index]
+            seq_len = self.length(index)
+
+            def make_positive(n: int) -> int:
+                return min(n if n >= 0 else n + seq_len, seq_len)
+
+            # Breaks down the slice into start, stop, and step.
+            start = 0 if seq_slice.start is None else make_positive(seq_slice.start)
+            stop = seq_len if seq_slice.stop is None else make_positive(seq_slice.stop)
+            if seq_slice.step is not None:
+                raise ValueError("step is not supported")
+
+            with gzip.open(self._path, "rb") if self._compressed else open(self._path, "rb") as f:
+                f.seek(offset + self._lengths_fmt_size)
+
+                # Moves file pointer to the starting position.
+                start_bit = start * self.bits_per_token
+                start_byte, start_offset = start_bit // 8, start_bit % 8
+                f.seek(start_byte, 1)
+
+                # Reads until the ending.
+                end_byte = (stop * self.bits_per_token + 7) // 8
+
+                # Reads the data.
+                byte_data = f.read(end_byte - start_byte)
+
+            return _bytes_to_arr(byte_data, stop - start, self._num_tokens, offset=start_offset)
+
+        raise TypeError("Index must be an integer or a tuple of an integer and a slice")

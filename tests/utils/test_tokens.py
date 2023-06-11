@@ -9,10 +9,13 @@ from ml.utils.tokens import TokenReader, TokenWriter, _arr_to_bytes, _bytes_to_a
 
 
 def test_arr_to_bytes_to_arr() -> None:
+    values = [1, 2, 3, 4, 5, 6, 7]
+    assert _bytes_to_arr(_arr_to_bytes(values, 100), len(values), 100) == values
+
     values = [1, 2, 3, 4, 5, 253, 254]
-    assert _bytes_to_arr(_arr_to_bytes(values, 255), 255) == values
-    assert _bytes_to_arr(_arr_to_bytes(values, 512), 512) == values
-    assert _bytes_to_arr(_arr_to_bytes(values, 100_000), 100_000) == values
+    assert _bytes_to_arr(_arr_to_bytes(values, 255), len(values), 255) == values
+    assert _bytes_to_arr(_arr_to_bytes(values, 512), len(values), 512) == values
+    assert _bytes_to_arr(_arr_to_bytes(values, 100_000), len(values), 100_000) == values
 
 
 @pytest.mark.parametrize("num_tokens", [255, 512, 100_000])
@@ -24,9 +27,11 @@ def test_read_write(num_tokens: int, compressed: bool, use_offsets_file: bool, t
 
     # Write the tokens to the dataset.
     all_tokens = []
+    all_token_lengths = []
     with TokenWriter(file_path, num_tokens, compressed=compressed) as writer:
         for _ in range(10):
-            token_length = random.randint(1, 100)
+            token_length = random.randint(10, 100)
+            all_token_lengths.append(token_length)
             tokens = [random.randint(0, num_tokens - 1) for _ in range(token_length)]
             all_tokens.append(tokens)
             writer.write(tokens)
@@ -44,3 +49,11 @@ def test_read_write(num_tokens: int, compressed: bool, use_offsets_file: bool, t
     assert num_samples == len(all_tokens)
     for i in range(num_samples):
         assert reader[i] == all_tokens[i]
+
+    # Checks reader properties.
+    assert reader.lengths == all_token_lengths
+
+    # Checks reading a subset of an index.
+    assert reader[1, 3:101] == all_tokens[1][3:]
+    assert reader[2, :5] == all_tokens[2][:5]
+    assert reader[3, 5:] == all_tokens[3][5:]
