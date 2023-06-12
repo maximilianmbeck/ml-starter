@@ -154,6 +154,7 @@ def ensure_downloaded(
     md5: str | None = None,
     sha256: str | None = None,
     is_tmp: bool = False,
+    use_tqdm: bool = True,
 ) -> Path:
     """Ensures that a checkpoint URL has been downloaded.
 
@@ -167,6 +168,7 @@ def ensure_downloaded(
         md5: The MD5 hash of the file, if known.
         sha256: The SHA256 hash of the file, if known.
         is_tmp: If set, use ``tmp/`` instead of ``get_model_dir()``
+        use_tqdm: Whether to use tqdm to show download progress.
 
     Returns:
         The path to the downloaded file.
@@ -176,7 +178,11 @@ def ensure_downloaded(
     for dname in dnames:
         filepath = filepath / dname
     (root := filepath.parent).mkdir(parents=True, exist_ok=True)
-    if not filepath.exists() or not check_sha256(filepath, sha256) or not check_md5(filepath, md5):
+    if (
+        not filepath.exists()
+        or not check_sha256(filepath, sha256, use_tqdm=use_tqdm)
+        or not check_md5(filepath, md5, use_tqdm=use_tqdm)
+    ):
         download_url(url, root=root, filename=filepath.name, md5=md5)
         assert filepath.is_file(), f"Failed to download {url} to {filepath}"
     return filepath
