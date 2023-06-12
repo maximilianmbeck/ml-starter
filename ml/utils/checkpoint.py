@@ -25,6 +25,8 @@ from ml.utils.timer import Timer
 
 logger = logging.getLogger(__name__)
 
+USER_AGENT = "ml-starter"
+
 T = TypeVar("T")
 
 
@@ -155,6 +157,7 @@ def ensure_downloaded(
     sha256: str | None = None,
     is_tmp: bool = False,
     use_tqdm: bool = True,
+    recheck_hash: bool = False,
 ) -> Path:
     """Ensures that a checkpoint URL has been downloaded.
 
@@ -169,6 +172,8 @@ def ensure_downloaded(
         sha256: The SHA256 hash of the file, if known.
         is_tmp: If set, use ``tmp/`` instead of ``get_model_dir()``
         use_tqdm: Whether to use tqdm to show download progress.
+        recheck_hash: Whether to recheck the hash of the file if it already
+            exists.
 
     Returns:
         The path to the downloaded file.
@@ -178,13 +183,34 @@ def ensure_downloaded(
     for dname in dnames:
         filepath = filepath / dname
     (root := filepath.parent).mkdir(parents=True, exist_ok=True)
-    if (
-        not filepath.exists()
-        or not check_sha256(filepath, sha256, use_tqdm=use_tqdm)
-        or not check_md5(filepath, md5, use_tqdm=use_tqdm)
-    ):
-        download_url(url, root=root, filename=filepath.name, md5=md5)
+
+    def check_hashes() -> bool:
+        return (
+            filepath.is_file()
+            and check_sha256(filepath, sha256, use_tqdm=use_tqdm)
+            and check_md5(filepath, md5, use_tqdm=use_tqdm)
+        )
+
+    def download_file() -> None:
+        download_url(url, root=root, filename=filepath.name)
         assert filepath.is_file(), f"Failed to download {url} to {filepath}"
+        if not check_hashes():
+            filepath.unlink()
+            raise RuntimeError(f"Hashes for {url} do not match")
+
+    # If the file does not exist, download it and check the hashes.
+    if not filepath.exists():
+        download_file()
+
+    # By default, assume the downloaded file hash is correct.
+    if not recheck_hash:
+        return filepath
+
+    # Check the file hashes again, to ensure the file was not corrupted.
+    if not check_hashes():
+        filepath.unlink()
+        download_file()
+
     return filepath
 
 
