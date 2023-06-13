@@ -142,8 +142,16 @@ class Lion(Optimizer):
 class LionOptimizerConfig(BaseOptimizerConfig):
     lr: float = conf_field(1e-4, help="Learning rate.")
     betas: tuple[float, float] = conf_field((0.9, 0.99), help="Beta coefficients.")
-    weight_decay: float = conf_field(0.0, help="Weight decay.")
-    use_triton: bool = conf_field(False, help="Whether to use Triton for faster updates.")
+    weight_decay: float = conf_field(1e-2, help="Weight decay.")
+    use_triton: bool = conf_field(True, help="Whether to use Triton for faster updates.")
+
+    @classmethod
+    def get_defaults(cls) -> dict[str, "LionOptimizerConfig"]:
+        return {
+            "lion-stable": LionOptimizerConfig(
+                betas=(0.95, 0.98),
+            ),
+        }
 
 
 @register_optimizer("lion", LionOptimizerConfig)
