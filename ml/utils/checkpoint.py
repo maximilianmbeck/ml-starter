@@ -25,8 +25,6 @@ from ml.utils.timer import Timer
 
 logger = logging.getLogger(__name__)
 
-USER_AGENT = "ml-starter"
-
 T = TypeVar("T")
 
 
