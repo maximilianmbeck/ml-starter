@@ -29,14 +29,15 @@ def test_video_read_write(reader: Reader, writer: Writer, tmpdir: Path) -> None:
     assert stereo_props.channels == 2
     assert stereo_props.sample_rate == 16_000
 
-    mono_chunk = next(read_audio(mono_fpath, reader=reader, chunk_length=2048))
-    stereo_chunk = next(read_audio(stereo_fpath, reader=reader, chunk_length=2048))
+    mono_chunk = next(read_audio(mono_fpath, reader=reader, chunk_length=2048, sampling_rate=8_000))
+    stereo_chunk = next(read_audio(stereo_fpath, reader=reader, chunk_length=2048, sampling_rate=8_000))
     assert mono_chunk.shape == (1, 2048)
     assert stereo_chunk.shape == (2, 2048)
 
     # Checks that the audio is monotonically increasing, mostly.
-    assert (np.diff(mono_chunk) <= 0).sum() <= 2
-    assert (np.diff(stereo_chunk) <= 0).sum() <= 2
+    # This calculation is thrown off because of the sampling rate change.
+    assert (np.diff(mono_chunk) <= 0).sum() <= 100
+    assert (np.diff(stereo_chunk) <= 0).sum() <= 100
 
 
 if __name__ == "__main__":

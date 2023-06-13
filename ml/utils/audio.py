@@ -82,7 +82,10 @@ def read_audio_av(in_file: str | Path) -> Iterator[np.ndarray]:
     stream = container.streams.audio[0]
 
     for frame in container.decode(stream):
-        yield frame.to_ndarray().reshape(-1, props.channels).T
+        frame_np = frame.to_ndarray().reshape(-1, props.channels).T
+        if frame_np.dtype == np.int16:
+            frame_np = frame_np.astype(np.float32) / 2**15
+        yield frame_np
 
 
 def read_audio_ffmpeg(in_file: str | Path, *, chunk_size: int = 16_000) -> Iterator[np.ndarray]:
@@ -244,19 +247,19 @@ def read_audio(
 ) -> Iterator[np.ndarray]:
     """Function that reads a stream of audio from a file.
 
-    The audio is expected to be in the range (-1, 1).
+    The output audio is in ``float32`` format.
 
     Args:
         in_file: Path to the input file.
-        chunk_length: Size of the chunks to read. If `None`, will iterate
+        chunk_length: Size of the chunks to read. If ``None``, will iterate
             whatever chunk size the underlying reader uses. Otherwise, samples
             will be rechunked to the desired size.
-        sampling_rate: Sampling rate to resample the audio to. If `None`, will
-            use the sampling rate of the input audio.
-        reader: Reader to use. Can be either `ffmpeg` or `av`.
+        sampling_rate: Sampling rate to resample the audio to. If ``None``,
+            will use the sampling rate of the input audio.
+        reader: Reader to use. Can be either ``ffmpeg`` or ``av``.
 
     Returns:
-        Iterator over numpy arrays, with shape (n_channels, n_samples).
+        Iterator over numpy arrays, with shape ``(n_channels, n_samples)``.
     """
     if reader == "ffmpeg":
         if not shutil.which("ffmpeg"):
