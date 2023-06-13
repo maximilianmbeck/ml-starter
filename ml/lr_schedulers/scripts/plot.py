@@ -10,8 +10,6 @@ This script can be used as follows:
 import argparse
 from pathlib import Path
 
-import matplotlib.pyplot as plt
-
 from ml.core.registry import register_lr_scheduler
 from ml.core.state import State
 from ml.utils.argparse import add_args, from_args
@@ -19,6 +17,11 @@ from ml.utils.argparse import add_args, from_args
 
 def main() -> None:
     """Plots a learning rate schedule."""
+    try:
+        import matplotlib.pyplot as plt
+    except ImportError as e:
+        raise ImportError("Please install matplotlib to use this script: `pip install matplotlib`") from e
+
     # Gets the plotting-specific arguments.
     parser = argparse.ArgumentParser(description="Plots a learning rate schedule")
     parser.add_argument("lr_scheduler", help="Which scheduler to plot")

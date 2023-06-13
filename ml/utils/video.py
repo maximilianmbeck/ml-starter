@@ -16,6 +16,7 @@ This just uses FFMPEG so it should be reasonably quick.
 """
 
 import asyncio
+import functools
 import re
 import shutil
 import warnings
@@ -25,14 +26,47 @@ from pathlib import Path
 from typing import AsyncGenerator, Iterator, Literal
 
 import av
-import cv2
-import ffmpeg
-import matplotlib.animation as ani
-import matplotlib.pyplot as plt
 import numpy as np
+import torchvision.transforms.functional as F
 from torch import Tensor
 
 from ml.utils.image import as_uint8, standardize_image
+
+
+@functools.lru_cache()
+def ffmpeg_python_available() -> bool:
+    try:
+        import ffmpeg
+
+        assert ffmpeg is not None  # Silence unused import warning
+    except ImportError:
+        return False
+    else:
+        return True
+
+
+@functools.lru_cache()
+def mpl_available() -> bool:
+    try:
+        import matplotlib
+
+        assert matplotlib is not None  # Silence unused import warning
+    except ImportError:
+        return False
+    else:
+        return True
+
+
+@functools.lru_cache()
+def cv2_available() -> bool:
+    try:
+        import cv2
+
+        assert cv2 is not None  # Silence unused import warning
+    except ImportError:
+        return False
+    else:
+        return True
 
 
 @dataclass
@@ -43,7 +77,24 @@ class VideoProps:
     fps: Fraction
 
     @classmethod
+    def from_file_av(cls, fpath: str | Path) -> "VideoProps":
+        container = av.open(str(fpath))
+        stream = container.streams.video[0]
+
+        return cls(
+            frame_width=stream.width,
+            frame_height=stream.height,
+            frame_count=stream.frames,
+            fps=Fraction(stream.average_rate),
+        )
+
+    @classmethod
     def from_file_opencv(cls, fpath: str | Path) -> "VideoProps":
+        try:
+            import cv2
+        except ImportError as e:
+            raise ImportError("Please install OpenCV to use this function: `pip install opencv-python`") from e
+
         cap = cv2.VideoCapture(str(fpath))
 
         return cls(
@@ -55,6 +106,11 @@ class VideoProps:
 
     @classmethod
     def from_file_ffmpeg(cls, fpath: str | Path) -> "VideoProps":
+        try:
+            import ffmpeg
+        except ImportError as e:
+            raise ImportError("Please install matplotlib to use this function: `pip install ffmpeg-python`") from e
+
         probe = ffmpeg.probe(str(fpath))
 
         for stream in probe["streams"]:
@@ -90,7 +146,7 @@ def read_video_av(
     for frame in container.decode(video=0):
         frame = frame.to_rgb().to_ndarray()
         if target_dims is not None:
-            frame = cv2.resize(frame, target_dims[::-1])
+            frame = F.resize(frame, target_dims[::-1])
         yield as_uint8(frame)
 
 
@@ -110,6 +166,11 @@ def read_video_ffmpeg(
     Yields:
         Frames from the video as numpy arrays with shape (H, W, C)
     """
+    try:
+        import ffmpeg
+    except ImportError as e:
+        raise ImportError("Please install matplotlib to use this function: `pip install ffmpeg-python`") from e
+
     props = VideoProps.from_file_ffmpeg(in_file)
 
     stream = ffmpeg.input(str(in_file))
@@ -146,6 +207,11 @@ async def read_video_with_timestamps_ffmpeg(
         Frames from the video as numpy arrays with shape (H, W, C), along with
         the frame timestamps
     """
+    try:
+        import ffmpeg
+    except ImportError as e:
+        raise ImportError("Please install matplotlib to use this function: `pip install ffmpeg-python`") from e
+
     props = VideoProps.from_file_ffmpeg(in_file)
 
     def aspect_ratio(x: int, a: int, b: int) -> int:
@@ -213,6 +279,11 @@ def read_video_opencv(in_file: str | Path) -> Iterator[np.ndarray]:
     Yields:
         Frames from the video as numpy arrays with shape (H, W, C)
     """
+    try:
+        import cv2
+    except ImportError as e:
+        raise ImportError("Please install OpenCV to use this function: `pip install opencv-python`") from e
+
     cap = cv2.VideoCapture(str(in_file))
 
     while True:
@@ -242,6 +313,11 @@ def write_video_opencv(
         codec: FourCC code specifying OpenCV video codec type. Examples are
             MPEG, MP4V, DIVX, AVC1, H236.
     """
+    try:
+        import cv2
+    except ImportError as e:
+        raise ImportError("Please install OpenCV to use this function: `pip install opencv-python`") from e
+
     Path(out_file).parent.mkdir(exist_ok=True, parents=True)
 
     first_img = standardize_image(next(itr), keep_resolution=keep_resolution)
@@ -332,6 +408,11 @@ def write_video_ffmpeg(
         input_fmt: The input image format
         output_fmt: The output image format
     """
+    try:
+        import ffmpeg
+    except ImportError as e:
+        raise ImportError("Please install matplotlib to use this function: `pip install ffmpeg-python`") from e
+
     Path(out_file).parent.mkdir(exist_ok=True, parents=True)
 
     first_img = standardize_image(next(itr), keep_resolution=keep_resolution)
@@ -380,6 +461,12 @@ def write_video_matplotlib(
             default one, make sure you have `ffmpeg` installed on your
             system).
     """
+    try:
+        import matplotlib.animation as ani
+        import matplotlib.pyplot as plt
+    except ImportError as e:
+        raise ImportError("Please install matplotlib to use this function: `pip install matplotlib`") from e
+
     Path(out_file).parent.mkdir(exist_ok=True, parents=True)
 
     first_img = standardize_image(next(itr), keep_resolution=keep_resolution)
@@ -421,7 +508,31 @@ Reader = Literal["ffmpeg", "av", "opencv"]
 Writer = Literal["ffmpeg", "matplotlib", "av", "opencv"]
 
 
-def read_video(in_file: str | Path, *, reader: Reader = "ffmpeg") -> Iterator[np.ndarray]:
+def get_video_props(in_file: str | Path, *, reader: Reader = "av") -> VideoProps:
+    if reader == "ffmpeg":
+        if not shutil.which("ffmpeg"):
+            warnings.warn("FFMPEG is not available in this system.")
+            reader = "av"
+        elif not ffmpeg_python_available():
+            warnings.warn("FFMPEG Python is not installed; install with `pip install ffmpeg-python`")
+            reader = "av"
+        else:
+            return VideoProps.from_file_ffmpeg(in_file)
+
+    if reader == "opencv":
+        if not cv2_available():
+            warnings.warn("OpenCV is not installed; install with `pip install opencv-python`")
+            reader = "av"
+        else:
+            return VideoProps.from_file_opencv(in_file)
+
+    if reader == "av":
+        return VideoProps.from_file_av(in_file)
+
+    raise ValueError(f"Unknown reader {reader}")
+
+
+def read_video(in_file: str | Path, *, reader: Reader = "av") -> Iterator[np.ndarray]:
     """Function that reads a video from a file to a stream of Numpy arrays.
 
     Args:
@@ -435,14 +546,21 @@ def read_video(in_file: str | Path, *, reader: Reader = "ffmpeg") -> Iterator[np
         if not shutil.which("ffmpeg"):
             warnings.warn("FFMPEG is not available in the system.")
             reader = "av"
+        elif not ffmpeg_python_available():
+            warnings.warn("FFMPEG Python is not installed; install with `pip install ffmpeg-python`")
+            reader = "av"
         else:
             return read_video_ffmpeg(in_file)
 
+    if reader == "opencv":
+        if not cv2_available():
+            warnings.warn("OpenCV is not installed; install with `pip install opencv-python`")
+            reader = "av"
+        else:
+            return read_video_opencv(in_file)
+
     if reader == "av":
         return read_video_av(in_file)
-
-    if reader == "opencv":
-        return read_video_opencv(in_file)
 
     raise ValueError(f"Invalid reader: {reader}")
 
@@ -453,7 +571,7 @@ def write_video(
     *,
     fps: int | Fraction = 30,
     keep_resolution: bool = False,
-    writer: Writer = "ffmpeg",
+    writer: Writer = "av",
 ) -> None:
     """Function that writes an video from a stream of input tensors.
 
@@ -472,6 +590,9 @@ def write_video(
         if not shutil.which("ffmpeg"):
             warnings.warn("FFMPEG is not available in the system.")
             writer = "av"
+        elif not ffmpeg_python_available():
+            warnings.warn("FFMPEG Python is not installed; install with `pip install ffmpeg-python`")
+            writer = "av"
         else:
             write_video_ffmpeg(itr, out_file, fps=fps, keep_resolution=keep_resolution)
             return
@@ -480,16 +601,23 @@ def write_video(
         if not shutil.which("ffmpeg"):
             warnings.warn("FFMPEG is not available in the system.")
             writer = "av"
+        elif not mpl_available():
+            warnings.warn("Matplotlib is not available in the system.")
+            writer = "av"
         else:
             write_video_matplotlib(itr, out_file, fps=fps, keep_resolution=keep_resolution)
             return
 
+    if writer == "opencv":
+        if not cv2_available():
+            warnings.warn("OpenCV is not installed; install with `pip install opencv-python`")
+            writer = "av"
+        else:
+            write_video_opencv(itr, out_file, fps=fps, keep_resolution=keep_resolution)
+            return
+
     if writer == "av":
         write_video_av(itr, out_file, fps=fps, keep_resolution=keep_resolution)
-        return
-
-    if writer == "opencv":
-        write_video_opencv(itr, out_file, fps=fps, keep_resolution=keep_resolution)
         return
 
     raise ValueError(f"Invalid writer: {writer}")

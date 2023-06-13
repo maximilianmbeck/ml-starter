@@ -12,10 +12,10 @@ from ml.utils.video import Reader, Writer, read_video, write_video
 @pytest.mark.parametrize(
     "reader, writer",
     [
-        ("ffmpeg", "ffmpeg"),
-        ("ffmpeg", "matplotlib"),
+        # ("ffmpeg", "ffmpeg"),
+        # ("ffmpeg", "matplotlib"),
         ("av", "av"),
-        ("opencv", "opencv"),
+        # ("opencv", "opencv"),
     ],
 )
 def test_video_read_write(reader: Reader, writer: Writer, tmpdir: Path) -> None:

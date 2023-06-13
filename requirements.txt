@@ -1,13 +1,11 @@
 # requirements.txt
 
 av
-ffmpeg-python
-matplotlib
 numpy
 omegaconf
-opencv-python
 psutil
 tensorboard
 torch>=2.0.0
+torchaudio
 torchvision
 tqdm
