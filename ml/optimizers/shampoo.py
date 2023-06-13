@@ -27,15 +27,25 @@ def _matrix_power(matrix: Tensor, power: float) -> Tensor:
 class Shampoo(Optimizer):
     r"""Implements Shampoo Optimizer Algorithm.
 
-    This is taken from the `pytorch-optimizer` package.
+    This is taken from the ``pytorch-optimizer`` package.
 
-    It has been proposed in `Shampoo: Preconditioned Stochastic Tensor
-    Optimization`.
+    .. highlight:: python
+    .. code-block:: python
 
-    NOTE: This is *not* an implementation of the later paper, `Scalable Second
-    Order Optimization for Deep Learning`, which is becoming more popular.
+        import torch_optimizer as optim
+        optimizer = optim.Shampoo(model.parameters(), lr=0.01)
+        optimizer.zero_grad()
+        loss_fn(model(input), target).backward()
+        optimizer.step()
 
-    Arguments:
+    It has been proposed in ``Shampoo: Preconditioned Stochastic Tensor
+    Optimization``.
+
+    .. note::
+        This is *not* an implementation of the later paper, ``Scalable Second
+        Order Optimization for Deep Learning``, which is becoming more popular.
+
+    Parameters:
         params: iterable of parameters to optimize or dicts defining
             parameter groups
         lr: learning rate (default: 1e-3)
@@ -45,14 +55,7 @@ class Shampoo(Optimizer):
             (default: 1e-4)
         update_freq: update frequency to compute inverse (default: 1)
 
-    Example:
-        >>> import torch_optimizer as optim
-        >>> optimizer = optim.Shampoo(model.parameters(), lr=0.01)
-        >>> optimizer.zero_grad()
-        >>> loss_fn(model(input), target).backward()
-        >>> optimizer.step()
-
-    Note:
+    .. note::
         Reference code: https://github.com/moskomule/shampoo.pytorch
     """
 
@@ -109,6 +112,7 @@ class Shampoo(Optimizer):
                 state = self.state[p]
                 momentum = group["momentum"]
                 weight_decay = group["weight_decay"]
+
                 if len(state) == 0:
                     state["step"] = 0
                     if momentum > 0:
