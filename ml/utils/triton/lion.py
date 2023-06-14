@@ -21,7 +21,7 @@ def update_fn_kernel(  # type: ignore[no-untyped-def]
     n_elements,
     BLOCK_SIZE: tl.constexpr,
 ):
-    b_idx = tl.program_id(axis=0)
+    b_idx = tl.program_id(0)
 
     block_start = b_idx * BLOCK_SIZE
     offsets = block_start + tl.arange(0, BLOCK_SIZE)

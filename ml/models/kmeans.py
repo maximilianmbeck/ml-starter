@@ -4,9 +4,38 @@ This is used to apply K-Means clusters to a tensor. This module can be used
 with cluster centers found via Scikit-Learn, Faiss, or other libraries.
 """
 
+import logging
+from typing import Callable
+
 import numpy as np
 import torch
 from torch import Tensor, nn
+
+logger = logging.getLogger(__name__)
+
+
+def _vanilla_kmeans(x: Tensor, centers: Tensor, centers_norm: Tensor) -> Tensor:
+    # Equivalent code:
+    # dist = torch.norm(x[..., None, :] - centers, p=2, dim=-1)
+    # return dist.argmin(dim=-1)
+    x_norm = (x**2).sum(-1)
+    dist = x_norm[..., None] - (2 * (x @ centers.transpose(0, 1))) + centers_norm
+    # Absolute value is required here because sometimes the distance
+    # can be negative due to numerical instability.
+    return dist.abs().argmin(dim=-1)
+
+
+def kmeans_fn(use_triton: bool) -> Callable[[Tensor, Tensor, Tensor], Tensor]:
+    if torch.cuda.is_available() and use_triton:
+        try:
+            from ml.utils.triton.kmeans import kmeans as triton_kmeans_fn
+
+            return triton_kmeans_fn
+
+        except ImportError:
+            logger.warning("Triton is not installed. Using vanilla Lion update function.")
+
+    return _vanilla_kmeans
 
 
 class KMeans(nn.Module):
@@ -15,7 +44,7 @@ class KMeans(nn.Module):
     centers: Tensor
     centers_norm: Tensor
 
-    def __init__(self, centers: Tensor | np.ndarray) -> None:
+    def __init__(self, centers: Tensor | np.ndarray, *, use_triton_if_available: bool = True) -> None:
         super().__init__()
 
         n_clusters, n_features = centers.shape
@@ -24,6 +53,7 @@ class KMeans(nn.Module):
         self.register_buffer("centers", torch.empty(n_clusters, n_features))
         self.register_buffer("centers_norm", torch.empty(n_clusters))
         self.load_centers(centers)
+        self.kmeans_fn = kmeans_fn(use_triton_if_available)
 
     def load_centers(self, centers: Tensor | np.ndarray) -> None:
         if isinstance(centers, np.ndarray):
@@ -45,11 +75,4 @@ class KMeans(nn.Module):
         Returns:
             The cluster IDs, with shape ``(*)``
         """
-        # Equivalent code:
-        # dist = torch.norm(x[..., None, :] - self.centers, p=2, dim=-1)
-        # return dist.argmin(dim=-1)
-        x_norm = (x**2).sum(-1)
-        dist = x_norm[..., None] - (2 * (x @ self.centers.transpose(0, 1))) + self.centers_norm[..., None]
-        # Absolute value is required here because sometimes the distance
-        # can be negative due to numerical instability.
-        return dist.abs().argmin(dim=-1)
+        return self.kmeans_fn(x, self.centers, self.centers_norm)
