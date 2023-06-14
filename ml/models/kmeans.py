@@ -1,41 +1,33 @@
 """Defines a distributed K-Means module.
 
-This is used to apply K-Means clusters to a tensor. This can also be used for
-rudimentary learning of clusters.
+This is used to apply K-Means clusters to a tensor. This module can be used
+with cluster centers found via Scikit-Learn, Faiss, or other libraries.
 """
 
 import numpy as np
 import torch
 from torch import Tensor, nn
-from torch.distributed.distributed_c10d import ReduceOp
-
-from ml.utils.parallel import _GroupInfo, default_group_info
 
 
 class KMeans(nn.Module):
     __constants__ = ["n_clusters", "n_features"]
 
     centers: Tensor
-    counts: Tensor
 
-    def __init__(self, n_clusters: int, n_features: int, *, group: _GroupInfo | None = None) -> None:
+    def __init__(self, centers: Tensor | np.ndarray) -> None:
         super().__init__()
 
+        n_clusters, n_features = centers.shape
         self.n_clusters = n_clusters
         self.n_features = n_features
-        self.register_buffer("centers", torch.randn(n_clusters, n_features))
-        self.register_buffer("counts", torch.zeros(n_clusters, dtype=torch.long))
+        self.register_buffer("centers", torch.empty(n_clusters, n_features))
+        self.load_centers(centers)
 
-        self._group_info = default_group_info() if group is None else group
-
-    def load_weight_(self, weight: Tensor | np.ndarray) -> None:
-        if isinstance(weight, np.ndarray):
-            weight = torch.from_numpy(weight)
-        assert weight.shape == self.centers.shape, f"Expected shape {self.centers.shape}, got {weight.shape}"
-        self.centers.copy_(weight.to(self.centers))
-
-    def zero_counts_(self) -> None:
-        self.counts.zero_()
+    def load_centers(self, centers: Tensor | np.ndarray) -> None:
+        if isinstance(centers, np.ndarray):
+            centers = torch.from_numpy(centers)
+        assert centers.shape == self.centers.shape, f"Expected shape {self.centers.shape}, got {centers.shape}"
+        self.centers.copy_(centers.to(self.centers))
 
     def forward(self, x: Tensor) -> Tensor:
         """Applies K-Means to get cluster IDs.
@@ -58,31 +50,3 @@ class KMeans(nn.Module):
         # Absolute value is required here because sometimes the distance
         # can be negative due to numerical instability.
         return dist.abs().argmin(dim=-1)
-
-    def update_(self, x: Tensor, cluster_ids: Tensor) -> None:
-        """Updates the K-Means cluster centers using the cluster IDs.
-
-        Args:
-            x: The input tensor, with shape ``(*, n_features)``
-            cluster_ids: The cluster IDs, with shape ``(*)``
-        """
-        x, cluster_ids = x.flatten(0, -2), cluster_ids.flatten()
-        cluster_ids_x = cluster_ids[..., None].repeat(1, x.shape[-1])
-        clusters, counts = torch.zeros_like(self.centers), torch.zeros_like(self.counts)
-        clusters = torch.scatter_reduce(clusters, 0, cluster_ids_x, x, "sum")
-        counts = torch.scatter_reduce(counts, 0, cluster_ids, torch.ones_like(cluster_ids), "sum")
-
-        # Handles data-parallel updates, to keep clusters in sync everywhere.
-        if self._group_info is not None:
-            clusters_work = self._group_info.reduce(clusters, op=ReduceOp.SUM, async_op=True)
-            counts_work = self._group_info.reduce(counts, op=ReduceOp.SUM, async_op=True)
-            clusters_work.wait()
-            counts_work.wait()
-
-        new_counts = self.counts + counts
-        sigma = (counts / new_counts)[..., None]
-        counts = counts[..., None]
-
-        new_centers = clusters / counts.clamp_min_(1)
-        self.centers.copy_(new_centers * sigma + self.centers * (1 - sigma))
-        self.counts.copy_(new_counts)
