@@ -99,6 +99,7 @@ __all__ = [
     "is_debugging",
     "is_distributed",
     "is_master",
+    "KMeans",
     "launch_subprocesses",
     "LearnedPositionalEmbeddings",
     "load_model_and_task",
@@ -211,6 +212,7 @@ from ml.models.embeddings import (
     get_positional_embeddings,
 )
 from ml.models.init import InitializationType, cast_init_type, init_
+from ml.models.kmeans import KMeans
 from ml.models.lora import (
     LoraConv1d,
     LoraConv2d,
