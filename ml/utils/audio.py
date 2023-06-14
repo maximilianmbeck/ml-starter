@@ -191,8 +191,8 @@ def write_audio_ffmpeg(
     stream.wait()
 
 
-Reader = Literal["ffmpeg", "av", "sf"]
-Writer = Literal["ffmpeg", "av", "sf"]
+Reader = Literal["ffmpeg", "av"]
+Writer = Literal["ffmpeg", "av"]
 
 
 def get_audio_props(in_file: str | Path, *, reader: Reader = "av") -> AudioProps:
