@@ -28,11 +28,11 @@ def test_video_read_write(reader: Reader, writer: Writer, tmpdir: Path) -> None:
     write_audio(iter(mono_iter), mono_fpath, 16_000, writer=writer)
     write_audio(iter(stereo_iter), stereo_fpath, 16_000, writer=writer)
 
-    mono_chunks = list(read_audio(mono_fpath, reader=reader, chunk_length=2048, sampling_rate=16_000))
-    stereo_chunks = list(read_audio(stereo_fpath, reader=reader, chunk_length=2048, sampling_rate=16_000))
+    mono_chunks = list(read_audio(mono_fpath, reader=reader, chunk_length=2048, sampling_rate=8_000))
+    stereo_chunks = list(read_audio(stereo_fpath, reader=reader, chunk_length=2048, sampling_rate=8_000))
 
-    assert np.concatenate(mono_chunks, -1).shape == (1, 16_000)
-    assert np.concatenate(stereo_chunks, -1).shape == (2, 16_000)
+    assert np.concatenate(mono_chunks, -1).shape == (1, 8_000)
+    assert np.concatenate(stereo_chunks, -1).shape == (2, 8_000)
 
     mono_props = get_audio_props(mono_fpath, reader=reader)
     stereo_props = get_audio_props(stereo_fpath, reader=reader)
