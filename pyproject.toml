@@ -42,12 +42,8 @@ disable_error_code = ["attr-defined"]
 
 module = [
     "av.*",
-    "cv2.*",
-    "ffmpeg.*",
-    "matplotlib.*",
     "torchaudio.*",
     "torchvision.*",
-    "triton.*",
 ]
 
 ignore_missing_imports = true

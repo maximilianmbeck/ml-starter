@@ -1,3 +1,4 @@
+# mypy: disable-error-code="import"
 # ruff: noqa: ANN001, ANN201, ANN202, N803, N806
 """Implements a Triton kernel for the Lion optimizer."""
 

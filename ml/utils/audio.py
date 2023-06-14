@@ -1,3 +1,4 @@
+# mypy: disable-error-code="import"
 """Defines utilites for saving and loading audio streams.
 
 The main API for using this module is:

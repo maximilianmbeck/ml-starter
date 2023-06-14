@@ -35,7 +35,7 @@ def has_triton() -> bool:
         return False
 
     try:
-        import triton
+        import triton  # type: ignore[import]
 
         assert triton is not None
         return True

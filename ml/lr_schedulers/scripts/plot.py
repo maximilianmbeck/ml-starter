@@ -18,7 +18,7 @@ from ml.utils.argparse import add_args, from_args
 def main() -> None:
     """Plots a learning rate schedule."""
     try:
-        import matplotlib.pyplot as plt
+        import matplotlib.pyplot as plt  # type: ignore[import]
     except ImportError as e:
         raise ImportError("Please install matplotlib to use this script: `pip install matplotlib`") from e
 
