@@ -13,6 +13,7 @@ class KMeans(nn.Module):
     __constants__ = ["n_clusters", "n_features"]
 
     centers: Tensor
+    centers_norm: Tensor
 
     def __init__(self, centers: Tensor | np.ndarray) -> None:
         super().__init__()
@@ -21,6 +22,7 @@ class KMeans(nn.Module):
         self.n_clusters = n_clusters
         self.n_features = n_features
         self.register_buffer("centers", torch.empty(n_clusters, n_features))
+        self.register_buffer("centers_norm", torch.empty(n_clusters))
         self.load_centers(centers)
 
     def load_centers(self, centers: Tensor | np.ndarray) -> None:
@@ -28,6 +30,7 @@ class KMeans(nn.Module):
             centers = torch.from_numpy(centers)
         assert centers.shape == self.centers.shape, f"Expected shape {self.centers.shape}, got {centers.shape}"
         self.centers.copy_(centers.to(self.centers))
+        self.centers_norm.copy_((self.centers**2).sum(-1))
 
     def forward(self, x: Tensor) -> Tensor:
         """Applies K-Means to get cluster IDs.
@@ -45,8 +48,8 @@ class KMeans(nn.Module):
         # Equivalent code:
         # dist = torch.norm(x[..., None, :] - self.centers, p=2, dim=-1)
         # return dist.argmin(dim=-1)
-        x_norm, centers_norm = (x**2).sum(-1), (self.centers**2).sum(-1)
-        dist = x_norm[..., None] - (2 * (x @ self.centers.transpose(0, 1))) + centers_norm[..., None]
+        x_norm = (x**2).sum(-1)
+        dist = x_norm[..., None] - (2 * (x @ self.centers.transpose(0, 1))) + self.centers_norm[..., None]
         # Absolute value is required here because sometimes the distance
         # can be negative due to numerical instability.
         return dist.abs().argmin(dim=-1)
