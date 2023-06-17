@@ -346,7 +346,6 @@ class BaseTrainer(BaseObject[TrainerConfigT], Generic[TrainerConfigT, ModelT, Ta
                     if weights_only:
                         logger.warning("Failed to load checkpoint using `weights_only` flag, retrying without it")
                         ckpt = cast(dict, torch.load(cast(str | Path, ckpt), weights_only=False))
-                        raise  # TODO: Remove later
                     else:
                         raise
 
