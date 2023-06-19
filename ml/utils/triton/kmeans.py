@@ -1,4 +1,4 @@
-# mypy: disable-error-code="import"
+# mypy: disable-error-code="import, no-untyped-def"
 # ruff: noqa: ANN001, ANN201, ANN202, N803, N806
 """Implements a Triton kernel for computing K-Means cluster IDs."""
 
@@ -9,7 +9,7 @@ from torch import Tensor
 
 
 @triton.jit
-def kmeans_kernel(  # type: ignore[no-untyped-def]
+def kmeans_kernel(
     x_ptr,
     centers_ptr,
     centers_norm_ptr,

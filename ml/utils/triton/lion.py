@@ -1,4 +1,4 @@
-# mypy: disable-error-code="import"
+# mypy: disable-error-code="import, no-untyped-def"
 # ruff: noqa: ANN001, ANN201, ANN202, N803, N806
 """Implements a Triton kernel for the Lion optimizer."""
 
@@ -10,7 +10,7 @@ from torch import Tensor, nn
 
 
 @triton.jit
-def update_fn_kernel(  # type: ignore[no-untyped-def]
+def update_fn_kernel(
     p_ptr,
     grad_ptr,
     exp_avg_ptr,
