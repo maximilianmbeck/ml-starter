@@ -20,7 +20,7 @@ import torch.multiprocessing as mp
 from omegaconf import MISSING
 
 from ml.core.config import conf_field
-from ml.utils.config import is_missing
+from ml.utils.checkpoint import is_missing
 from ml.utils.distributed import get_init_method, get_rank, get_world_size, set_dist
 from ml.utils.logging import INFOALL, configure_logging
 from ml.utils.networking import get_unused_port

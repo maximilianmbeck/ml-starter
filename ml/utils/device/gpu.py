@@ -8,6 +8,7 @@ variables:
 - ``USE_BF16``: Use BF16
 """
 
+import functools
 import logging
 import os
 from typing import Callable
@@ -34,11 +35,15 @@ class GPUDevice(BaseDevice):
         return torch.cuda.is_available() and torch.cuda.device_count() > 0 and not is_gpu_disabled()
 
     @classmethod
+    @functools.lru_cache(maxsize=None)
     def get_device(cls) -> torch.device:
         return torch.device("cuda")
 
     @classmethod
+    @functools.lru_cache(maxsize=None)
     def get_floating_point_type(cls) -> torch.dtype:
+        # Allows users to override the default floating point type.
+        use_fp16 = get_env_bool("USE_FP16")
         use_bf16 = get_env_bool("USE_BF16")
         use_fp32 = get_env_bool("USE_FP32")
         use_fp64 = get_env_bool("USE_FP64")
@@ -48,8 +53,13 @@ class GPUDevice(BaseDevice):
             return torch.float32
         elif use_bf16:
             return torch.bfloat16
-        else:
+        elif use_fp16:
             return torch.float16
+
+        # By default, use BF16 if the GPU supports it, otherwise FP16.
+        if torch.cuda.get_device_capability()[0] >= 8:
+            return torch.bfloat16
+        return torch.float16
 
     @classmethod
     def get_torch_compile_backend(cls) -> str | Callable:
@@ -60,4 +70,4 @@ class GPUDevice(BaseDevice):
 
     @classmethod
     def supports_grad_scaler(cls) -> bool:
-        return cls.get_floating_point_type() == torch.float16
+        return cls.get_floating_point_type() not in (torch.float32, torch.float64)

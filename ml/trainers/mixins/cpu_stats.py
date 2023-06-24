@@ -142,8 +142,8 @@ class CPUStatsMonitor:
     def __init__(self, ping_interval: float, manager: SyncManager) -> None:
         self._ping_interval = ping_interval
         self._manager = manager
-        self._monitor_event = manager.Event()
-        self._start_event = manager.Event()
+        self._monitor_event = self._manager.Event()
+        self._start_event = self._manager.Event()
         self._cpu_stats_smem = self._manager.Value(
             CPUStats,
             CPUStats(
@@ -207,7 +207,10 @@ class CPUStatsMixin(MonitorProcessMixin[CPUStatsConfigT, ModelT, TaskT]):
     def __init__(self, config: CPUStatsConfigT) -> None:
         super().__init__(config)
 
-        self._cpu_stats_monitor = CPUStatsMonitor(self.config.cpu_stats_ping_interval, self._mp_manager)
+        self._cpu_stats_monitor = CPUStatsMonitor(
+            ping_interval=self.config.cpu_stats_ping_interval,
+            manager=self._mp_manager,
+        )
 
     def on_training_start(
         self,

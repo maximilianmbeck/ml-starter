@@ -36,15 +36,10 @@ from ml.trainers.mixins.mixed_precision import (
 
 
 @dataclass
-class GradientClipping:
+class GradientClippingConfig(MixedPrecisionTrainerConfig, BaseTrainerConfig):
     clip_grad_norm: float | None = conf_field(None, help="What to clip the gradient norm to")
     clip_grad_value: float | None = conf_field(None, help="What to clip the gradient value to")
-    norm_type: Any = conf_field(2, help="Type of norm to use")
-
-
-@dataclass
-class GradientClippingConfig(MixedPrecisionTrainerConfig, BaseTrainerConfig):
-    grad_clipping: GradientClipping = conf_field(GradientClipping(), help="Gradient clipping configuration")
+    clip_grad_norm_type: Any = conf_field(2, help="Type of norm to use")
 
 
 GradientClippingConfigT = TypeVar("GradientClippingConfigT", bound=GradientClippingConfig)
@@ -57,19 +52,24 @@ class GradientClippingTrainerMixin(
     """Defines a trainer mixin for doing gradient clipping."""
 
     def clip_grads(self, model: nn.Module, optim: Optimizer) -> None:
-        clip_norm = self.config.grad_clipping.clip_grad_norm
-        clip_value = self.config.grad_clipping.clip_grad_value
-        norm_type = self.config.grad_clipping.norm_type
+        clip_norm = self.config.clip_grad_norm
+        clip_value = self.config.clip_grad_value
+        norm_type = self.config.clip_grad_norm_type
+        unscaled = False
 
         if clip_norm is not None:
             if isinstance(model, FSDP):
                 total_norm = model.clip_grad_norm_(clip_norm, norm_type)
                 self.logger.log_scalar("total_norm", total_norm.item(), namespace="optim")
             else:
-                self.unscale_mixed_precision(optim)
+                if not unscaled:
+                    self.unscale_mixed_precision(optim)
+                    unscaled = True
                 total_norm = nn.utils.clip_grad.clip_grad_norm_(model.parameters(), clip_norm, norm_type)
                 self.logger.log_scalar("total_norm", total_norm.item(), namespace="optim")
 
         if clip_value is not None:
-            self.unscale_mixed_precision(optim)
+            if not unscaled:
+                self.unscale_mixed_precision(optim)
+                unscaled = True
             nn.utils.clip_grad.clip_grad_value_(model.parameters(), clip_value)

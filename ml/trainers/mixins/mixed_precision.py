@@ -19,7 +19,7 @@ from ml.trainers.base import BaseTrainer, BaseTrainerConfig, ModelT, TaskT
 
 
 @dataclass
-class FP16:
+class MixedPrecisionConfig:
     enabled: bool = conf_field(True, help="If set, should FP16 training be enabled")
     init_scale: float = conf_field(2.0**16, help="Initial scaling factor")
     growth_factor: float = conf_field(2.0, help="Factor by which the scale is multiplied if no gradient NaNs occur")
@@ -29,7 +29,7 @@ class FP16:
 
 @dataclass
 class MixedPrecisionTrainerConfig(BaseTrainerConfig):
-    fp16: FP16 = conf_field(FP16(), help="Mixed precision configuration")
+    mixed_precision: MixedPrecisionConfig = conf_field(MixedPrecisionConfig(), help="Mixed precision configuration")
 
 
 MixedPrecisionConfigT = TypeVar("MixedPrecisionConfigT", bound=MixedPrecisionTrainerConfig)
@@ -42,13 +42,13 @@ class MixedPrecisionTrainerMixin(BaseTrainer[MixedPrecisionConfigT, ModelT, Task
         super().__init__(config)
 
         self.grad_scaler: torch.cuda.amp.GradScaler | None
-        if self._device_type == "cuda" and self.config.fp16.enabled:
+        if self._device_type == "cuda" and self.config.mixed_precision.enabled:
             self.grad_scaler = torch.cuda.amp.GradScaler(
-                init_scale=self.config.fp16.init_scale,
-                growth_factor=self.config.fp16.growth_factor,
-                backoff_factor=self.config.fp16.backoff_factor,
-                growth_interval=self.config.fp16.growth_interval,
-                enabled=self.config.fp16.enabled and self._device.supports_grad_scaler(),
+                init_scale=self.config.mixed_precision.init_scale,
+                growth_factor=self.config.mixed_precision.growth_factor,
+                backoff_factor=self.config.mixed_precision.backoff_factor,
+                growth_interval=self.config.mixed_precision.growth_interval,
+                enabled=self.config.mixed_precision.enabled and self._device.supports_grad_scaler(),
             )
         else:
             self.grad_scaler = None
@@ -89,4 +89,4 @@ class MixedPrecisionTrainerMixin(BaseTrainer[MixedPrecisionConfigT, ModelT, Task
         super().update_state_dict(ckpt)
 
     def autocast_context(self) -> ContextManager:
-        return self._device.autocast_context(enabled=self.config.fp16.enabled)
+        return self._device.autocast_context(enabled=self.config.mixed_precision.enabled)
