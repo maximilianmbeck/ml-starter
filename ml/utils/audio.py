@@ -3,7 +3,7 @@
 
 The main API for using this module is:
 
-.. code-blocks:: python
+.. code-block:: python
 
     from ml.utils.audio import read_audio, write_audio
 
