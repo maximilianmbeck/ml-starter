@@ -23,9 +23,9 @@ class DummyModel(nn.Module):
         super().__init__()
 
         # A simple embedding layer plus two-layer MLP.
-        self.emb = maybe_lora(ParallelEmbedding(10, 12), lora_rank)
-        self.l1 = maybe_lora(ColumnParallelLinear(12, 16, bias=False), lora_rank)
-        self.l2 = maybe_lora(RowParallelLinear(16, 8, bias=False), lora_rank)
+        self.emb = maybe_lora(ParallelEmbedding(10, 12), lora_rank, freeze=False)
+        self.l1 = maybe_lora(ColumnParallelLinear(12, 16, bias=False), lora_rank, freeze=False)
+        self.l2 = maybe_lora(RowParallelLinear(16, 8, bias=False), lora_rank, freeze=False)
 
     def forward(self, x: Tensor) -> tuple[Tensor, Tensor]:
         y1 = self.l2(self.l1(self.emb(x)))

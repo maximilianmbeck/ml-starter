@@ -1415,5 +1415,8 @@ def maybe_lora(
     alpha: float = 1.0,
     dropout: float = 0.0,
     merge: bool = False,
+    freeze: bool = True,
 ) -> T_module:
+    if freeze:
+        module = cast(T_module, module.requires_grad_(False))
     return module if r is None else lora(module, r, alpha, dropout, merge)
