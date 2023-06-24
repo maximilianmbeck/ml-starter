@@ -24,6 +24,8 @@ for subdir in subdirs:
     # Walk the source directory and create RST files for all Python modules
     all_files = []
     for root, _, files in os.walk(os.path.join(source_dir, subdir)):
+        if "triton" in root:
+            continue
         for file in files:
             if file.endswith(".py") and file != "__init__.py":
                 module_path = os.path.join(root, file)
