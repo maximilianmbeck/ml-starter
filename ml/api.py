@@ -132,6 +132,7 @@ __all__ = [
     "read_audio",
     "read_gif",
     "read_video",
+    "rechunk_audio",
     "reduce",
     "register_logger",
     "register_lr_scheduler",
@@ -259,7 +260,7 @@ from ml.trainers.rl import ReinforcementLearningTrainer, ReinforcementLearningTr
 from ml.trainers.sl import SupervisedLearningTrainer, SupervisedLearningTrainerConfig
 from ml.utils.argparse import from_args, get_args, get_type_from_string
 from ml.utils.atomic import atomic_save, open_atomic
-from ml.utils.audio import get_audio_props, read_audio, write_audio
+from ml.utils.audio import get_audio_props, read_audio, rechunk_audio, write_audio
 from ml.utils.augmentation import get_image_mask
 from ml.utils.caching import DictIndex, cached_object
 from ml.utils.checkpoint import ensure_downloaded, get_state_dict_prefix, instantiate_config, load_model_and_task

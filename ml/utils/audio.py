@@ -269,7 +269,7 @@ def get_audio_props(in_file: str | Path, *, reader: Reader = "sf") -> AudioProps
     raise ValueError(f"Unknown reader {reader}")
 
 
-def _resample_audio(
+def rechunk_audio(
     audio_chunks: Iterator[np.ndarray],
     *,
     prefetch_n: int = 1,
@@ -333,7 +333,7 @@ def read_audio(
             reader = "av"
         else:
             sr = None if sampling_rate is None else (AudioProps.from_file_ffmpeg(in_file).sample_rate, sampling_rate)
-            return _resample_audio(
+            return rechunk_audio(
                 read_audio_ffmpeg(in_file, chunk_size=blocksize),
                 prefetch_n=prefetch_n,
                 chunk_length=chunk_length,
@@ -342,7 +342,7 @@ def read_audio(
 
     if reader == "sf":
         sr = None if sampling_rate is None else (AudioProps.from_file_sf(in_file).sample_rate, sampling_rate)
-        return _resample_audio(
+        return rechunk_audio(
             read_audio_sf(in_file, blocksize=blocksize),
             prefetch_n=prefetch_n,
             chunk_length=chunk_length,
@@ -351,7 +351,7 @@ def read_audio(
 
     if reader == "av":
         sr = None if sampling_rate is None else (AudioProps.from_file_av(in_file).sample_rate, sampling_rate)
-        return _resample_audio(
+        return rechunk_audio(
             read_audio_av(in_file),
             prefetch_n=prefetch_n,
             chunk_length=chunk_length,
