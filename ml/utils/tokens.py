@@ -178,11 +178,19 @@ class TokenReader:
         offsets_path: The path to the file containing the offsets of each line.
             If this is not provided, the offsets will be read from the token
             file itself. If the file does not exist, it will be created.
+        in_memory: Whether to read the entire file into memory.
     """
 
-    def __init__(self, path: str | Path, offsets_path: str | Path | None) -> None:
+    def __init__(
+        self,
+        path: str | Path,
+        offsets_path: str | Path | None,
+        *,
+        in_memory: bool = False,
+    ) -> None:
         self._path = Path(path)
         self._offsets_path = Path(offsets_path) if offsets_path is not None else None
+        self._in_memory = in_memory
 
         # Check the magic number against GZIP magic number to determine if
         # the file is compressed.
@@ -234,6 +242,11 @@ class TokenReader:
             else:
                 self._offsets, self._total_length = read_offsets()
 
+        self._data: bytes | None = None
+        if self._in_memory:
+            with gzip.open(self._path, "rb") if self._compressed else open(self._path, "rb") as f:
+                self._data = f.read()
+
     @functools.cached_property
     def bits_per_token(self) -> int:
         return math.ceil(math.log2(self._num_tokens))
@@ -264,16 +277,21 @@ class TokenReader:
     def __getitem__(self, index: int | tuple[int, slice]) -> list[int]:
         if isinstance(index, int):
             offset = self._offsets[index]
-            with gzip.open(self._path, "rb") if self._compressed else open(self._path, "rb") as f:
-                f.seek(offset + self._lengths_fmt_size)
-                seq_len = self.length(index)
-                byte_data = f.read((seq_len * self.bits_per_token + 7) // 8)
+            seq_len = self.length(index)
+            start, length = offset + self._lengths_fmt_size, (seq_len * self.bits_per_token + 7) // 8
+            if self._data is None:
+                with gzip.open(self._path, "rb") if self._compressed else open(self._path, "rb") as f:
+                    f.seek(start)
+                    byte_data = f.read(length)
+            else:
+                byte_data = self._data[start : start + length]
             return _bytes_to_arr(byte_data, seq_len, self._num_tokens)
 
         if isinstance(index, tuple) and len(index) == 2 and isinstance(index[0], int) and isinstance(index[1], slice):
             index, seq_slice = index
             offset = self._offsets[index]
             seq_len = self.length(index)
+            offset_start = offset + self._lengths_fmt_size
 
             def make_positive(n: int) -> int:
                 return min(n if n >= 0 else n + seq_len, seq_len)
@@ -282,19 +300,17 @@ class TokenReader:
             start = 0 if seq_slice.start is None else make_positive(seq_slice.start)
             stop = seq_len if seq_slice.stop is None else make_positive(seq_slice.stop)
 
-            with gzip.open(self._path, "rb") if self._compressed else open(self._path, "rb") as f:
-                f.seek(offset + self._lengths_fmt_size)
+            start_bit = start * self.bits_per_token
+            start_byte, start_offset = start_bit // 8, start_bit % 8
+            end_byte = (stop * self.bits_per_token + 7) // 8
 
-                # Moves file pointer to the starting position.
-                start_bit = start * self.bits_per_token
-                start_byte, start_offset = start_bit // 8, start_bit % 8
-                f.seek(start_byte, 1)
-
-                # Reads until the ending.
-                end_byte = (stop * self.bits_per_token + 7) // 8
-
-                # Reads the data.
-                byte_data = f.read(end_byte - start_byte)
+            if self._data is None:
+                with gzip.open(self._path, "rb") if self._compressed else open(self._path, "rb") as f:
+                    f.seek(offset_start)
+                    f.seek(start_byte, 1)
+                    byte_data = f.read(end_byte - start_byte)
+            else:
+                byte_data = self._data[offset_start + start_byte : offset_start + end_byte]
 
             arr = _bytes_to_arr(byte_data, stop - start, self._num_tokens, offset=start_offset)
             if seq_slice.step is not None:

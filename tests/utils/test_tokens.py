@@ -63,3 +63,10 @@ def test_read_write(num_tokens: int, compressed: bool, use_offsets_file: bool, t
     assert reader[3, 5:] == all_tokens[3][5:]
     assert reader[4, :-5] == all_tokens[4][:-5]
     assert reader[5, -5:] == all_tokens[5][-5:]
+
+    # Checks reading entirely into memory.
+    reader = TokenReader(file_path, offsets_path=offsets_path, in_memory=True)
+    num_samples = len(reader)
+    assert num_samples == len(all_tokens)
+    for i in range(num_samples):
+        assert reader[i] == all_tokens[i]
