@@ -142,8 +142,11 @@ class LoraEmbedding(nn.Embedding, _Lora):
         super().reset_parameters()
 
         if hasattr(self, "lora_a") and hasattr(self, "lora_b"):
-            nn.init.zeros_(self.lora_a)
-            nn.init.normal_(self.lora_b)
+            self.reset_lora_parameters()
+
+    def reset_lora_parameters(self) -> None:
+        nn.init.kaiming_normal_(self.lora_a, a=math.sqrt(5))
+        nn.init.zeros_(self.lora_b)
 
     def train(self, mode: bool = True) -> "LoraEmbedding":
         super().train(mode)
@@ -174,8 +177,7 @@ class LoraEmbedding(nn.Embedding, _Lora):
                 self.scale_grad_by_freq,
                 self.sparse,
             )
-            result += (after_a @ self.lora_b.transpose(0, 1)) * self.scaling
-            return result
+            return result + (after_a @ self.lora_b.transpose(0, 1)) * self.scaling
 
         return super().forward(x)
 
@@ -224,8 +226,11 @@ class LoraLinear(nn.Linear, _Lora):
         super().reset_parameters()
 
         if hasattr(self, "lora_a") and hasattr(self, "lora_b"):
-            nn.init.kaiming_uniform_(self.lora_a, a=math.sqrt(5))
-            nn.init.zeros_(self.lora_b)
+            self.reset_lora_parameters()
+
+    def reset_lora_parameters(self) -> None:
+        nn.init.kaiming_normal_(self.lora_a, a=math.sqrt(5))
+        nn.init.zeros_(self.lora_b)
 
     def _t(self, w: Tensor) -> Tensor:
         return w.transpose(0, 1) if self.fan_in_fan_out else w
@@ -252,8 +257,7 @@ class LoraLinear(nn.Linear, _Lora):
         if self.lora_a is not None and self.lora_b is not None and not self.merged:
             result = F.linear(x, self._t(self.weight), bias=self.bias)
             mm = self.dropout(x) @ self.lora_a.transpose(0, 1) @ self.lora_b.transpose(0, 1)
-            result += mm * self.scaling
-            return result
+            return result + mm * self.scaling
 
         return F.linear(x, self._t(self.weight), bias=self.bias)
 
@@ -307,8 +311,11 @@ class LoraConv1d(nn.Conv1d, _Lora):
         super().reset_parameters()
 
         if hasattr(self, "lora_a") and hasattr(self, "lora_b"):
-            nn.init.kaiming_uniform_(self.lora_a, a=math.sqrt(5))
-            nn.init.zeros_(self.lora_b)
+            self.reset_lora_parameters()
+
+    def reset_lora_parameters(self) -> None:
+        nn.init.kaiming_normal_(self.lora_a, a=math.sqrt(5))
+        nn.init.zeros_(self.lora_b)
 
     def train(self, mode: bool = True) -> "LoraConv1d":
         super().train(mode)
@@ -333,8 +340,7 @@ class LoraConv1d(nn.Conv1d, _Lora):
             result = F.conv1d(x, self.weight, self.bias, self.stride, self.padding, self.dilation, self.groups)
             mm_a = F.conv1d(self.dropout(x), self.lora_a, None, self.stride, self.padding, self.dilation, self.groups)
             mm = F.conv1d(mm_a, self.lora_b)
-            result += mm * self.scaling
-            return result
+            return result + mm * self.scaling
 
         return F.conv1d(x, self.weight, self.bias, self.stride, self.padding, self.dilation, self.groups)
 
@@ -390,8 +396,11 @@ class LoraConvTranspose1d(nn.ConvTranspose1d, _Lora):
         super().reset_parameters()
 
         if hasattr(self, "lora_a") and hasattr(self, "lora_b"):
-            nn.init.kaiming_uniform_(self.lora_a, a=math.sqrt(5))
-            nn.init.zeros_(self.lora_b)
+            self.reset_lora_parameters()
+
+    def reset_lora_parameters(self) -> None:
+        nn.init.kaiming_normal_(self.lora_a, a=math.sqrt(5))
+        nn.init.zeros_(self.lora_b)
 
     def train(self, mode: bool = True) -> "LoraConvTranspose1d":
         super().train(mode)
@@ -436,8 +445,7 @@ class LoraConvTranspose1d(nn.ConvTranspose1d, _Lora):
                 self.dilation,
             )
             mm = F.conv_transpose1d(mm_a, self.lora_b)
-            result += mm * self.scaling
-            return result
+            return result + mm * self.scaling
 
         return F.conv_transpose1d(x, self.weight, self.bias, self.stride, self.padding, self.dilation, self.groups)
 
@@ -491,8 +499,11 @@ class LoraConv2d(nn.Conv2d, _Lora):
         super().reset_parameters()
 
         if hasattr(self, "lora_a") and hasattr(self, "lora_b"):
-            nn.init.kaiming_uniform_(self.lora_a, a=math.sqrt(5))
-            nn.init.zeros_(self.lora_b)
+            self.reset_lora_parameters()
+
+    def reset_lora_parameters(self) -> None:
+        nn.init.kaiming_normal_(self.lora_a, a=math.sqrt(5))
+        nn.init.zeros_(self.lora_b)
 
     def train(self, mode: bool = True) -> "LoraConv2d":
         super().train(mode)
@@ -517,8 +528,7 @@ class LoraConv2d(nn.Conv2d, _Lora):
             result = F.conv2d(x, self.weight, self.bias, self.stride, self.padding, self.dilation, self.groups)
             mm_a = F.conv2d(self.dropout(x), self.lora_a, None, self.stride, self.padding, self.dilation, self.groups)
             mm = F.conv2d(mm_a, self.lora_b)
-            result += mm * self.scaling
-            return result
+            return result + mm * self.scaling
 
         return F.conv2d(x, self.weight, self.bias, self.stride, self.padding, self.dilation, self.groups)
 
@@ -574,8 +584,11 @@ class LoraConvTranspose2d(nn.ConvTranspose2d, _Lora):
         super().reset_parameters()
 
         if hasattr(self, "lora_a") and hasattr(self, "lora_b"):
-            nn.init.kaiming_uniform_(self.lora_a, a=math.sqrt(5))
-            nn.init.zeros_(self.lora_b)
+            self.reset_lora_parameters()
+
+    def reset_lora_parameters(self) -> None:
+        nn.init.kaiming_normal_(self.lora_a, a=math.sqrt(5))
+        nn.init.zeros_(self.lora_b)
 
     def train(self, mode: bool = True) -> "LoraConvTranspose2d":
         super().train(mode)
@@ -620,8 +633,7 @@ class LoraConvTranspose2d(nn.ConvTranspose2d, _Lora):
                 self.dilation,
             )
             mm = F.conv_transpose2d(mm_a, self.lora_b)
-            result += mm * self.scaling
-            return result
+            return result + mm * self.scaling
 
         return F.conv_transpose2d(
             x,
@@ -728,11 +740,14 @@ class _LoraRNN(nn.RNNBase, _Lora):
     def reset_parameters(self) -> None:
         super().reset_parameters()
 
+        self.reset_lora_parameters()
+
+    def reset_lora_parameters(self) -> None:
         for wn in self._flat_weights_names:
             lora_a_name, lora_b_name = self._lora_names(wn)
             if hasattr(self, lora_a_name) and hasattr(self, lora_b_name):
                 lora_a, lora_b = getattr(self, lora_a_name), getattr(self, lora_b_name)
-                nn.init.kaiming_uniform_(lora_a, a=math.sqrt(5))
+                nn.init.kaiming_normal_(lora_a, a=math.sqrt(5))
                 nn.init.zeros_(lora_b)
 
 
@@ -847,8 +862,11 @@ class LoraParallelEmbedding(ParallelEmbedding, _Lora):
         super().reset_parameters()
 
         if hasattr(self, "lora_a") and hasattr(self, "lora_b"):
-            nn.init.zeros_(self.lora_a)
-            nn.init.normal_(self.lora_b)
+            self.reset_lora_parameters()
+
+    def reset_lora_parameters(self) -> None:
+        nn.init.kaiming_normal_(self.lora_a, a=math.sqrt(5))
+        nn.init.zeros_(self.lora_b)
 
     def train(self, mode: bool = True) -> "LoraParallelEmbedding":
         super().train(mode)
@@ -891,9 +909,7 @@ class LoraParallelEmbedding(ParallelEmbedding, _Lora):
                 self.sparse,
             )
 
-            output_parallel += (after_a_parallel @ self.lora_b.transpose(0, 1)) * self.scaling
-
-            return mp_gather(output_parallel)
+            return mp_gather(output_parallel + (after_a_parallel @ self.lora_b.transpose(0, 1)) * self.scaling)
 
         return mp_gather(output_parallel)
 
@@ -955,8 +971,11 @@ class LoraColumnParallelLinear(ColumnParallelLinear, _Lora):
         super().reset_parameters()
 
         if hasattr(self, "lora_a") and hasattr(self, "lora_b"):
-            nn.init.kaiming_uniform_(self.lora_a, a=math.sqrt(5))
-            nn.init.zeros_(self.lora_b)
+            self.reset_lora_parameters()
+
+    def reset_lora_parameters(self) -> None:
+        nn.init.kaiming_normal_(self.lora_a, a=math.sqrt(5))
+        nn.init.zeros_(self.lora_b)
 
     def _t(self, w: Tensor) -> Tensor:
         return w.transpose(0, 1) if self.fan_in_fan_out else w
@@ -985,7 +1004,7 @@ class LoraColumnParallelLinear(ColumnParallelLinear, _Lora):
         if self.lora_a is not None and self.lora_b is not None and not self.merged:
             output_parallel = F.linear(input_parallel, self._t(self.weight), bias=self.bias)
             mm = self.dropout(input_parallel) @ self.lora_a.transpose(0, 1) @ self.lora_b.transpose(0, 1)
-            output_parallel += mm * self.scaling
+            output_parallel = output_parallel + mm * self.scaling
             return mp_gather(output_parallel) if self.gather_output else output_parallel
 
         output_parallel = F.linear(input_parallel, self.weight, self.bias)
@@ -1047,8 +1066,11 @@ class LoraRowParallelLinear(RowParallelLinear, _Lora):
         super().reset_parameters()
 
         if hasattr(self, "lora_a") and hasattr(self, "lora_b"):
-            nn.init.kaiming_uniform_(self.lora_a, a=math.sqrt(5))
-            nn.init.zeros_(self.lora_b)
+            self.reset_lora_parameters()
+
+    def reset_lora_parameters(self) -> None:
+        nn.init.kaiming_normal_(self.lora_a, a=math.sqrt(5))
+        nn.init.zeros_(self.lora_b)
 
     def _t(self, w: Tensor) -> Tensor:
         return w.transpose(0, 1) if self.fan_in_fan_out else w
@@ -1077,7 +1099,7 @@ class LoraRowParallelLinear(RowParallelLinear, _Lora):
         if self.lora_a is not None and self.lora_b is not None and not self.merged:
             output_parallel = F.linear(input_parallel, self._t(self.weight), bias=self.bias)
             mm = self.dropout(input_parallel) @ self.lora_a.transpose(0, 1) @ self.lora_b.transpose(0, 1)
-            output_parallel += mm * self.scaling
+            output_parallel = output_parallel + mm * self.scaling
             output = mp_reduce(output_parallel)
             return output if self.bias is None else output + self.bias
 
@@ -1417,6 +1439,36 @@ def maybe_lora(
     merge: bool = False,
     freeze: bool = True,
 ) -> T_module:
-    if freeze:
+    """Apply LoRA to a supported module, if a LoRA rank is provided.
+
+    Args:
+        module: A supported module.
+        r: The LoRA rank.
+        alpha: The LoRA alpha parameter.
+        dropout: The LoRA dropout rate.
+        merge: Whether to merge the LoRA rank into the input dimension.
+        freeze: Whether to freeze the module's parameters if a LoRA rank is
+            not provided. This argument has no effect if a LoRA rank is
+            provided, since downstream users can always freeze just the module
+            themselves. Typically, when trying out LoRA fine-tuning, downstream
+            users will want to freeze most of the module parameters and apply
+            LoRA only to a subset of the module's layers, so this is the
+            default behavior.
+
+    Returns:
+        The module with LoRA applied, if a LoRA rank is provided.
+    """
+    if freeze and r is None:
         module = cast(T_module, module.requires_grad_(False))
     return module if r is None else lora(module, r, alpha, dropout, merge)
+
+
+def reset_lora_weights_(module: nn.Module) -> None:
+    """Resets any LoRA weights in the module.
+
+    Args:
+        module: The module to reset, in-place.
+    """
+    for _, submodule in module.named_modules():
+        if hasattr(submodule, "reset_lora_parameters") and callable(submodule.reset_lora_parameters):
+            submodule.reset_lora_parameters()

@@ -143,6 +143,7 @@ __all__ = [
     "ReinforcementLearningTaskConfig",
     "ReinforcementLearningTrainer",
     "ReinforcementLearningTrainerConfig",
+    "reset_lora_weights_",
     "reset_parallelism",
     "RotaryEmbeddings",
     "RowParallelLinear",
@@ -224,6 +225,7 @@ from ml.models.lora import (
     LoraLSTM,
     lora,
     maybe_lora,
+    reset_lora_weights_,
 )
 from ml.models.norms import NormType, cast_norm_type, get_norm_1d, get_norm_2d, get_norm_3d, get_norm_linear
 from ml.models.parallel import ColumnParallelLinear, ParallelEmbedding, RowParallelLinear

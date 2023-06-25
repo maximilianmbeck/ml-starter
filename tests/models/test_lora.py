@@ -45,6 +45,10 @@ def test_lora_modules(mod_type: Type[nn.Module]) -> None:
     # Loads the weights from the reference model into the LoRA model.
     lora_model.load_state_dict(model.state_dict())
 
+    # To and from eval mode to check gradient behavior.
+    lora_model.eval()
+    lora_model.train()
+
     ref_out, lora_out = model(in_tensor), lora_model(in_tensor)
     if isinstance(ref_out, tuple):
         ref_out, lora_out = ref_out[0], lora_out[0]
@@ -52,10 +56,15 @@ def test_lora_modules(mod_type: Type[nn.Module]) -> None:
     # Checks that the outputs are initially the same for the same input.
     assert torch.allclose(ref_out, lora_out)
 
+    lora_out.backward(torch.ones_like(lora_out))
+
     # Checks that the gradients for the LoRA parameters are non-null.
-    lora_out.sum().backward()
     for n, p in lora_model.named_parameters():
         if n.startswith("lora_") or n.startswith("bias"):
             assert p.grad is not None
         else:
             assert p.grad is None
+
+    # Checks that the gradients for one of the LoRA parameters is non-null.
+    grads = [k for k, v in lora_model.named_parameters() if v.grad is not None and v.grad.abs().sum() > 0.0]
+    assert any(g.startswith("lora_") for g in grads)
