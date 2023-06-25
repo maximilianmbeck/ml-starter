@@ -6,7 +6,7 @@ import pytest
 import torch
 from torch import Tensor, nn
 
-from ml.models.lora import SupportedModuleNonParallel, lora
+from ml.models.lora import SupportedModuleNonParallel, lora, reset_lora_weights_
 
 
 @pytest.mark.parametrize("mod_type", get_args(SupportedModuleNonParallel))
@@ -46,6 +46,7 @@ def test_lora_modules(mod_type: Type[nn.Module]) -> None:
     lora_model.load_state_dict(model.state_dict())
 
     # To and from eval mode to check gradient behavior.
+    reset_lora_weights_(lora_model)
     lora_model.eval()
     lora_model.train()
 

@@ -1,7 +1,7 @@
 # requirements-docs.txt
 
 myst-parser
-sphinx
+sphinx==6.2.1
 sphinxcontrib-jquery
 sphinx-rtd-theme
 sphinx-autodoc-typehints

@@ -41,6 +41,7 @@ can be tuned to improve performance.
 import math
 import warnings
 import weakref
+from abc import abstractmethod
 from typing import Any, TypeVar, Union, cast, overload
 
 import torch.nn.functional as F
@@ -93,6 +94,10 @@ class _Lora(nn.Module):
         # non-LoRA pretrained models without throwing annoying errors for
         # state dict incompatibility.
         self.register_load_state_dict_post_hook(_lora_post_hook)
+
+    @abstractmethod
+    def reset_lora_parameters(self) -> None:
+        """Resets LoRA parameters in-place."""
 
 
 class LoraEmbedding(nn.Embedding, _Lora):
@@ -1466,9 +1471,13 @@ def maybe_lora(
 def reset_lora_weights_(module: nn.Module) -> None:
     """Resets any LoRA weights in the module.
 
+    All of the LoRA modules have a ``reset_lora_parameters`` method that will
+    reset the LoRA weights in-place. This function looks for any modules with
+    this method and calls it.
+
     Args:
         module: The module to reset, in-place.
     """
     for _, submodule in module.named_modules():
-        if hasattr(submodule, "reset_lora_parameters") and callable(submodule.reset_lora_parameters):
+        if isinstance(submodule, _Lora):
             submodule.reset_lora_parameters()
