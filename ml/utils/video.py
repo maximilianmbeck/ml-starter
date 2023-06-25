@@ -32,6 +32,7 @@ import torchvision.transforms.functional as F
 from torch import Tensor
 
 from ml.utils.image import as_uint8, standardize_image
+from ml.utils.io import prefetch_samples
 
 
 @functools.lru_cache()
@@ -126,6 +127,14 @@ class VideoProps:
                 )
 
         raise ValueError(f"Could not parse video properties from video in {fpath}")
+
+
+def _resample_video(
+    video_chunks: Iterator[np.ndarray],
+    *,
+    prefetch_n: int = 1,
+) -> Iterator[np.ndarray]:
+    yield from prefetch_samples(video_chunks, prefetch_n)
 
 
 def read_video_av(
@@ -533,11 +542,17 @@ def get_video_props(in_file: str | Path, *, reader: Reader = "av") -> VideoProps
     raise ValueError(f"Unknown reader {reader}")
 
 
-def read_video(in_file: str | Path, *, reader: Reader = "av") -> Iterator[np.ndarray]:
+def read_video(
+    in_file: str | Path,
+    *,
+    prefetch_n: int = 1,
+    reader: Reader = "av",
+) -> Iterator[np.ndarray]:
     """Function that reads a video from a file to a stream of Numpy arrays.
 
     Args:
         in_file: The path to the input file.
+        prefetch_n: Number of chunks to prefetch.
         reader: The video reader to use.
 
     Yields:
@@ -551,17 +566,26 @@ def read_video(in_file: str | Path, *, reader: Reader = "av") -> Iterator[np.nda
             warnings.warn("FFMPEG Python is not installed; install with `pip install ffmpeg-python`")
             reader = "av"
         else:
-            return read_video_ffmpeg(in_file)
+            return _resample_video(
+                read_video_ffmpeg(in_file),
+                prefetch_n=prefetch_n,
+            )
 
     if reader == "opencv":
         if not cv2_available():
             warnings.warn("OpenCV is not installed; install with `pip install opencv-python`")
             reader = "av"
         else:
-            return read_video_opencv(in_file)
+            return _resample_video(
+                read_video_opencv(in_file),
+                prefetch_n=prefetch_n,
+            )
 
     if reader == "av":
-        return read_video_av(in_file)
+        return _resample_video(
+            read_video_av(in_file),
+            prefetch_n=prefetch_n,
+        )
 
     raise ValueError(f"Invalid reader: {reader}")
 

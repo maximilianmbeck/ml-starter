@@ -24,11 +24,12 @@ import torch
 import torchaudio.functional as A
 from torch import Tensor
 
+from ml.utils.io import prefetch_samples
 from ml.utils.numpy import as_numpy_array
 
 T = TypeVar("T")
 
-DEFAULT_CHUNK = 16_000
+DEFAULT_BLOCKSIZE = 1024
 
 
 @dataclass
@@ -83,7 +84,7 @@ def _cleanup_wav_chunk(wav: np.ndarray, channels: int | None = None) -> np.ndarr
     return wav
 
 
-def read_audio_sf(in_file: str | Path, *, blocksize: int = 16_000) -> Iterator[np.ndarray]:
+def read_audio_sf(in_file: str | Path, *, blocksize: int = DEFAULT_BLOCKSIZE) -> Iterator[np.ndarray]:
     """Function that reads an audio file to a stream of numpy arrays using SoundFile.
 
     Args:
@@ -119,7 +120,7 @@ def read_audio_av(in_file: str | Path) -> Iterator[np.ndarray]:
             yield frame_np
 
 
-def read_audio_ffmpeg(in_file: str | Path, *, chunk_size: int = 16_000) -> Iterator[np.ndarray]:
+def read_audio_ffmpeg(in_file: str | Path, *, chunk_size: int = DEFAULT_BLOCKSIZE) -> Iterator[np.ndarray]:
     """Function that reads an audio file to a stream of numpy arrays using FFMPEG.
 
     Args:
@@ -268,21 +269,6 @@ def get_audio_props(in_file: str | Path, *, reader: Reader = "sf") -> AudioProps
     raise ValueError(f"Unknown reader {reader}")
 
 
-def _prefetch_samples(iterable: Iterator[T], pre_load_n: int) -> Iterator[T]:
-    while True:
-        items = []
-        for _ in range(pre_load_n):
-            try:
-                items.append(next(iterable))
-            except StopIteration:
-                break
-
-        if not items:
-            break
-
-        yield from items
-
-
 def _resample_audio(
     audio_chunks: Iterator[np.ndarray],
     *,
@@ -291,12 +277,12 @@ def _resample_audio(
     sampling_rate: tuple[int, int] | None = None,
 ) -> Iterator[np.ndarray]:
     if chunk_length is None:
-        yield from _prefetch_samples(audio_chunks, prefetch_n)
+        yield from prefetch_samples(audio_chunks, prefetch_n)
         return
 
     audio_chunk_list: list[np.ndarray] = []
     total_length: int = 0
-    for chunk in _prefetch_samples(audio_chunks, prefetch_n):
+    for chunk in prefetch_samples(audio_chunks, prefetch_n):
         if sampling_rate is not None and sampling_rate[0] != sampling_rate[1]:
             chunk = A.resample(torch.from_numpy(chunk), sampling_rate[0], sampling_rate[1]).numpy()
         cur_chunk_length = chunk.shape[-1]
@@ -317,6 +303,7 @@ def _resample_audio(
 def read_audio(
     in_file: str | Path,
     *,
+    blocksize: int = DEFAULT_BLOCKSIZE,
     prefetch_n: int = 1,
     chunk_length: int | None = None,
     sampling_rate: int | None = None,
@@ -328,6 +315,7 @@ def read_audio(
 
     Args:
         in_file: Path to the input file.
+        blocksize: Number of samples to read at a time.
         prefetch_n: Number of chunks to prefetch.
         chunk_length: Size of the chunks to read. If ``None``, will iterate
             whatever chunk size the underlying reader uses. Otherwise, samples
@@ -339,8 +327,6 @@ def read_audio(
     Returns:
         Iterator over numpy arrays, with shape ``(n_channels, n_samples)``.
     """
-    blocksize = prefetch_n * (DEFAULT_CHUNK if chunk_length is None else chunk_length)
-
     if reader == "ffmpeg":
         if not shutil.which("ffmpeg"):
             warnings.warn("FFMPEG is not available in this system.")
@@ -358,7 +344,7 @@ def read_audio(
         sr = None if sampling_rate is None else (AudioProps.from_file_sf(in_file).sample_rate, sampling_rate)
         return _resample_audio(
             read_audio_sf(in_file, blocksize=blocksize),
-            prefetch_n=1,
+            prefetch_n=prefetch_n,
             chunk_length=chunk_length,
             sampling_rate=sr,
         )
