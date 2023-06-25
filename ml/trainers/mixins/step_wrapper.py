@@ -44,12 +44,7 @@ class StepContext(ContextManager):
     def __enter__(self) -> None:
         StepContext.CURRENT_STEP = self.step
 
-    def __exit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc: BaseException | None,
-        traceback: TracebackType | None,
-    ) -> None:
+    def __exit__(self, _t: type[BaseException] | None, _e: BaseException | None, _tr: TracebackType | None) -> None:
         StepContext.CURRENT_STEP = None
 
 

@@ -16,12 +16,13 @@ performance issues.
 """
 
 from multiprocessing.synchronize import Lock
-from typing import Any, Iterator, TypeVar
+from types import TracebackType
+from typing import ContextManager, Iterator, TypeVar
 
 T = TypeVar("T")
 
 
-class _ReadLock:
+class _ReadLock(ContextManager):
     def __init__(self) -> None:
         self.lock: Lock | None = None
 
@@ -32,7 +33,7 @@ class _ReadLock:
         if self.lock is not None:
             self.lock.acquire()
 
-    def __exit__(self, *_: Any) -> None:  # noqa: ANN401
+    def __exit__(self, _t: type[BaseException] | None, _e: BaseException | None, _tr: TracebackType | None) -> None:
         if self.lock is not None:
             self.lock.release()
 

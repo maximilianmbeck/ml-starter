@@ -13,7 +13,8 @@ import threading
 import time
 import warnings
 from threading import Thread
-from typing import Any, Callable, TypeVar
+from types import TracebackType
+from typing import Any, Callable, ContextManager, TypeVar
 
 from ml.utils.colors import colorize
 from ml.utils.distributed import is_master
@@ -97,7 +98,7 @@ def spinner() -> Spinner:
     return Spinner()
 
 
-class Timer:
+class Timer(ContextManager):
     """Defines a simple timer for logging an event."""
 
     def __init__(
@@ -125,7 +126,7 @@ class Timer:
             spinner().set_text(self.description).start()
         return self
 
-    def __exit__(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
+    def __exit__(self, _t: type[BaseException] | None, _e: BaseException | None, _tr: TracebackType | None) -> None:
         assert self._start_time is not None
         self._elapsed_time = time.time() - self._start_time
         if self._elapsed_time > self.min_seconds_to_print:

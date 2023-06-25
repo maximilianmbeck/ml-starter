@@ -53,7 +53,8 @@ import logging
 import math
 import struct
 from pathlib import Path
-from typing import BinaryIO, Literal, Sequence
+from types import TracebackType
+from typing import BinaryIO, ContextManager, Literal, Sequence
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +96,7 @@ def _bytes_to_arr(data: bytes, seq_len: int, num_tokens: int, offset: int = 0) -
     raise ValueError("Not enough bytes to fill sequence")
 
 
-class TokenWriter:
+class TokenWriter(ContextManager):
     """Helper class for writing a dataset of tokens to a file.
 
     This class can be used in conjunction with :class:`TokenReader` to write
@@ -150,7 +151,7 @@ class TokenWriter:
 
         return self
 
-    def __exit__(self, _t: type[Exception] | None, _v: Exception | None, _tb: object | None) -> None:
+    def __exit__(self, _t: type[BaseException] | None, _e: BaseException | None, _tr: TracebackType | None) -> None:
         assert self._fp is not None
 
         self._fp.close()
