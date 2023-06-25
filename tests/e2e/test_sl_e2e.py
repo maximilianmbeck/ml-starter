@@ -107,6 +107,12 @@ def test_sl_e2e_training(tmpdir: Path) -> None:
             "log_dir_name": "test",
             "base_run_dir": str(tmpdir),
             "run_id": 0,
+            "batches_per_step_schedule": [
+                {
+                    "num_steps": 5,
+                    "num_batches": 2,
+                },
+            ],
         },
         "logger": [
             {"name": "stdout"},

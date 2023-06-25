@@ -87,7 +87,7 @@ class BaseLearningTrainer(
         with self.step_context("change_mode"):
             task_model, state.phase = set_phase(task_model, "train")
         total_bsz: int | None = None
-        first_batch = True
+        losses: dict[str, tuple[Tensor, int]] = {}
         for batch in batches:
             bsz = task.get_batch_size(batch)
             if bsz is not None:
@@ -98,13 +98,19 @@ class BaseLearningTrainer(
                 single_loss, loss_names = task.get_single_loss(loss)
             with self.step_context("backward"):
                 self.scale_mixed_precision(single_loss.sum()).backward()
-            if first_batch:
-                with self.step_context("log_losses"):
-                    self.log_mp_scale()
-                    single_loss_detached = single_loss.detach()
-                    loss_dict = {name: single_loss_detached[i] for i, name in enumerate(loss_names)}
-                    task.log_loss_dict(loss_dict, state)
-                first_batch = False
+            with self.step_context("log_losses"):
+                self.log_mp_scale()
+                single_loss_detached = single_loss.detach()
+                for i, name in enumerate(loss_names):
+                    new_loss = single_loss_detached[i]
+                    if name in losses:
+                        old_loss, count = losses[name]
+                        losses[name] = (old_loss + new_loss, count + 1)
+                    else:
+                        losses[name] = (new_loss, 1)
+        with self.step_context("log_losses"):
+            loss_dict = {k: value / count for k, (value, count) in losses.items()}
+            task.log_loss_dict(loss_dict, state)
         with self.step_context("clip_grads"):
             self.clip_grads(model=task_model, optim=optim)
         with self.step_context("step"):
