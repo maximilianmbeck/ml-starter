@@ -15,7 +15,7 @@ import shutil
 import warnings
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterator, Literal
+from typing import Iterator, Literal, TypeVar
 
 import av
 import numpy as np
@@ -25,6 +25,10 @@ import torchaudio.functional as A
 from torch import Tensor
 
 from ml.utils.numpy import as_numpy_array
+
+T = TypeVar("T")
+
+DEFAULT_CHUNK = 16_000
 
 
 @dataclass
@@ -264,20 +268,36 @@ def get_audio_props(in_file: str | Path, *, reader: Reader = "sf") -> AudioProps
     raise ValueError(f"Unknown reader {reader}")
 
 
+def _prefetch_samples(iterable: Iterator[T], pre_load_n: int) -> Iterator[T]:
+    while True:
+        items = []
+        for _ in range(pre_load_n):
+            try:
+                items.append(next(iterable))
+            except StopIteration:
+                break
+
+        if not items:
+            break
+
+        yield from items
+
+
 def _resample_audio(
     audio_chunks: Iterator[np.ndarray],
     *,
+    prefetch_n: int = 1,
     chunk_length: int | None = None,
     sampling_rate: tuple[int, int] | None = None,
 ) -> Iterator[np.ndarray]:
     if chunk_length is None:
-        yield from audio_chunks
+        yield from _prefetch_samples(audio_chunks, prefetch_n)
         return
 
     audio_chunk_list: list[np.ndarray] = []
     total_length: int = 0
-    for chunk in audio_chunks:
-        if sampling_rate is not None:
+    for chunk in _prefetch_samples(audio_chunks, prefetch_n):
+        if sampling_rate is not None and sampling_rate[0] != sampling_rate[1]:
             chunk = A.resample(torch.from_numpy(chunk), sampling_rate[0], sampling_rate[1]).numpy()
         cur_chunk_length = chunk.shape[-1]
         while total_length + cur_chunk_length >= chunk_length:
@@ -297,6 +317,7 @@ def _resample_audio(
 def read_audio(
     in_file: str | Path,
     *,
+    prefetch_n: int = 1,
     chunk_length: int | None = None,
     sampling_rate: int | None = None,
     reader: Reader = "sf",
@@ -307,6 +328,7 @@ def read_audio(
 
     Args:
         in_file: Path to the input file.
+        prefetch_n: Number of chunks to prefetch.
         chunk_length: Size of the chunks to read. If ``None``, will iterate
             whatever chunk size the underlying reader uses. Otherwise, samples
             will be rechunked to the desired size.
@@ -317,21 +339,38 @@ def read_audio(
     Returns:
         Iterator over numpy arrays, with shape ``(n_channels, n_samples)``.
     """
+    blocksize = prefetch_n * (DEFAULT_CHUNK if chunk_length is None else chunk_length)
+
     if reader == "ffmpeg":
         if not shutil.which("ffmpeg"):
             warnings.warn("FFMPEG is not available in this system.")
             reader = "av"
         else:
             sr = None if sampling_rate is None else (AudioProps.from_file_ffmpeg(in_file).sample_rate, sampling_rate)
-            return _resample_audio(read_audio_ffmpeg(in_file), chunk_length=chunk_length, sampling_rate=sr)
+            return _resample_audio(
+                read_audio_ffmpeg(in_file, chunk_size=blocksize),
+                prefetch_n=prefetch_n,
+                chunk_length=chunk_length,
+                sampling_rate=sr,
+            )
 
     if reader == "sf":
         sr = None if sampling_rate is None else (AudioProps.from_file_sf(in_file).sample_rate, sampling_rate)
-        return _resample_audio(read_audio_sf(in_file), chunk_length=chunk_length, sampling_rate=sr)
+        return _resample_audio(
+            read_audio_sf(in_file, blocksize=blocksize),
+            prefetch_n=1,
+            chunk_length=chunk_length,
+            sampling_rate=sr,
+        )
 
     if reader == "av":
         sr = None if sampling_rate is None else (AudioProps.from_file_av(in_file).sample_rate, sampling_rate)
-        return _resample_audio(read_audio_av(in_file), chunk_length=chunk_length, sampling_rate=sr)
+        return _resample_audio(
+            read_audio_av(in_file),
+            prefetch_n=prefetch_n,
+            chunk_length=chunk_length,
+            sampling_rate=sr,
+        )
 
     raise ValueError(f"Unknown reader {reader}")
 
