@@ -29,7 +29,7 @@ from ml.utils.numpy import as_numpy_array
 
 T = TypeVar("T")
 
-DEFAULT_BLOCKSIZE = 1024
+DEFAULT_BLOCKSIZE = 16_000
 
 
 @dataclass
