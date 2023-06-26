@@ -29,7 +29,6 @@ import math
 from typing import Optional
 
 import torch
-import torch.nn.functional as F
 from torch import Tensor, nn
 
 
@@ -48,6 +47,7 @@ class Codebook(nn.Module):
 
         self.codebook = nn.Parameter(torch.empty(num_codes, num_codebooks, out_dims))
         self.proj = nn.Linear(in_dims, num_codebooks * num_codes)
+        self.weight_proj = nn.Linear(in_dims, num_codebooks, bias=False)
         self.xent = nn.CrossEntropyLoss(reduction="none")
         self.reset_params()
 
@@ -61,13 +61,7 @@ class Codebook(nn.Module):
     def get_codebook_output(self, nearest: Tensor) -> Tensor:
         return self.codebook[nearest, self.codebook_inds].sum(-2)
 
-    def forward(
-        self,
-        x: Tensor,
-        target: Optional[Tensor] = None,
-        tau: float = 1.0,
-        hard: bool = True,
-    ) -> tuple[Tensor, Tensor]:
+    def forward(self, x: Tensor, target: Optional[Tensor] = None) -> tuple[Tensor, Tensor]:
         """Gets the nearest codebook item and the codebook loss.
 
         Args:
@@ -85,23 +79,24 @@ class Codebook(nn.Module):
             codebook loss.
         """
         xp = self.proj(x).unflatten(-1, (self.num_codebooks, self.num_codes))  # (..., num_codebooks, num_codes)
+        xw = torch.softmax(self.weight_proj(x), -1)  # (..., num_codebooks)
 
         with torch.no_grad():
             if target is None:
                 target = xp.argmax(-1)  # (..., num_codebooks)
             codebook_embs = self.codebook[target, self.codebook_inds]  # (..., num_codebooks, out_dims)
-            softmax = F.gumbel_softmax(codebook_embs, tau=tau, hard=hard, dim=-1)  # (..., num_codebooks, out_dims)
-            nearest = softmax.argmax(-1)  # (..., num_codebooks)
 
-        x_loss = self.xent(xp.permute(0, -1, *range(1, len(xp.shape) - 1)), nearest)
-        return codebook_embs.sum(-2), x_loss
+        x_loss = self.xent(xp.permute(0, -1, *range(1, len(xp.shape) - 1)), target)
+        return (codebook_embs * xw[..., None]).sum(-2), x_loss
 
     def infer(self, x: Tensor) -> Tensor:
         """For a given embedding, samples the codebook.
 
         Args:
-            x: The input tensor
+            x: The input tensor, with shape ``(*, in_dims)``.
+
+        Returns:
+            The codebook embedding with shape ``(*, out_dims)``.
         """
-        x = self.proj(x).unflatten(-1, (self.num_codebooks, self.num_codes))
-        nearest = x.argmax(-1)
-        return self.get_codebook_output(nearest)
+        nearest = self.proj(x).unflatten(-1, (self.num_codebooks, self.num_codes)).argmax(-1)  # (..., num_codebooks)
+        return self.get_codebook_output(nearest)  # (..., out_dims)
