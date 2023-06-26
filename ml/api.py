@@ -167,6 +167,7 @@ __all__ = [
     "SyncWorkerPool",
     "test_dataset",
     "test_environment",
+    "test_task",
     "timeout",
     "Timer",
     "TokenReader",
@@ -239,7 +240,6 @@ from ml.tasks.datasets.collate import CollateMode, collate, collate_non_null, pa
 from ml.tasks.datasets.multi_iter import MultiIterDataset
 from ml.tasks.datasets.samplers import ChunkSampler
 from ml.tasks.datasets.streaming import StreamingDataset, StreamingDatasetNoIndex
-from ml.tasks.datasets.utils import test_dataset
 from ml.tasks.datasets.video_file import VideoFileDataset
 from ml.tasks.environments.base import Environment
 from ml.tasks.environments.utils import test_environment
@@ -292,6 +292,7 @@ from ml.utils.numpy import as_cpu_tensor, as_numpy_array
 from ml.utils.parallel import init_parallelism, parallel_group_info, parallelism_is_initialized, reset_parallelism
 from ml.utils.random import set_random_seed
 from ml.utils.staging import stage_environment
+from ml.utils.testing import test_dataset, test_task
 from ml.utils.timer import Timer, timeout
 from ml.utils.tokens import TokenReader, TokenWriter
 from ml.utils.torch_distributed import (
