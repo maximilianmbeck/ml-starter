@@ -127,6 +127,7 @@ __all__ = [
     "parallel_group_info",
     "ParallelEmbedding",
     "parallelism_is_initialized",
+    "parse_cli",
     "Phase",
     "project_dir_paths",
     "read_audio",
@@ -265,6 +266,7 @@ from ml.utils.augmentation import get_image_mask
 from ml.utils.caching import DictIndex, cached_object
 from ml.utils.checkpoint import ensure_downloaded, get_state_dict_prefix, instantiate_config, load_model_and_task
 from ml.utils.checks import assert_no_nans
+from ml.utils.cli import parse_cli
 from ml.utils.colors import colorize
 from ml.utils.data import check_md5, check_sha256, get_dataset_split_for_phase, get_dataset_splits, get_worker_info
 from ml.utils.datetime import format_timedelta
