@@ -32,7 +32,7 @@ from the paper, which is reproduced below:
 
 import logging
 from dataclasses import dataclass
-from typing import Callable
+from typing import Callable, cast
 
 import torch
 from torch import Tensor, nn
@@ -110,7 +110,8 @@ class Lion(Optimizer):
 
         super().__init__(params, defaults)
 
-        self.update_fn = get_update_fn(use_triton)
+        self.update_fn = get_update_fn(use_triton=False)
+        self.update_fn_cuda = get_update_fn(use_triton=use_triton)
 
     @torch.no_grad()
     def step(self, closure: OptLossClosure = None) -> OptFloat:
@@ -121,6 +122,7 @@ class Lion(Optimizer):
 
         for group in self.param_groups:
             for p in group["params"]:
+                p = cast(Tensor, p)
                 if p.grad is None:
                     continue
 
@@ -133,7 +135,8 @@ class Lion(Optimizer):
                 if len(state) == 0:
                     state["exp_avg"] = torch.zeros_like(p)
 
-                self.update_fn(p, grad, state["exp_avg"], lr, wd, beta1, beta2)
+                update_fn = self.update_fn_cuda if grad.is_cuda else self.update_fn
+                update_fn(p, grad, state["exp_avg"], lr, wd, beta1, beta2)
 
         return loss
 
