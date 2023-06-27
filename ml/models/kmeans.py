@@ -53,7 +53,8 @@ class KMeans(nn.Module):
         self.register_buffer("centers", torch.empty(n_clusters, n_features))
         self.register_buffer("centers_norm", torch.empty(n_clusters))
         self.load_centers(centers)
-        self.kmeans_fn = kmeans_fn(use_triton_if_available)
+        self.kmeans_fn = kmeans_fn(False)
+        self.kmeans_fn_cuda = kmeans_fn(use_triton_if_available)
 
     def load_centers(self, centers: Tensor | np.ndarray) -> None:
         if isinstance(centers, np.ndarray):
@@ -75,4 +76,5 @@ class KMeans(nn.Module):
         Returns:
             The cluster IDs, with shape ``(*)``
         """
-        return self.kmeans_fn(x, self.centers, self.centers_norm)
+        kmeans_fn = self.kmeans_fn_cuda if x.is_cuda else self.kmeans_fn
+        return kmeans_fn(x, self.centers, self.centers_norm)
