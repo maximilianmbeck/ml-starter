@@ -44,8 +44,9 @@ import weakref
 from abc import abstractmethod
 from typing import Any, TypeVar, Union, cast, overload
 
+import torch
 import torch.nn.functional as F
-from torch import Tensor, nn
+from torch import _VF, Tensor, nn
 from torch.nn.modules.module import _IncompatibleKeys
 
 from ml.models.init import InitializationType
@@ -70,6 +71,8 @@ SupportedModuleNonParallel = Union[
     nn.ConvTranspose2d,
     nn.LSTM,
     nn.GRU,
+    nn.LSTMCell,
+    nn.GRUCell,
 ]
 
 SupportedModule = Union[
@@ -818,6 +821,118 @@ class LoraGRU(nn.GRU, _LoraRNN):
         )
 
 
+class _LoraRNNCellBase(nn.RNNCellBase, _Lora):
+    __constants__ = nn.RNNCell.__constants__ + ["r", "lora_alpha", "scaling"]
+
+    def __init__(
+        self,
+        input_size: int,
+        hidden_size: int,
+        bias: bool,
+        num_chunks: int,
+        r: int,
+        lora_alpha: float = 1.0,
+    ) -> None:
+        super().__init__(input_size=input_size, hidden_size=hidden_size, bias=bias, num_chunks=num_chunks)
+
+        self.r = r
+        self.lora_alpha = lora_alpha
+        self.scaling = self.lora_alpha / self.r
+
+        self.lora_a_ih = nn.Parameter(self.weight_ih.new_empty((r, input_size)))
+        self.lora_b_ih = nn.Parameter(self.weight_ih.new_empty((hidden_size * num_chunks, r)))
+        self.lora_a_hh = nn.Parameter(self.weight_hh.new_empty((r, hidden_size)))
+        self.lora_b_hh = nn.Parameter(self.weight_hh.new_empty((hidden_size * num_chunks, r)))
+        self.weight_ih.requires_grad_(False)
+        self.weight_hh.requires_grad_(False)
+
+    def reset_parameters(self) -> None:
+        super().reset_parameters()
+
+        self.reset_lora_parameters()
+
+    def reset_lora_parameters(self) -> None:
+        if hasattr(self, "lora_a_ih") and hasattr(self, "lora_b_ih"):
+            nn.init.kaiming_normal_(self.lora_a_ih, a=math.sqrt(5))
+            nn.init.zeros_(self.lora_b_ih)
+        if hasattr(self, "lora_a_hh") and hasattr(self, "lora_b_hh"):
+            nn.init.kaiming_normal_(self.lora_a_hh, a=math.sqrt(5))
+            nn.init.zeros_(self.lora_b_hh)
+
+
+class LoraLSTMCell(nn.LSTMCell, _LoraRNNCellBase):
+    def __init__(
+        self,
+        input_size: int,
+        hidden_size: int,
+        r: int,
+        bias: bool = True,
+        lora_alpha: float = 1.0,
+    ) -> None:
+        _LoraRNNCellBase.__init__(
+            self,
+            input_size=input_size,
+            hidden_size=hidden_size,
+            bias=bias,
+            num_chunks=4,
+            r=r,
+            lora_alpha=lora_alpha,
+        )
+
+    def forward(self, input: Tensor, hx: tuple[Tensor, Tensor] | None = None) -> tuple[Tensor, Tensor]:
+        assert input.dim() in (1, 2), f"LSTMCell: Expected input to be 1-D or 2-D but received {input.dim()}-D tensor"
+        is_batched = input.dim() == 2
+        if not is_batched:
+            input = input.unsqueeze(0)
+        if hx is None:
+            zeros = torch.zeros(input.size(0), self.hidden_size, dtype=input.dtype, device=input.device)
+            hx = (zeros, zeros)
+        else:
+            hx = (hx[0].unsqueeze(0), hx[1].unsqueeze(0)) if not is_batched else hx
+        lora_ih = (self.lora_b_ih @ self.lora_a_ih) * self.scaling
+        lora_hh = (self.lora_b_hh @ self.lora_a_hh) * self.scaling
+        ret = _VF.lstm_cell(input, hx, self.weight_ih + lora_ih, self.weight_hh + lora_hh, self.bias_ih, self.bias_hh)
+        if not is_batched:
+            ret = (ret[0].squeeze(0), ret[1].squeeze(0))
+        return ret
+
+
+class LoraGRUCell(nn.GRUCell, _LoraRNNCellBase):
+    def __init__(
+        self,
+        input_size: int,
+        hidden_size: int,
+        r: int,
+        bias: bool = True,
+        lora_alpha: float = 1.0,
+    ) -> None:
+        _LoraRNNCellBase.__init__(
+            self,
+            input_size=input_size,
+            hidden_size=hidden_size,
+            bias=bias,
+            num_chunks=3,
+            r=r,
+            lora_alpha=lora_alpha,
+        )
+
+    def forward(self, input: Tensor, hx: Tensor | None = None) -> Tensor:
+        assert input.dim() in (1, 2), f"GRUCell: Expected input to be 1-D or 2-D but received {input.dim()}-D tensor"
+        is_batched = input.dim() == 2
+        if not is_batched:
+            input = input.unsqueeze(0)
+        if hx is None:
+            hx = torch.zeros(input.size(0), self.hidden_size, dtype=input.dtype, device=input.device)
+        else:
+            hx = hx.unsqueeze(0) if not is_batched else hx
+        lora_ih = (self.lora_b_ih @ self.lora_a_ih) * self.scaling
+        lora_hh = (self.lora_b_hh @ self.lora_a_hh) * self.scaling
+        ret = _VF.gru_cell(input, hx, self.weight_ih + lora_ih, self.weight_hh + lora_hh, self.bias_ih, self.bias_hh)
+        if not is_batched:
+            ret = ret.squeeze(0)
+        return ret
+
+
 class LoraParallelEmbedding(ParallelEmbedding, _Lora):
     __constants__ = ParallelEmbedding.__constants__ + ["r", "lora_alpha", "merge", "scaling", "merged"]
 
@@ -1166,6 +1281,16 @@ def lora(module: nn.GRU, r: int, alpha: float = 1.0, dropout: float = 0.0, merge
 
 
 @overload
+def lora(module: nn.LSTMCell, r: int, alpha: float = 1.0, dropout: float = 0.0, merge: bool = False) -> LoraLSTMCell:
+    ...
+
+
+@overload
+def lora(module: nn.GRUCell, r: int, alpha: float = 1.0, dropout: float = 0.0, merge: bool = False) -> LoraGRUCell:
+    ...
+
+
+@overload
 def lora(
     module: ParallelEmbedding,
     r: int,
@@ -1382,6 +1507,42 @@ def lora(module: SupportedModule, r: int, alpha: float = 1.0, dropout: float = 0
         for param_name, param_value in module.named_parameters():
             getattr(gru, param_name).data.copy_(param_value.data)
         return gru
+
+    if isinstance(module, nn.LSTMCell):
+        if dropout > 0.0:
+            warnings.warn("LoRA dropout is not supported for LSTMCells")
+
+        lstm_cell = LoraLSTMCell(
+            module.input_size,
+            module.hidden_size,
+            r=r,
+            lora_alpha=alpha,
+            bias=module.bias,
+        )
+        lstm_cell.weight_hh.data.copy_(module.weight_hh.data)
+        lstm_cell.weight_ih.data.copy_(module.weight_ih.data)
+        if module.bias:
+            lstm_cell.bias_hh.data.copy_(module.bias_hh.data)
+            lstm_cell.bias_ih.data.copy_(module.bias_ih.data)
+        return lstm_cell
+
+    if isinstance(module, nn.GRUCell):
+        if dropout > 0.0:
+            warnings.warn("LoRA dropout is not supported for GRUCells")
+
+        gru_cell = LoraGRUCell(
+            module.input_size,
+            module.hidden_size,
+            r=r,
+            lora_alpha=alpha,
+            bias=module.bias,
+        )
+        gru_cell.weight_hh.data.copy_(module.weight_hh.data)
+        gru_cell.weight_ih.data.copy_(module.weight_ih.data)
+        if module.bias:
+            gru_cell.bias_hh.data.copy_(module.bias_hh.data)
+            gru_cell.bias_ih.data.copy_(module.bias_ih.data)
+        return gru_cell
 
     if isinstance(module, ParallelEmbedding):
         parallel_embedding = LoraParallelEmbedding(

@@ -30,6 +30,10 @@ def test_lora_modules(mod_type: type[nn.Module]) -> None:
         else:
             in_tensor = torch.randn(5, 10)
 
+    elif mod_type in (nn.LSTMCell, nn.GRUCell):
+        model = mod_type(10, 20)
+        in_tensor = torch.randn(5, 10)
+
     elif mod_type in (nn.Conv1d, nn.Conv2d, nn.ConvTranspose1d, nn.ConvTranspose2d):
         model = mod_type(3, 5, 3)
         if mod_type in (nn.Conv1d, nn.ConvTranspose1d):
