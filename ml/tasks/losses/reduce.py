@@ -25,13 +25,15 @@ def cast_reduce_type(s: str | None) -> ReduceType:
 
 
 def reduce(t: Tensor, reduce_type: ReduceType, dim: int | None = None) -> Tensor:
-    if reduce_type is None:
-        return t
-    if reduce_type == "mean":
-        return t.mean(dim)
-    if reduce_type == "sum":
-        return t.sum(dim)
-    raise NotImplementedError(f"Unexpected sample reduction type: {reduce_type}")
+    match reduce_type:
+        case None:
+            return t
+        case "mean":
+            return t.mean(dim)
+        case "sum":
+            return t.sum(dim)
+        case _:
+            raise NotImplementedError(f"Unexpected sample reduction type: {reduce_type}")
 
 
 class SampleReduce(nn.Module):

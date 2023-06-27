@@ -952,6 +952,7 @@ class MultiLogger:
 
             n_fft = to_frames(n_fft_ms)
             hop_length = None if hop_length_ms is None else to_frames(hop_length_ms)
+            audio = audio.to(torch.float32)
             audio_spec = torch.stft(audio, n_fft, hop_length=hop_length, normalized=True, return_complex=True)
             audio_spec = torch.log10(torch.abs(audio_spec) + 1e-6)
             return standardize_image(
@@ -1009,6 +1010,7 @@ class MultiLogger:
 
             n_fft = to_frames(n_fft_ms)
             hop_length = None if hop_length_ms is None else to_frames(hop_length_ms)
+            audio = audio.to(torch.float32)
             audio_spec = torch.stft(audio, n_fft, hop_length=hop_length, normalized=True, return_complex=True)
             audio_spec = torch.log10(torch.abs(audio_spec) + 1e-6)
             audio_spec = standardize_images(

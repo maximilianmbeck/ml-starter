@@ -112,6 +112,7 @@ __all__ = [
     "LoraGRU",
     "LoraLinear",
     "LoraLSTM",
+    "loss_fn",
     "Loss",
     "maybe_lora",
     "meta_to_empty_func",
@@ -252,6 +253,7 @@ from ml.tasks.environments.worker import (
     SyncWorkerPool,
     WorkerPool,
 )
+from ml.tasks.losses.loss import loss_fn
 from ml.tasks.losses.reduce import cast_reduce_type, reduce
 from ml.tasks.rl.base import ReinforcementLearningTask, ReinforcementLearningTaskConfig
 from ml.tasks.sl.base import SupervisedLearningTask, SupervisedLearningTaskConfig
