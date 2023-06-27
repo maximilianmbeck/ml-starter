@@ -139,7 +139,7 @@ class LoraEmbedding(nn.Embedding, _Lora):
 
         self.lora_a = nn.Parameter(self.weight.new_empty((r, num_embeddings)))
         self.lora_b = nn.Parameter(self.weight.new_empty((embedding_dim, r)))
-        self.weight.requires_grad = False
+        self.weight.requires_grad_(False)
 
         self.reset_parameters()
 
@@ -220,7 +220,7 @@ class LoraLinear(nn.Linear, _Lora):
 
         self.lora_a = nn.Parameter(self.weight.new_empty((r, in_features)))
         self.lora_b = nn.Parameter(self.weight.new_empty((out_features, r)))
-        self.weight.requires_grad = False
+        self.weight.requires_grad_(False)
 
         self.reset_parameters()
 
@@ -308,7 +308,7 @@ class LoraConv1d(nn.Conv1d, _Lora):
 
         self.lora_a = nn.Parameter(self.weight.new_empty((r, in_channels, *self.kernel_size)))
         self.lora_b = nn.Parameter(self.weight.new_empty((out_channels, r, 1)))
-        self.weight.requires_grad = False
+        self.weight.requires_grad_(False)
 
         self.reset_parameters()
 
@@ -393,7 +393,7 @@ class LoraConvTranspose1d(nn.ConvTranspose1d, _Lora):
 
         self.lora_a = nn.Parameter(self.weight.new_empty((in_channels, r, *self.kernel_size)))
         self.lora_b = nn.Parameter(self.weight.new_empty((r, out_channels, 1)))
-        self.weight.requires_grad = False
+        self.weight.requires_grad_(False)
 
         self.reset_parameters()
 
@@ -496,7 +496,7 @@ class LoraConv2d(nn.Conv2d, _Lora):
 
         self.lora_a = nn.Parameter(self.weight.new_empty((r, in_channels, *self.kernel_size)))
         self.lora_b = nn.Parameter(self.weight.new_empty((out_channels, r, 1, 1)))
-        self.weight.requires_grad = False
+        self.weight.requires_grad_(False)
 
         self.reset_parameters()
 
@@ -581,7 +581,7 @@ class LoraConvTranspose2d(nn.ConvTranspose2d, _Lora):
 
         self.lora_a = nn.Parameter(self.weight.new_empty((in_channels, r, *self.kernel_size)))
         self.lora_b = nn.Parameter(self.weight.new_empty((r, out_channels, 1, 1)))
-        self.weight.requires_grad = False
+        self.weight.requires_grad_(False)
 
         self.reset_parameters()
 
@@ -699,8 +699,8 @@ class _LoraRNN(nn.RNNBase, _Lora):
                 suffix = "_reverse" if direction == 1 else ""
                 w_ih: Tensor = getattr(self, f"weight_ih_l{layer}{suffix}")
                 w_hh: Tensor = getattr(self, f"weight_hh_l{layer}{suffix}")
-                w_ih.requires_grad = False
-                w_hh.requires_grad = False
+                w_ih.requires_grad_(False)
+                w_hh.requires_grad_(False)
                 lora_a_ih = nn.Parameter(w_ih.new_empty((r, gate_size)))
                 lora_b_ih = nn.Parameter(w_ih.new_empty((layer_input_size, r)))
                 lora_a_hh = nn.Parameter(w_hh.new_empty((r, gate_size)))
@@ -712,7 +712,7 @@ class _LoraRNN(nn.RNNBase, _Lora):
 
                 if self.proj_size != 0:
                     w_hr: Tensor = getattr(self, f"weight_hr_l{layer}{suffix}")
-                    w_hr.requires_grad = False
+                    w_hr.requires_grad_(False)
                     lora_a_hr = nn.Parameter(w_hr.new_empty((r, proj_size)))
                     lora_b_hr = nn.Parameter(w_hr.new_empty((hidden_size, r)))
                     setattr(self, f"lora_a_hr_l{layer}{suffix}", lora_a_hr)
@@ -859,7 +859,7 @@ class LoraParallelEmbedding(ParallelEmbedding, _Lora):
 
         self.lora_a = nn.Parameter(self.weight.new_empty((r, num_embeddings)))
         self.lora_b = nn.Parameter(self.weight.new_empty((self.embedding_dim_per_rank, r)))
-        self.weight.requires_grad = False
+        self.weight.requires_grad_(False)
 
         self.reset_parameters()
 
@@ -965,7 +965,7 @@ class LoraColumnParallelLinear(ColumnParallelLinear, _Lora):
 
         self.lora_a = nn.Parameter(self.weight.new_empty((r, in_features)))
         self.lora_b = nn.Parameter(self.weight.new_empty((self.output_size_per_partition, r)))
-        self.weight.requires_grad = False
+        self.weight.requires_grad_(False)
 
         self.reset_parameters()
 
@@ -1060,7 +1060,7 @@ class LoraRowParallelLinear(RowParallelLinear, _Lora):
 
         self.lora_a = nn.Parameter(self.weight.new_empty((r, self.input_size_per_partition)))
         self.lora_b = nn.Parameter(self.weight.new_empty((out_features, r)))
-        self.weight.requires_grad = False
+        self.weight.requires_grad_(False)
 
         self.reset_parameters()
 
@@ -1481,3 +1481,16 @@ def reset_lora_weights_(module: nn.Module) -> None:
     for _, submodule in module.named_modules():
         if isinstance(submodule, _Lora):
             submodule.reset_lora_parameters()
+
+
+def freeze_non_lora_(module: nn.Module) -> None:
+    """Freezes any non-LoRA parameters in the module.
+
+    Args:
+        module: The module to freeze, in-place.
+    """
+    for _, submodule in module.named_modules():
+        if isinstance(submodule, _Lora):
+            continue
+        for param in submodule.parameters(recurse=False):
+            param.requires_grad_(False)
