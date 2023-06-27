@@ -146,8 +146,11 @@ def set_init_method(init_method: str) -> None:
         raise ValueError(f"Init method {init_method} is already set")
 
 
-def get_random_port() -> int:
-    return (hash(time.time()) + random.randint(0, 100000)) % (65_535 - 10_000) + 10_000
+def get_random_port(default: int = 1337) -> int:
+    try:
+        return (hash(time.time()) + random.randint(0, 100000)) % (65_535 - 10_000) + 10_000
+    except Exception:
+        return default
 
 
 def set_dist(

@@ -7,7 +7,7 @@ a simple dummy environment, to make sure that they don't deadlock.
 import multiprocessing as mp
 import os
 from dataclasses import dataclass
-from typing import Type, cast
+from typing import cast
 
 import numpy as np
 import psutil
@@ -70,8 +70,8 @@ class DummyEnvironment(Environment[DummyState, DummyAction]):
 @pytest.mark.parametrize("num_actions", [10])
 @pytest.mark.slow
 def test_worker_and_pool(
-    worker_cls: Type[BaseEnvironmentWorker],
-    pool_cls: Type[WorkerPool],
+    worker_cls: type[BaseEnvironmentWorker],
+    pool_cls: type[WorkerPool],
     num_workers: int,
     num_actions: int,
 ) -> None:

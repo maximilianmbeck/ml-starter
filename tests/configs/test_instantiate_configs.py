@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Type, cast
+from typing import cast
 
 import pytest
 from omegaconf import DictConfig, OmegaConf
@@ -71,7 +71,7 @@ trainer:
 """
 
 
-def get_all_keys(reg: Type[register_base]) -> list[str]:
+def get_all_keys(reg: type[register_base]) -> list[str]:
     reg.populate_registry("THIS KEY DOES NOT EXIST")
     return list(sorted(reg.REGISTRY.keys()))
 

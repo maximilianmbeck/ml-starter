@@ -12,7 +12,6 @@ associated environment variable, for example:
 
 import functools
 import logging
-from typing import Type
 
 from ml.utils.device.base import BaseDevice
 from ml.utils.device.cpu import CPUDevice
@@ -24,7 +23,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 # These devices are ordered by priority, so an earlier device in the list
 # is preferred to a later device in the list.
-ALL_DEVICES: list[Type[BaseDevice]] = [
+ALL_DEVICES: list[type[BaseDevice]] = [
     MetalDevice,
     GPUDevice,
     CPUDevice,
@@ -36,7 +35,7 @@ class AutoDevice:
 
     @classmethod
     @functools.lru_cache(None)
-    def detect_device(cls) -> Type[BaseDevice]:
+    def detect_device(cls) -> type[BaseDevice]:
         for device_type in ALL_DEVICES:
             if device_type.has_device():
                 logger.log(DEBUGALL, "Device: [%s]", device_type.get_device())
@@ -44,7 +43,7 @@ class AutoDevice:
         raise RuntimeError("Could not automatically detect the device to use")
 
     @classmethod
-    def get_device_from_key(cls, key: str) -> Type[BaseDevice]:
+    def get_device_from_key(cls, key: str) -> type[BaseDevice]:
         if key == "auto":
             return AutoDevice.detect_device()
         if key == "cpu":

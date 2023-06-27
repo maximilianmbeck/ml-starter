@@ -1,6 +1,6 @@
 """Tests the LoRA API."""
 
-from typing import Type, cast, get_args
+from typing import cast, get_args
 
 import pytest
 import torch
@@ -10,7 +10,7 @@ from ml.models.lora import SupportedModuleNonParallel, lora, reset_lora_weights_
 
 
 @pytest.mark.parametrize("mod_type", get_args(SupportedModuleNonParallel))
-def test_lora_modules(mod_type: Type[nn.Module]) -> None:
+def test_lora_modules(mod_type: type[nn.Module]) -> None:
     """Tests loading weights from a non-LoRA model into a LoRA model.
 
     Args:

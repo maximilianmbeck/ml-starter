@@ -1,13 +1,15 @@
 # Makefile
 
 define HELP_MESSAGE
-                    ML Template
+                    ML Starter
                     -----------
+
+Welcome to the `ml-starter` package!
 
 # Installing
 
-1. Create a new Conda environment: `conda create --name ml-project python=3.10`
-2. Activate the environment: `conda activate ml-project`
+1. Create a new Conda environment: `conda create --name ml-starter python=3.10`
+2. Activate the environment: `conda activate ml-starter`
 3. Install the package: `make install-dev`
 
 # Running Tests

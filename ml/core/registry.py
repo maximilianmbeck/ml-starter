@@ -84,6 +84,19 @@ add_project_dir = project_dirs.add
 project_dir_paths = project_dirs.paths
 
 
+def _iter_directory(subfiles: list[Path], *curdirs: Path) -> Iterator[Path]:
+    for curdir in curdirs:
+        for subpath in curdir.iterdir():
+            if subpath.stem.startswith("__"):
+                continue
+            if subpath.is_file() and subpath.suffix == ".py":
+                subfile = subpath.resolve()
+                subfiles.append(subfile)
+                yield subfile
+            elif subpath.is_dir():
+                yield from _iter_directory(subfiles, subpath)
+
+
 def get_name(key: str, config: BaseContainer) -> str:
     if not isinstance(config, DictConfig):
         raise ValueError(f"Expected {key} config to be a dictionary, got {type(config)}")
@@ -114,7 +127,7 @@ def get_names(key: str, config: BaseContainer) -> list[str]:
 class register_base(ABC, Generic[Entry, Config]):  # noqa: N801
     """Defines the base registry type."""
 
-    REGISTRY: dict[str, tuple[type[Entry], type[Config]]] = {}
+    REGISTRY: dict[str, tuple[type[Entry], type[Config] | Config]] = {}
     REGISTRY_LOCATIONS: dict[str, Path] = {}
 
     @classmethod
@@ -205,23 +218,11 @@ class register_base(ABC, Generic[Entry, Config]):  # noqa: N801
         # the second time we can just iterate through it again.
         subfiles: list[Path] = []
 
-        def iter_directory(*curdirs: Path) -> Iterator[Path]:
-            for curdir in curdirs:
-                for subpath in curdir.iterdir():
-                    if subpath.stem.startswith("__"):
-                        continue
-                    if subpath.is_file() and subpath.suffix == ".py":
-                        subfile = subpath.resolve()
-                        subfiles.append(subfile)
-                        yield subfile
-                    elif subpath.is_dir():
-                        yield from iter_directory(subpath)
-
         # Next sweep over the search directory and check for prefix matches.
         search_dir = cls.search_directory()
         search_dirs = [base_dir / search_dir for base_dir in project_dirs.paths]
         search_dirs = [search_dir for search_dir in search_dirs if search_dir.is_dir()]
-        for path in iter_directory(*search_dirs):
+        for path in _iter_directory(subfiles, *search_dirs):
             if path.stem.lower().startswith(lower_name) or lower_name.startswith(path.stem.lower()):
                 cls.manual_import(path)
                 if name in cls.REGISTRY:
@@ -233,6 +234,23 @@ class register_base(ABC, Generic[Entry, Config]):  # noqa: N801
             cls.manual_import(path)
             if name in cls.REGISTRY:
                 return
+
+    @classmethod
+    def populate_full_regisry(cls) -> None:
+        """Populates the complete registry, removing invalid cached values."""
+        cls.REGISTRY.clear()
+        cls.REGISTRY_LOCATIONS.clear()
+
+        # This gets populated the first time we walk the directories, so that
+        # the second time we can just iterate through it again.
+        subfiles: list[Path] = []
+
+        # Sweep over the search directory and import everything.
+        search_dir = cls.search_directory()
+        search_dirs = [base_dir / search_dir for base_dir in project_dirs.paths]
+        search_dirs = [search_dir for search_dir in search_dirs if search_dir.is_dir()]
+        for path in _iter_directory(subfiles, *search_dirs):
+            cls.manual_import(path)
 
     @classmethod
     @functools.lru_cache(None)
@@ -345,7 +363,7 @@ class register_base(ABC, Generic[Entry, Config]):  # noqa: N801
 
         # Adds all default configurations as well.
         for key, default_cfg in self.config.get_defaults().items():
-            self.REGISTRY[key] = cast(tuple[type[Entry], type[Config]], (entry, default_cfg))
+            self.REGISTRY[key] = (cast(type[Entry], entry), default_cfg)
             self.REGISTRY_LOCATIONS[key] = registry_location
 
         return entry
@@ -442,7 +460,7 @@ class multi_register_base(register_base[Entry, Config], Generic[Entry, Config]):
 class register_model(register_base["BaseModel", "BaseModelConfig"]):  # noqa: N801
     """Defines a registry for holding modules."""
 
-    REGISTRY: dict[str, tuple[type["BaseModel"], type["BaseModelConfig"]]] = {}
+    REGISTRY: dict[str, tuple[type["BaseModel"], "type[BaseModelConfig] | BaseModelConfig"]] = {}
     REGISTRY_LOCATIONS: dict[str, Path] = {}
 
     @classmethod
@@ -457,7 +475,7 @@ class register_model(register_base["BaseModel", "BaseModelConfig"]):  # noqa: N8
 class register_task(register_base["BaseTask", "BaseTaskConfig"]):  # noqa: N801
     """Defines a registry for holding tasks."""
 
-    REGISTRY: dict[str, tuple[type["BaseTask"], type["BaseTaskConfig"]]] = {}
+    REGISTRY: dict[str, tuple[type["BaseTask"], "type[BaseTaskConfig] | BaseTaskConfig"]] = {}
     REGISTRY_LOCATIONS: dict[str, Path] = {}
 
     @classmethod
@@ -472,7 +490,7 @@ class register_task(register_base["BaseTask", "BaseTaskConfig"]):  # noqa: N801
 class register_trainer(register_base["BaseTrainer", "BaseTrainerConfig"]):  # noqa: N801
     """Defines a registry for holding trainers."""
 
-    REGISTRY: dict[str, tuple[type["BaseTrainer"], type["BaseTrainerConfig"]]] = {}
+    REGISTRY: dict[str, tuple[type["BaseTrainer"], "type[BaseTrainerConfig] | BaseTrainerConfig"]] = {}
     REGISTRY_LOCATIONS: dict[str, Path] = {}
 
     @classmethod
@@ -487,7 +505,7 @@ class register_trainer(register_base["BaseTrainer", "BaseTrainerConfig"]):  # no
 class register_optimizer(register_base["BaseOptimizer", "BaseOptimizerConfig"]):  # noqa: N801
     """Defines a registry for holding optimizers."""
 
-    REGISTRY: dict[str, tuple[type["BaseOptimizer"], type["BaseOptimizerConfig"]]] = {}
+    REGISTRY: dict[str, tuple[type["BaseOptimizer"], "type[BaseOptimizerConfig] | BaseOptimizerConfig"]] = {}
     REGISTRY_LOCATIONS: dict[str, Path] = {}
 
     @classmethod
@@ -502,7 +520,7 @@ class register_optimizer(register_base["BaseOptimizer", "BaseOptimizerConfig"]):
 class register_lr_scheduler(register_base["BaseLRScheduler", "BaseLRSchedulerConfig"]):  # noqa: N801
     """Defines a registry for holding learning rate schedulers."""
 
-    REGISTRY: dict[str, tuple[type["BaseLRScheduler"], type["BaseLRSchedulerConfig"]]] = {}
+    REGISTRY: dict[str, tuple[type["BaseLRScheduler"], "type[BaseLRSchedulerConfig] | BaseLRSchedulerConfig"]] = {}
     REGISTRY_LOCATIONS: dict[str, Path] = {}
 
     @classmethod
@@ -517,7 +535,7 @@ class register_lr_scheduler(register_base["BaseLRScheduler", "BaseLRSchedulerCon
 class register_logger(multi_register_base["BaseLogger", "BaseLoggerConfig"]):  # noqa: N801
     """Defines a registry for holding loggers."""
 
-    REGISTRY: dict[str, tuple[type["BaseLogger"], type["BaseLoggerConfig"]]] = {}
+    REGISTRY: dict[str, tuple[type["BaseLogger"], "type[BaseLoggerConfig] | BaseLoggerConfig"]] = {}
     REGISTRY_LOCATIONS: dict[str, Path] = {}
 
     @classmethod
@@ -530,7 +548,7 @@ class register_logger(multi_register_base["BaseLogger", "BaseLoggerConfig"]):  #
 
 
 class register_launcher(register_base["BaseLauncher", "BaseLauncherConfig"]):  # noqa: N801
-    REGISTRY: dict[str, tuple[type["BaseLauncher"], type["BaseLauncherConfig"]]] = {}
+    REGISTRY: dict[str, tuple[type["BaseLauncher"], "type[BaseLauncherConfig] | BaseLauncherConfig"]] = {}
     REGISTRY_LOCATIONS: dict[str, Path] = {}
 
     @classmethod

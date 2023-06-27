@@ -21,15 +21,13 @@ class SSIMLoss(nn.Module):
         kernel_size: Size of the Gaussian kernel.
         stride: Stride of the Gaussian kernel.
         channels: Number of channels in the image.
-        mode: Mode of the SSIM function (see below).
+        mode: Mode of the SSIM function, either ``avg`` or ``std``. The
+            ``avg`` mode uses unweighted ``(K, K)`` regions, while the ``std``
+            mode uses Gaussian weighted ``(K, K)`` regions, which allows for
+            larger regions without worrying about blurring.
         sigma: Standard deviation of the Gaussian kernel.
         dynamic_range: Difference between the maximum and minimum possible
             values for the image.
-
-    Modes:
-        avg: Use unweighted ``(K, K)`` regions
-        std: Use Gaussian weighted ``(K, K)`` regions (can use larger regions
-            without worrying about blurring)
 
     Inputs:
         x: float tensor with shape ``(B, C, H, W)``

@@ -2,3 +2,5 @@
 
 _build
 ml*.rst
+registry*.rst
+index.rst

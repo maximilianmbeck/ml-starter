@@ -51,6 +51,8 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 T = TypeVar("T", bound="SlurmLauncher")
 
+OmegaConf.register_new_resolver("ml.get_random_slurm_port", get_random_port, replace=True)
+
 SBATCH_TEMPLATE: str = """
 #!/bin/bash
 #SBATCH --job-name={job_name}
@@ -143,7 +145,7 @@ class SlurmLauncherConfig(BaseLauncherConfig):
     gpu_type: str | None = conf_field(None, help="Specific GPU type to pass to gres")
     num_jobs: int = conf_field(1, help="Number of redundant jobs to launch")
     comment: str | None = conf_field(None, help="An optional comment to add to the experiment")
-    master_port: int = conf_field(get_random_port, help="The master port to use")
+    master_port: int = conf_field(II("ml.get_random_slurm_port:1337"), help="The master port to use")
 
 
 def ignore_signal(signum: int, _: FrameType | None) -> None:

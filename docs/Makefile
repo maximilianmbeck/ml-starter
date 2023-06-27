@@ -18,7 +18,7 @@ help:
 	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 
 remove-ml:
-	rm -rf ml*.rst
+	rm -rf ml*.rst registry*.rst
 
 clean-all: clean remove-ml
 

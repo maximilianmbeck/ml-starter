@@ -3,8 +3,8 @@
 This optimizer was proposed in `Symbolic Discovery of Optimization Algorithms
 <https://arxiv.org/abs/2302.06675>`_.
 
-Lion stands for "Evolved Sign Momentum". It is more memory-efficient than
-Adam since it only keeps track of momentum.
+Lion stands for "Evolved Sign Momentum" (yes, actually). It is more
+memory-efficient than Adam since it only keeps track of momentum.
 
 In the original paper, the authors suggest using a larger batch size and a
 smaller learning rate compared to Adam.
