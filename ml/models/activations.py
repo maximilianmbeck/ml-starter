@@ -37,6 +37,8 @@ Choices for the activation functions are:
 - ``"hard_shrink"``
 - ``"tanh_shrink"``
 - ``"soft_sign"``
+- ``"relu_squared"``
+- ``"laplace"``
 """
 
 import math
@@ -71,6 +73,8 @@ ActivationType = Literal[
     "hard_shrink",
     "tanh_shrink",
     "soft_sign",
+    "relu_squared",
+    "laplace",
 ]
 
 
@@ -131,8 +135,16 @@ class QuickGELU(nn.Module):
 
 
 class LaplaceActivation(nn.Module):
-    def forward(self, x: Tensor, mu: float = 0.707107, sigma: float = 0.282095) -> Tensor:
-        x = (x - mu).div(sigma * math.sqrt(2.0))
+    __constants__ = ["mu", "sigma"]
+
+    def __init__(self, mu: float = 0.707107, sigma: float = 0.282095) -> None:
+        super().__init__()
+
+        self.mu = mu
+        self.sigma = sigma
+
+    def forward(self, x: Tensor) -> Tensor:
+        x = (x - self.mu).div(self.sigma * math.sqrt(2.0))
         return 0.5 * (1.0 + torch.erf(x))
 
 
@@ -200,5 +212,9 @@ def get_activation(act: ActivationType, *, inplace: bool = True) -> nn.Module:
             return nn.Tanhshrink()
         case "soft_sign":
             return nn.Softsign()
+        case "relu_squared":
+            return ReLUSquared()
+        case "laplace":
+            return LaplaceActivation()
         case _:
             raise NotImplementedError(f"Activation function '{act}' is not implemented.")
