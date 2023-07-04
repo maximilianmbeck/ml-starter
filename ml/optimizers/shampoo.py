@@ -13,6 +13,7 @@ from torch.optim.optimizer import Optimizer
 from ml.core.config import conf_field
 from ml.core.registry import register_optimizer
 from ml.optimizers.base import BaseOptimizer, BaseOptimizerConfig
+from ml.optimizers.common import separate_decayable_params
 from ml.optimizers.types import OptFloat, OptLossClosure, Params
 
 
@@ -167,16 +168,16 @@ class ShampooOptimizerConfig(BaseOptimizerConfig):
     weight_decay: float = conf_field(0.0, help="Weight decay")
     epsilon: float = conf_field(1e-4, help="Epsilon")
     update_freq: int = conf_field(1, help="Update frequency")
+    default_decay: bool = conf_field(True, help="Whether to decay module params which aren't explicitly specified")
 
 
 @register_optimizer("shampoo", ShampooOptimizerConfig)
 class ShampooOptimizer(BaseOptimizer[ShampooOptimizerConfig, Shampoo]):
     def get(self, model: nn.Module) -> Shampoo:
         return Shampoo(
-            model.parameters(),
+            separate_decayable_params(model, self.config.default_decay, self.config.weight_decay),
             lr=self.config.lr,
             momentum=self.config.momentum,
-            weight_decay=self.config.weight_decay,
             epsilon=self.config.epsilon,
             update_freq=self.config.update_freq,
         )

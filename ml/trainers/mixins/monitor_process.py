@@ -38,8 +38,8 @@ class MonitorProcessMixin(
         state: State,
         task: TaskT,
         model: ModelT,
-        optim: Optimizer,
-        lr_sched: SchedulerAdapter,
+        optim: Optimizer | dict[str, Optimizer],
+        lr_sched: SchedulerAdapter | dict[str, SchedulerAdapter],
     ) -> None:
         super().on_training_end(state, task, model, optim, lr_sched)
 

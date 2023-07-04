@@ -4,7 +4,7 @@ This class expects you to implement the following functions:
 
 .. code-block:: python
 
-    class MySupervisedLearningTask(ml.ReinforcementLearning[Config, Model, Batch, Output, Loss]):
+    class MySupervisedLearningTask(ml.SupervisedLearningTask[Config, Model, Batch, Output, Loss]):
         def run_model(self, model: Model, batch: Batch, state: ml.State) -> Output:
             ...
 
@@ -44,8 +44,6 @@ class SupervisedLearningTask(
     Generic[SupervisedLearningTaskConfigT, ModelT, Batch, Output, Loss],
     ABC,
 ):
-    """Defines the base task type."""
-
     def get_dataset(self, phase: Phase) -> Dataset:
         """Returns the dataset for a given phase.
 

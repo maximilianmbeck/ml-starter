@@ -214,7 +214,13 @@ class BaseLearningTrainer(
             lr_sched = lr_scheduler.get(optim)
         return optim, lr_sched
 
-    def _get_state(self, task: TaskT, model: ModelT, optim: Optimizer, lr_sched: SchedulerAdapter) -> State:
+    def _get_state(
+        self,
+        task: TaskT,
+        model: ModelT,
+        optim: Optimizer | dict[str, Optimizer],
+        lr_sched: SchedulerAdapter | dict[str, SchedulerAdapter],
+    ) -> State:
         if (ckpt_path := self.get_ckpt_path()).exists():
             return self.load_checkpoint(ckpt_path, task, model, optim, lr_sched)
         if self.config.checkpoint.load_from_ckpt_path is not None:

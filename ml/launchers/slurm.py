@@ -23,15 +23,15 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 from types import FrameType
-from typing import TypeVar
+from typing import TypeVar, cast
 
-from omegaconf import II, MISSING, OmegaConf
+from omegaconf import II, MISSING, DictConfig, OmegaConf
 
 from ml.core.config import conf_field
 from ml.core.env import get_stage_dir
 from ml.core.registry import Objects, project_dirs, register_launcher, register_trainer
 from ml.launchers.base import BaseLauncher, BaseLauncherConfig
-from ml.scripts.train import train_main_with_objects
+from ml.scripts.train import train_main
 from ml.trainers.base import BaseTrainer
 from ml.utils.distributed import (
     get_master_addr,
@@ -260,7 +260,9 @@ def slurm_main() -> None:
             project_dirs.add(sub_dir)
 
     # Loads the raw config.
-    raw_config = OmegaConf.load(args[0])
+    raw_config = cast(DictConfig, OmegaConf.load(args[0]))
+    if not OmegaConf.is_dict(raw_config):
+        raise ValueError(f"Expected a dict config, got: {raw_config}")
 
     # Sets environment variables from Clurm environment variables.
     set_slurm_master_addr()
@@ -271,16 +273,15 @@ def slurm_main() -> None:
     configure_logging(rank=rank, world_size=world_size)
     init_process_group_from_backend()
 
-    objs = Objects.parse_raw_config(raw_config)  # type: ignore[arg-type]
-
-    assert (trainer := objs.trainer) is not None
+    assert (trainer := register_trainer.build_entry(raw_config)) is not None
     trainer.add_lock_file("running", exists_ok=True)
     trainer.remove_lock_file("scheduled", missing_ok=True)
 
     signal.signal(signal.SIGTERM, ignore_signal)
     trainer.add_signal_handler(signal.SIGUSR1, requeue_job)
 
-    train_main_with_objects(objs)
+    objs = Objects(raw_config, trainer=trainer)
+    train_main(raw_config, objs)
 
 
 if __name__ == "__main__":

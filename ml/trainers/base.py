@@ -317,8 +317,8 @@ class BaseTrainer(BaseObject[TrainerConfigT], Generic[TrainerConfigT, ModelT, Ta
         ckpt: str | Path | dict,
         task: TaskT,
         model: ModelT,
-        optim: Optimizer | None = None,
-        lr_sched: SchedulerAdapter | None = None,
+        optims: Optimizer | dict[str, Optimizer] | None = None,
+        lr_scheds: SchedulerAdapter | dict[str, SchedulerAdapter] | None = None,
         *,
         weights_only: bool = True,
     ) -> State:
@@ -328,8 +328,8 @@ class BaseTrainer(BaseObject[TrainerConfigT], Generic[TrainerConfigT, ModelT, Ta
             ckpt: The checkpoint to load.
             task: The task to load the checkpoint into.
             model: The model to load the checkpoint into.
-            optim: The optimizer to load the checkpoint into.
-            lr_sched: The learning rate scheduler to load the checkpoint into.
+            optims: The optimizer to load the checkpoint into.
+            lr_scheds: The learning rate scheduler to load the checkpoint into.
             weights_only: If set, only load the model weights.
 
         Returns:
@@ -358,18 +358,27 @@ class BaseTrainer(BaseObject[TrainerConfigT], Generic[TrainerConfigT, ModelT, Ta
                 task.load_state_dict(ckpt["task"])
             else:
                 logger.warning("Checkpoint does not contain a task state dict")
-            if optim is not None:
+            if optims is not None:
                 if "optim" in ckpt:
-                    optim.load_state_dict(ckpt["optim"])
+                    if isinstance(optims, dict):
+                        for name, optim in optims.items():
+                            optim.load_state_dict(ckpt["optim"][name])
+                    else:
+                        optims.load_state_dict(ckpt["optim"])
                 else:
                     logger.warning("Checkpoint does not contain an optimizer state dict")
-            if lr_sched is not None:
+            if lr_scheds is not None:
                 if "lr_sched" in ckpt:
-                    lr_sched.load_state_dict(ckpt["lr_sched"])
+                    if isinstance(lr_scheds, dict):
+                        for name, lr_sched in lr_scheds.items():
+                            lr_sched.load_state_dict(ckpt["lr_sched"][name])
+                    else:
+                        lr_scheds.load_state_dict(ckpt["lr_sched"])
                 else:
                     logger.warning("Checkpoint does not contain a learning rate scheduler state dict")
             self.load_state_dict(ckpt)
             state = State(**ckpt["state"])
+
         return state
 
     def save_checkpoint(
@@ -377,8 +386,8 @@ class BaseTrainer(BaseObject[TrainerConfigT], Generic[TrainerConfigT, ModelT, Ta
         state: State,
         task: TaskT,
         model: ModelT,
-        optim: Optimizer | None = None,
-        lr_sched: SchedulerAdapter | None = None,
+        optims: Optimizer | dict[str, Optimizer] | None = None,
+        lr_scheds: SchedulerAdapter | dict[str, SchedulerAdapter] | None = None,
     ) -> Path:
         ckpt_path = self.get_ckpt_path(state)
         if is_master():
@@ -386,16 +395,29 @@ class BaseTrainer(BaseObject[TrainerConfigT], Generic[TrainerConfigT, ModelT, Ta
                 logger.info("Saving checkpoint to %s", ckpt_path)
                 last_ckpt_path = self.get_ckpt_path()
                 ckpt_path.parent.mkdir(exist_ok=True, parents=True)
+
                 state_dict: dict[str, Any] = {
                     "model": model.state_dict(),
                     "task": task.state_dict(),
-                    "optim": None if optim is None else optim.state_dict(),
-                    "lr_sched": None if lr_sched is None else lr_sched.state_dict(),
                     "state": asdict(state),
                 }
+
+                if optims is not None:
+                    if isinstance(optims, dict):
+                        state_dict["optim"] = {k: v.state_dict() for k, v in optims.items()}
+                    else:
+                        state_dict["optim"] = optims.state_dict()
+
+                if lr_scheds is not None:
+                    if isinstance(lr_scheds, dict):
+                        state_dict["lr_sched"] = {k: v.state_dict() for k, v in lr_scheds.items()}
+                    else:
+                        state_dict["lr_sched"] = lr_scheds.state_dict()
+
                 if self._raw_config is not None:
                     state_dict["config"] = OmegaConf.to_container(self._raw_config, enum_to_str=True)
                 self.update_state_dict(state_dict)
+
                 if last_ckpt_path.exists():
                     if self.checkpoint_config.only_save_most_recent:
                         base_ckpt = last_ckpt_path.resolve()
@@ -403,12 +425,14 @@ class BaseTrainer(BaseObject[TrainerConfigT], Generic[TrainerConfigT, ModelT, Ta
                             base_ckpt.unlink()
                     last_ckpt_path.unlink()
                 torch.save(state_dict, ckpt_path)
+
                 try:
                     last_ckpt_path.symlink_to(ckpt_path)
                 except FileExistsError:
                     logger.exception("Exception while trying to update %s", ckpt_path)
                 self.add_lock_file("ckpt", exists_ok=True)
                 task.on_after_save_checkpoint(ckpt_path)
+
         return ckpt_path
 
     def train(self, model: ModelT, task: TaskT, optimizer: BaseOptimizer, lr_scheduler: BaseLRScheduler) -> None:
@@ -454,8 +478,8 @@ class BaseTrainer(BaseObject[TrainerConfigT], Generic[TrainerConfigT, ModelT, Ta
         state: State,
         task: TaskT,
         model: ModelT,
-        optim: Optimizer,
-        lr_scheduler: SchedulerAdapter,
+        optim: Optimizer | dict[str, Optimizer],
+        lr_scheduler: SchedulerAdapter | dict[str, SchedulerAdapter],
     ) -> None:
         logger.info("Handling interrupt %s", sig.name)
         self.save_checkpoint(state, task, model, optim, lr_scheduler)
@@ -478,8 +502,8 @@ class BaseTrainer(BaseObject[TrainerConfigT], Generic[TrainerConfigT, ModelT, Ta
         state: State,
         task: TaskT,
         model: ModelT,
-        optim: Optimizer,
-        lr_sched: SchedulerAdapter,
+        optim: Optimizer | dict[str, Optimizer],
+        lr_sched: SchedulerAdapter | dict[str, SchedulerAdapter],
     ) -> None:
         task.on_step_start(state, model, optim, lr_sched)
 
@@ -489,8 +513,8 @@ class BaseTrainer(BaseObject[TrainerConfigT], Generic[TrainerConfigT, ModelT, Ta
         loss_dict: dict[str, Tensor],
         task: TaskT,
         model: ModelT,
-        optim: Optimizer,
-        lr_sched: SchedulerAdapter,
+        optim: Optimizer | dict[str, Optimizer],
+        lr_sched: SchedulerAdapter | dict[str, SchedulerAdapter],
     ) -> None:
         task.on_step_end(state, loss_dict, model, optim, lr_sched)
 
@@ -499,8 +523,8 @@ class BaseTrainer(BaseObject[TrainerConfigT], Generic[TrainerConfigT, ModelT, Ta
         state: State,
         task: TaskT,
         model: ModelT,
-        optim: Optimizer,
-        lr_sched: SchedulerAdapter,
+        optim: Optimizer | dict[str, Optimizer],
+        lr_sched: SchedulerAdapter | dict[str, SchedulerAdapter],
     ) -> None:
         task.on_epoch_start(state, model, optim, lr_sched)
 
@@ -509,8 +533,8 @@ class BaseTrainer(BaseObject[TrainerConfigT], Generic[TrainerConfigT, ModelT, Ta
         state: State,
         task: TaskT,
         model: ModelT,
-        optim: Optimizer,
-        lr_sched: SchedulerAdapter,
+        optim: Optimizer | dict[str, Optimizer],
+        lr_sched: SchedulerAdapter | dict[str, SchedulerAdapter],
     ) -> None:
         task.on_epoch_end(state, model, optim, lr_sched)
 
@@ -519,8 +543,8 @@ class BaseTrainer(BaseObject[TrainerConfigT], Generic[TrainerConfigT, ModelT, Ta
         state: State,
         task: TaskT,
         model: ModelT,
-        optim: Optimizer,
-        lr_sched: SchedulerAdapter,
+        optim: Optimizer | dict[str, Optimizer],
+        lr_sched: SchedulerAdapter | dict[str, SchedulerAdapter],
     ) -> None:
         task.on_training_start(state, model, optim, lr_sched)
         self.add_lock_file("running", exists_ok=True)
@@ -530,8 +554,8 @@ class BaseTrainer(BaseObject[TrainerConfigT], Generic[TrainerConfigT, ModelT, Ta
         state: State,
         task: TaskT,
         model: ModelT,
-        optim: Optimizer,
-        lr_sched: SchedulerAdapter,
+        optim: Optimizer | dict[str, Optimizer],
+        lr_sched: SchedulerAdapter | dict[str, SchedulerAdapter],
     ) -> None:
         task.on_training_end(state, model, optim, lr_sched)
         self.remove_lock_file("running", missing_ok=True)

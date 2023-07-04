@@ -15,28 +15,20 @@ from ml.utils.timer import Timer
 logger = logging.getLogger(__name__)
 
 
-def train_main(config: DictConfig) -> None:
+def train_main(config: DictConfig, objs: Objects | None = None) -> None:
     """Runs the training loop.
 
     Args:
         config: The configuration object.
+        objs: Objects which have already been parsed from the config.
     """
     with Timer("setting random seed", spinner=True):
         from ml.utils.random import set_random_seed
 
         set_random_seed()
 
-    objs = Objects.parse_raw_config(config)
+    objs = Objects.parse_raw_config(config, objs)
 
-    train_main_with_objects(objs)
-
-
-def train_main_with_objects(objs: Objects) -> None:
-    """Runs the training loop.
-
-    Args:
-        objs: The objects to use for training.
-    """
     # Checks that the config has the right keys for training.
     assert (model := objs.model) is not None
     assert (task := objs.task) is not None

@@ -329,7 +329,7 @@ class register_base(ABC, Generic[Entry, Config]):  # noqa: N801
             reg_cfg = raw_config[cls.config_key()]
             reg_name = get_name(cls.config_key(), reg_cfg)
             _, reg_cfg_cls = cls.lookup(reg_name)
-            reg_cfg = OmegaConf.merge(OmegaConf.structured(reg_cfg_cls), reg_cfg)
+            reg_cfg = reg_cfg_cls.update(reg_cfg)
             raw_config[cls.config_key()] = reg_cfg
 
     @classmethod
@@ -634,7 +634,7 @@ class Objects:
         """Resolves the config in-place.
 
         Args:
-            config: The config to resolve
+            config: The config to resolve.
         """
         # Resolves the final config once all structured configs have been merged.
         OmegaConf.resolve(config)
@@ -649,22 +649,25 @@ class Objects:
         register_launcher.resolve_config(config)
 
     @classmethod
-    def parse_raw_config(cls, config: DictConfig) -> "Objects":
+    def parse_raw_config(cls, config: DictConfig, objs: "Objects | None" = None) -> "Objects":
         """Parses a raw config to the objects it contains.
 
         Args:
-            config: The raw DictConfig to parse
+            config: The raw DictConfig to parse.
+            objs: Objects which have already been parsed.
 
         Returns:
-            The parsed Objects dataclass
+            The parsed Objects dataclass.
         """
-        model = register_model.build_entry(config)
-        task = register_task.build_entry(config)
-        trainer = register_trainer.build_entry(config)
-        optimizer = register_optimizer.build_entry(config)
-        lr_scheduler = register_lr_scheduler.build_entry(config)
-        loggers = register_logger.build_entries(config)
-        launcher = register_launcher.build_entry(config)
+        if objs is None:
+            objs = Objects(raw_config=config)
+        model = register_model.build_entry(config) if objs.model is None else objs.model
+        task = register_task.build_entry(config) if objs.task is None else objs.task
+        trainer = register_trainer.build_entry(config) if objs.trainer is None else objs.trainer
+        optimizer = register_optimizer.build_entry(config) if objs.optimizer is None else objs.optimizer
+        lr_scheduler = register_lr_scheduler.build_entry(config) if objs.lr_scheduler is None else objs.lr_scheduler
+        loggers = register_logger.build_entries(config) if objs.logger is None else objs.logger
+        launcher = register_launcher.build_entry(config) if objs.launcher is None else objs.launcher
 
         objs = Objects(
             raw_config=config,
@@ -683,6 +686,8 @@ class Objects:
 
     @classmethod
     def from_config_file(cls, config_path: str | Path, **overrides: Any) -> "Objects":  # noqa: ANN401
-        config = OmegaConf.load(config_path)
-        config = OmegaConf.merge(config, DictConfig(overrides))
-        return cls.parse_raw_config(cast(DictConfig, config))
+        config = cast(DictConfig, OmegaConf.load(config_path))
+        if not OmegaConf.is_dict(config):
+            raise ValueError(f"Config file {config_path} must be a dict.")
+        config = cast(DictConfig, OmegaConf.merge(config, DictConfig(overrides)))
+        return cls.parse_raw_config(config)

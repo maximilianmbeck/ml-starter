@@ -41,6 +41,7 @@ from torch.optim.optimizer import Optimizer
 from ml.core.config import conf_field
 from ml.core.registry import register_optimizer
 from ml.optimizers.base import BaseOptimizer, BaseOptimizerConfig
+from ml.optimizers.common import separate_decayable_params
 from ml.optimizers.types import OptFloat, OptLossClosure, Params
 
 logger = logging.getLogger(__name__)
@@ -146,6 +147,7 @@ class LionOptimizerConfig(BaseOptimizerConfig):
     lr: float = conf_field(1e-4, help="Learning rate.")
     betas: tuple[float, float] = conf_field((0.9, 0.99), help="Beta coefficients.")
     weight_decay: float = conf_field(1e-2, help="Weight decay.")
+    default_decay: bool = conf_field(True, help="Whether to decay module params which aren't explicitly specified")
     use_triton: bool = conf_field(True, help="Whether to use Triton for faster updates.")
 
     @classmethod
@@ -161,9 +163,8 @@ class LionOptimizerConfig(BaseOptimizerConfig):
 class LionOptimizer(BaseOptimizer[LionOptimizerConfig, Lion]):
     def get(self, model: nn.Module) -> Lion:
         return Lion(
-            model.parameters(),
+            separate_decayable_params(model, self.config.default_decay, self.config.weight_decay),
             lr=self.config.lr,
             betas=self.config.betas,
-            weight_decay=self.config.weight_decay,
             use_triton=self.config.use_triton,
         )

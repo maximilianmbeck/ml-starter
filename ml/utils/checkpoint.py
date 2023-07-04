@@ -60,6 +60,8 @@ def instantiate_config(config: str | Path | DictConfig | dict) -> Objects:
     """
     if isinstance(config, (str, Path)):
         config = cast(DictConfig, OmegaConf.load(config))
+        if not OmegaConf.is_dict(config):
+            raise ValueError(f"Expected config to be a dict, got {type(config)}")
     elif isinstance(config, dict):
         config = OmegaConf.create(config)
     Objects.update_config(config)

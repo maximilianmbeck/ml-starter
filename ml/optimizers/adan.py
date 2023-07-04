@@ -1,7 +1,7 @@
 """Wrapper around the PyTorch Adan optimizer."""
 
 from dataclasses import dataclass
-from typing import Callable, Iterable
+from typing import Any, Callable, Iterable
 
 import torch
 from torch import nn
@@ -10,12 +10,13 @@ from torch.optim import Optimizer
 from ml.core.config import conf_field
 from ml.core.registry import register_optimizer
 from ml.optimizers.base import BaseOptimizer, BaseOptimizerConfig
+from ml.optimizers.common import separate_decayable_params
 
 
 class Adan(Optimizer):
     def __init__(
         self,
-        params: Iterable[nn.Parameter],
+        params: Iterable[nn.Parameter] | Iterable[dict[str, Any]],
         lr: float = 1e-3,
         betas: tuple[float, float, float] = (0.1, 0.1, 0.001),
         eps: float = 1e-8,
@@ -87,6 +88,7 @@ class AdanOptimizerConfig(BaseOptimizerConfig):
     betas: tuple[float, float, float] = conf_field((0.1, 0.1, 0.001), help="Beta coefficients")
     eps: float = conf_field(1e-4, help="Epsilon term")
     weight_decay: float = conf_field(1e-5, help="Weight decay regularization to use")
+    default_decay: bool = conf_field(True, help="Whether to decay module params which aren't explicitly specified")
 
 
 @register_optimizer("adan", AdanOptimizerConfig)
@@ -95,10 +97,9 @@ class AdanOptimizer(BaseOptimizer[AdanOptimizerConfig, Adan]):
         b1, b2, b3 = self.config.betas
 
         return Adan(
-            model.parameters(),
+            separate_decayable_params(model, self.config.default_decay, self.config.weight_decay),
             lr=self.config.lr,
             betas=(b1, b2, b3),
             eps=self.config.eps,
-            weight_decay=self.config.weight_decay,
             **self.common_kwargs,
         )

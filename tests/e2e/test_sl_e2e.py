@@ -92,7 +92,7 @@ def test_sl_e2e_training(tmpdir: Path) -> None:
             "max_steps": 10,
         },
         "optimizer": {
-            "name": "adamw",
+            "name": "adam",
             "lr": 3e-4,
             "weight_decay": 1e-2,
         },

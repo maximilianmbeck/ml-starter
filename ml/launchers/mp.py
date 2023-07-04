@@ -15,17 +15,16 @@ import torch
 from omegaconf import DictConfig
 
 from ml.core.config import conf_field
-from ml.core.registry import Objects, register_launcher
+from ml.core.registry import register_launcher
 from ml.launchers.base import BaseLauncher, BaseLauncherConfig
-from ml.scripts.train import train_main_with_objects
+from ml.scripts.train import train_main
 from ml.utils.torch_distributed import MultiprocessConfig, launch_subprocesses
 
 logger: logging.Logger = logging.getLogger(__name__)
 
 
 def process_main(cfg: MultiprocessConfig, raw_config: DictConfig) -> None:
-    objs = Objects.parse_raw_config(raw_config)
-    train_main_with_objects(objs)
+    train_main(raw_config)
 
 
 @dataclass

@@ -122,8 +122,8 @@ class HeartbeatMonitorMixin(MonitorProcessMixin[HeartbeatConfigT, ModelT, TaskT]
         state: State,
         task: TaskT,
         model: ModelT,
-        optim: Optimizer,
-        lr_sched: SchedulerAdapter,
+        optim: Optimizer | dict[str, Optimizer],
+        lr_sched: SchedulerAdapter | dict[str, SchedulerAdapter],
     ) -> None:
         super().on_training_start(state, task, model, optim, lr_sched)
 
@@ -134,8 +134,8 @@ class HeartbeatMonitorMixin(MonitorProcessMixin[HeartbeatConfigT, ModelT, TaskT]
         state: State,
         task: TaskT,
         model: ModelT,
-        optim: Optimizer,
-        lr_sched: SchedulerAdapter,
+        optim: Optimizer | dict[str, Optimizer],
+        lr_sched: SchedulerAdapter | dict[str, SchedulerAdapter],
     ) -> None:
         super().on_training_end(state, task, model, optim, lr_sched)
 
@@ -146,8 +146,8 @@ class HeartbeatMonitorMixin(MonitorProcessMixin[HeartbeatConfigT, ModelT, TaskT]
         state: State,
         task: TaskT,
         model: ModelT,
-        optim: Optimizer,
-        lr_sched: SchedulerAdapter,
+        optim: Optimizer | dict[str, Optimizer],
+        lr_sched: SchedulerAdapter | dict[str, SchedulerAdapter],
     ) -> None:
         super().on_step_start(state, task, model, optim, lr_sched)
 

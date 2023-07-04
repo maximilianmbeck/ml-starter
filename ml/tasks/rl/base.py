@@ -4,7 +4,7 @@ This class expects you to implement the following functions:
 
 .. code-block:: python
 
-    class MyReinforcementLearningTask(ml.ReinforcementLearning[Config, Model, State, Action, Output, Loss]):
+    class MyReinforcementLearningTask(ml.ReinforcementLearningTask[Config, Model, State, Action, Output, Loss]):
         def get_actions(self, model: Model, states: list[State], optimal: bool) -> list[Action]:
             ...
 

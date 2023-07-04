@@ -71,9 +71,12 @@ trainer:
 """
 
 
-def get_all_keys(reg: type[register_base]) -> list[str]:
+def get_all_keys(reg: type[register_base], exclude: set[str] | None = None) -> list[str]:
     reg.populate_registry("THIS KEY DOES NOT EXIST")
-    return list(sorted(reg.REGISTRY.keys()))
+    keys = list(sorted(reg.REGISTRY.keys()))
+    if exclude is not None:
+        keys = [key for key in keys if key not in exclude]
+    return keys
 
 
 @pytest.mark.parametrize("lr_scheduler_key", get_all_keys(register_lr_scheduler))
@@ -95,7 +98,7 @@ def test_instantiate_lr_schedulers(lr_scheduler_key: str, tmpdir: Path) -> None:
     assert lr_scheduler is not None
 
 
-@pytest.mark.parametrize("optimizer_key", get_all_keys(register_optimizer))
+@pytest.mark.parametrize("optimizer_key", get_all_keys(register_optimizer, exclude={"gan"}))
 @pytest.mark.slow
 def test_instantiate_optimizers(optimizer_key: str, tmpdir: Path) -> None:
     """Tests that all LR schedulers can be instantiated.

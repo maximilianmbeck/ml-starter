@@ -107,7 +107,7 @@ def test_rl_e2e_training(tmpdir: Path) -> None:
             },
         },
         "optimizer": {
-            "name": "adamw",
+            "name": "adam",
             "lr": 3e-4,
             "weight_decay": 1e-2,
         },

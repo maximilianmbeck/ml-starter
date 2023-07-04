@@ -6,9 +6,9 @@ the metadata that each field should have.
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, TypeVar, cast
 
-from omegaconf import MISSING, DictConfig
+from omegaconf import MISSING, DictConfig, OmegaConf
 
 FieldType = Any
 
@@ -61,6 +61,15 @@ class BaseConfig:
             A dictionary of default configurations for the current config
         """
         return {}
+
+    @classmethod
+    def update(cls: type[BaseConfigT], config: DictConfig) -> DictConfig:
+        """Runs post-construction config update.
+
+        Args:
+            config: The config to update
+        """
+        return cast(DictConfig, OmegaConf.merge(OmegaConf.structured(cls), config))
 
     @classmethod
     def resolve(cls: type[BaseConfigT], config: BaseConfigT) -> None:

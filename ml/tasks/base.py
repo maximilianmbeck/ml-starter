@@ -494,8 +494,8 @@ class BaseTask(
         self,
         state: State,
         model: ModelT,
-        optim: Optimizer,
-        lr_sched: SchedulerAdapter,
+        optim: Optimizer | dict[str, Optimizer],
+        lr_sched: SchedulerAdapter | dict[str, SchedulerAdapter],
     ) -> None:
         pass
 
@@ -504,8 +504,8 @@ class BaseTask(
         state: State,
         loss_dict: dict[str, Tensor],
         model: ModelT,
-        optim: Optimizer,
-        lr_sched: SchedulerAdapter,
+        optim: Optimizer | dict[str, Optimizer],
+        lr_sched: SchedulerAdapter | dict[str, SchedulerAdapter],
     ) -> None:
         pass
 
@@ -513,8 +513,8 @@ class BaseTask(
         self,
         state: State,
         model: ModelT,
-        optim: Optimizer,
-        lr_sched: SchedulerAdapter,
+        optim: Optimizer | dict[str, Optimizer],
+        lr_sched: SchedulerAdapter | dict[str, SchedulerAdapter],
     ) -> None:
         pass
 
@@ -522,8 +522,8 @@ class BaseTask(
         self,
         state: State,
         model: ModelT,
-        optim: Optimizer,
-        lr_sched: SchedulerAdapter,
+        optim: Optimizer | dict[str, Optimizer],
+        lr_sched: SchedulerAdapter | dict[str, SchedulerAdapter],
     ) -> None:
         pass
 
@@ -531,8 +531,8 @@ class BaseTask(
         self,
         state: State,
         model: ModelT,
-        optim: Optimizer,
-        lr_sched: SchedulerAdapter,
+        optim: Optimizer | dict[str, Optimizer],
+        lr_sched: SchedulerAdapter | dict[str, SchedulerAdapter],
     ) -> None:
         pass
 
@@ -540,7 +540,7 @@ class BaseTask(
         self,
         state: State,
         model: ModelT,
-        optim: Optimizer,
-        lr_sched: SchedulerAdapter,
+        optim: Optimizer | dict[str, Optimizer],
+        lr_sched: SchedulerAdapter | dict[str, SchedulerAdapter],
     ) -> None:
         pass

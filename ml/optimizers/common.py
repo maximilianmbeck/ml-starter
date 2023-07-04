@@ -3,6 +3,7 @@
 from typing import Any, Iterable
 
 from torch import nn
+from torch.nn.modules.batchnorm import _BatchNorm
 
 
 def separate_decayable_params(model: nn.Module, default_decay: bool, weight_decay: float) -> Iterable[dict[str, Any]]:
@@ -35,6 +36,9 @@ def separate_decayable_params(model: nn.Module, default_decay: bool, weight_deca
     )
 
     never_decay = (
+        _BatchNorm,
+        nn.LocalResponseNorm,
+        nn.GroupNorm,
         nn.LayerNorm,
         nn.Embedding,
         nn.EmbeddingBag,
