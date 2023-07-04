@@ -27,7 +27,13 @@ from typing import Callable, Literal, overload
 import torch
 from torch import Tensor, nn
 
-from ml.tasks.losses.audio import MultiResolutionSTFTLoss, STFTLoss, WindowFn
+from ml.tasks.losses.audio import (
+    MultiResolutionSTFTLoss,
+    STFTLoss,
+    WindowFn,
+    log_stft_magnitude_loss,
+    spectral_convergence_loss,
+)
 from ml.tasks.losses.image import ImageGradLoss, SsimFn, SSIMLoss
 
 Loss = Literal[
@@ -38,6 +44,8 @@ Loss = Literal[
     "xent",
     "bce",
     "bce-logits",
+    "spectral-convergence",
+    "log-stft-magnitude",
     "stft",
     "multi-stft",
     "ssim",
@@ -92,6 +100,16 @@ def loss_fn(loss: Literal["bce-logits"]) -> TwoInOneOutLoss:
 
 
 @overload
+def loss_fn(loss: Literal["spectral-convergence"]) -> TwoInOneOutLoss:
+    ...
+
+
+@overload
+def loss_fn(loss: Literal["log-stft-magnitude"]) -> TwoInOneOutLoss:
+    ...
+
+
+@overload
 def loss_fn(
     loss: Literal["stft"],
     *,
@@ -137,6 +155,26 @@ def loss_fn(
     image_kernel_size: int = 3,
     image_sigma: float = 1.0,
 ) -> OneInOneOutLoss:
+    ...
+
+
+@overload
+def loss_fn(
+    loss: Loss,
+    *,
+    huber_beta: float = 1.0,
+    fft_size: int = 1024,
+    shift_size: int = 120,
+    win_length: int = 600,
+    window_fn: WindowFn = "hann",
+    fft_size_multiples: list[float] = [0.5, 1.0, 2.0],
+    image_kernel_size: int = 3,
+    ssim_stride: int = 1,
+    ssim_channels: int = 3,
+    ssim_mode: SsimFn = "avg",
+    image_sigma: float = 1.0,
+    ssim_dynamic_range: float = 1.0,
+) -> LossFn:
     ...
 
 
@@ -193,6 +231,10 @@ def loss_fn(
             return nn.BCELoss(reduction="none")
         case "bce-logits":
             return nn.BCEWithLogitsLoss(reduction="none")
+        case "spectral-convergence":
+            return spectral_convergence_loss
+        case "log-stft-magnitude":
+            return log_stft_magnitude_loss
         case "stft":
             return STFTLoss(
                 fft_size=fft_size,
