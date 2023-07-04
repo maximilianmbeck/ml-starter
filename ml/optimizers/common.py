@@ -69,3 +69,7 @@ def separate_decayable_params(model: nn.Module, default_decay: bool, weight_deca
         {"params": [param_dict[pn] for pn in sorted(list(wd_params))], "weight_decay": weight_decay},
         {"params": [param_dict[pn] for pn in sorted(list(no_wd_params))], "weight_decay": 0.0},
     ]
+
+
+def can_use_fused(model: nn.Module) -> bool:
+    return all(p.is_cuda and p.is_floating_point() for p in model.parameters())
