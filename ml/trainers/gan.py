@@ -160,6 +160,18 @@ class GenerativeAdversarialNetworkTrainer(
 
                     train_pf_iter = iter(train_pf)
 
+                    def batch_iterator() -> Iterator[Batch]:
+                        try:
+                            yield next(train_pf_iter)
+                        except StopIteration:
+                            raise EpochDoneError
+
+                        for _ in range(self.get_batches_per_step(state) - 1):
+                            try:
+                                yield next(train_pf_iter)
+                            except StopIteration:
+                                pass
+
                     while True:
                         self._log_prefetcher_stats(train_pf)
 
@@ -170,19 +182,6 @@ class GenerativeAdversarialNetworkTrainer(
                             self.on_step_start(state, task, model, optims, lr_scheds)
 
                         try:
-
-                            def batch_iterator() -> Iterator[Batch]:
-                                try:
-                                    yield next(train_pf_iter)
-                                except StopIteration:
-                                    raise EpochDoneError
-
-                                for _ in range(self.get_batches_per_step(state) - 1):
-                                    try:
-                                        yield next(train_pf_iter)
-                                    except StopIteration:
-                                        pass
-
                             is_gen = task.is_generator_step(state, "train")
                             optim = gen_optim if is_gen else dis_optim
                             lr_sched = gen_lr_sched if is_gen else dis_lr_sched

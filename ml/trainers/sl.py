@@ -171,6 +171,18 @@ class SupervisedLearningTrainer(
 
                     train_pf_iter = iter(train_pf)
 
+                    def batch_iterator() -> Iterator[Batch]:
+                        try:
+                            yield next(train_pf_iter)
+                        except StopIteration:
+                            raise EpochDoneError
+
+                        for _ in range(self.get_batches_per_step(state) - 1):
+                            try:
+                                yield next(train_pf_iter)
+                            except StopIteration:
+                                pass
+
                     while True:
                         self._log_prefetcher_stats(train_pf)
 
@@ -181,19 +193,6 @@ class SupervisedLearningTrainer(
                             self.on_step_start(state, task, model, optim, lr_sched)
 
                         try:
-
-                            def batch_iterator() -> Iterator[Batch]:
-                                try:
-                                    yield next(train_pf_iter)
-                                except StopIteration:
-                                    raise EpochDoneError
-
-                                for _ in range(self.get_batches_per_step(state) - 1):
-                                    try:
-                                        yield next(train_pf_iter)
-                                    except StopIteration:
-                                        pass
-
                             loss_dict = self.train_step(
                                 task_model=task_model,
                                 batches=batch_iterator(),
