@@ -43,17 +43,13 @@ class GPUDevice(BaseDevice):
     @functools.lru_cache(maxsize=None)
     def get_floating_point_type(cls) -> torch.dtype:
         # Allows users to override the default floating point type.
-        use_fp16 = get_env_bool("USE_FP16")
-        use_bf16 = get_env_bool("USE_BF16")
-        use_fp32 = get_env_bool("USE_FP32")
-        use_fp64 = get_env_bool("USE_FP64")
-        if use_fp64:
+        if get_env_bool("USE_FP64"):
             return torch.float64
-        elif use_fp32:
+        elif get_env_bool("USE_FP32"):
             return torch.float32
-        elif use_bf16:
+        elif get_env_bool("USE_BF16"):
             return torch.bfloat16
-        elif use_fp16:
+        elif get_env_bool("USE_FP16"):
             return torch.float16
 
         # By default, use BF16 if the GPU supports it, otherwise FP16.

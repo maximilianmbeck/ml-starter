@@ -3,6 +3,13 @@
 New loggers should implement whichever `log_` functions they need to.
 Unimplemented functions are simply ignored. The framework will handle logging
 rate limiting and munging the logged values to a common format.
+
+The internal ergonomics for logging are a bit confusing to follow. Each
+component has access to a ``MultiLogger`` which it can use to log values.
+After each step, each ``MultiLogger`` sends its values to any implemented
+loggers which have ``should_write`` return ``True``. This lets the implemented
+loggers aggregate values over multiple ``MultiLogger``s. New loggers should
+follow the implementation of one of the existing loggers.
 """
 
 import datetime
@@ -152,14 +159,6 @@ class BaseLogger(BaseObject[LoggerConfigT], Generic[LoggerConfigT], ABC):
     @abstractmethod
     def write(self, state: State) -> None:
         """Writes the logs.
-
-        Args:
-            state: The current log state
-        """
-
-    @abstractmethod
-    def clear(self, state: State) -> None:
-        """Clears the logs.
 
         Args:
             state: The current log state

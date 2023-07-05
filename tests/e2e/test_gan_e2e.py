@@ -63,7 +63,6 @@ class DummyTaskConfig(GenerativeAdversarialNetworkTaskConfig):
 Batch = Tensor
 GeneratorOutput = Tensor
 DiscriminatorOutput = Tensor
-Loss = dict[str, Tensor]
 
 
 class DummyDataset(Dataset[Batch]):
@@ -83,7 +82,6 @@ class DummyTask(
         Batch,
         GeneratorOutput,
         DiscriminatorOutput,
-        Loss,
     ],
 ):
     def run_generator(
@@ -111,7 +109,7 @@ class DummyTask(
         state: State,
         gen_output: GeneratorOutput,
         dis_output: DiscriminatorOutput,
-    ) -> Loss:
+    ) -> dict[str, Tensor]:
         return {"loss": dis_output.sum()}
 
     def get_dataset(self, phase: Phase) -> Dataset:

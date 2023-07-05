@@ -65,3 +65,12 @@ class State:
     @property
     def training(self) -> bool:
         return self.phase == "train"
+
+    def num_phase_steps(self, phase: Phase) -> int:
+        match phase:
+            case "train":
+                return self.num_steps
+            case "valid":
+                return self.num_valid_steps
+            case "test":
+                return self.num_test_steps

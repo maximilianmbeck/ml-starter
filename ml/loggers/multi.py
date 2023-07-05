@@ -10,6 +10,7 @@ import logging
 import math
 import re
 from collections import defaultdict
+from types import TracebackType
 from typing import Callable, Iterator, Literal, Sequence, TypeVar
 
 import torch
@@ -549,6 +550,28 @@ def cast_fp32(value: T) -> T:
     return value
 
 
+NAMESPACE_STACK: list[str] = []
+
+
+class namespace_context:  # noqa: N801
+    def __init__(self, name: str | None) -> None:
+        self._name = name
+        self._prev_stack: list[str] | None = None
+
+    def __enter__(self) -> None:
+        if self._name is None:
+            self._prev_stack = NAMESPACE_STACK[:]
+            NAMESPACE_STACK.clear()
+        else:
+            NAMESPACE_STACK.append(self._name)
+
+    def __exit__(self, _t: type[BaseException] | None, _e: BaseException | None, _tr: TracebackType | None) -> None:
+        if self._prev_stack is not None:
+            NAMESPACE_STACK[:] = self._prev_stack
+        else:
+            NAMESPACE_STACK.pop()
+
+
 class MultiLogger:
     """Defines an intermediate container which holds values to log somewhere else."""
 
@@ -564,7 +587,7 @@ class MultiLogger:
         self.default_namespace = default_namespace
 
     def resolve_namespace(self, namespace: str | None = None) -> str:
-        return self.default_namespace if namespace is None else namespace
+        return "_".join([self.default_namespace if namespace is None else namespace] + NAMESPACE_STACK)
 
     def log_scalar(self, key: str, value: Callable[[], Number] | Number, *, namespace: str | None = None) -> None:
         """Logs a scalar value.

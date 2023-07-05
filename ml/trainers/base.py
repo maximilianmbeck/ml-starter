@@ -261,7 +261,10 @@ class BaseTrainer(BaseObject[TrainerConfigT], Generic[TrainerConfigT, ModelT, Ta
 
     @functools.cached_property
     def _device(self) -> type[BaseDevice]:
-        return AutoDevice.detect_device()
+        dev = AutoDevice.detect_device()
+        device, dtype = dev.get_device(), dev.get_floating_point_type()
+        self.logger.log_string("device", f"{device.type}/{device.index} - {dtype}")
+        return dev
 
     @functools.cached_property
     def _device_type(self) -> str:
@@ -456,7 +459,6 @@ class BaseTrainer(BaseObject[TrainerConfigT], Generic[TrainerConfigT, ModelT, Ta
         for value_logger in self.loggers:
             if value_logger.should_write(state):
                 value_logger.write(state)
-            value_logger.clear(state)
 
     def load_state_dict(self, ckpt: dict[str, Any]) -> None:
         """Function for loading state dict keys for different components.

@@ -58,6 +58,8 @@ __all__ = [
     "format_timedelta",
     "freeze_non_lora_",
     "from_args",
+    "GenerativeAdversarialNetworkTask",
+    "GenerativeAdversarialNetworkTaskConfig",
     "get_activation",
     "get_args",
     "get_audio_props",
@@ -115,12 +117,14 @@ __all__ = [
     "LoraLSTM",
     "loss_fn",
     "Loss",
+    "LossFn",
     "maybe_lora",
     "meta_to_empty_func",
     "MultiIterDataset",
     "MultiprocessConfig",
     "MultiProcessLauncher",
     "MultiProcessLauncherConfig",
+    "namespace_context",
     "NormType",
     "open_atomic",
     "Output",
@@ -207,6 +211,7 @@ from ml.core.registry import (
 from ml.core.state import Phase, State
 from ml.launchers.mp import MultiProcessLauncher, MultiProcessLauncherConfig
 from ml.launchers.slurm import SlurmLauncher, SlurmLauncherConfig, set_slurm_master_addr, set_slurm_rank_and_world_size
+from ml.loggers.multi import namespace_context
 from ml.lr_schedulers.base import BaseLRScheduler, BaseLRSchedulerConfig
 from ml.models.activations import ActivationType, Clamp, cast_activation_type, get_activation
 from ml.models.base import BaseModel, BaseModelConfig
@@ -255,7 +260,8 @@ from ml.tasks.environments.worker import (
     SyncWorkerPool,
     WorkerPool,
 )
-from ml.tasks.losses.loss import loss_fn
+from ml.tasks.gan.base import GenerativeAdversarialNetworkTask, GenerativeAdversarialNetworkTaskConfig
+from ml.tasks.losses.loss import LossFn, loss_fn
 from ml.tasks.losses.reduce import cast_reduce_type, reduce
 from ml.tasks.rl.base import ReinforcementLearningTask, ReinforcementLearningTaskConfig
 from ml.tasks.sl.base import SupervisedLearningTask, SupervisedLearningTaskConfig

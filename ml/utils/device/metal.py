@@ -1,11 +1,18 @@
 """MPS device support for Metal GPUs (i.e., Apple Silicon)."""
 
+import os
 from typing import Callable
 
 import torch
 
 from ml.core.env import is_metal_disabled
 from ml.utils.device.base import BaseDevice
+
+
+def get_env_bool(key: str) -> bool:
+    val = int(os.environ.get(key, 0))
+    assert val in (0, 1), f"Invalid value for {key}: {val}"
+    return val == 1
 
 
 class MetalDevice(BaseDevice):
@@ -23,6 +30,16 @@ class MetalDevice(BaseDevice):
 
     @classmethod
     def get_floating_point_type(cls) -> torch.dtype:
+        # Allows users to override the default floating point type.
+        if get_env_bool("USE_FP64"):
+            return torch.float64
+        elif get_env_bool("USE_FP32"):
+            return torch.float32
+        elif get_env_bool("USE_BF16"):
+            return torch.bfloat16
+        elif get_env_bool("USE_FP16"):
+            return torch.float16
+
         return torch.float32
 
     @classmethod

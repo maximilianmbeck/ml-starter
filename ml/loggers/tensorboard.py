@@ -312,6 +312,7 @@ class TensorboardLogger(BaseLogger[TensorboardLoggerConfig]):
         if not self.logged_run_config and self.run_config is not None:
             writer.add_text("config", to_markdown_table(self.run_config), global_step=state.num_steps)
             self.logged_run_config = True
+        self.clear(state)
 
     def clear(self, state: State) -> None:
         self.scalars[state.phase].clear()

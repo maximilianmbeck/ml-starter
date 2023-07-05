@@ -16,7 +16,10 @@ from torch import nn
 from torch.optim.optimizer import Optimizer
 
 from ml.core.common_types import Batch
+from ml.core.config import conf_field
 from ml.core.registry import register_trainer
+from ml.core.state import Phase, State
+from ml.loggers.multi import namespace_context
 from ml.lr_schedulers.base import BaseLRScheduler, SchedulerAdapter
 from ml.models.gan import GenerativeAdversarialNetworkModel
 from ml.optimizers.base import BaseOptimizer
@@ -32,7 +35,8 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 @dataclass
 class GenerativeAdversarialNetworkTrainerConfig(SupervisedLearningTrainerConfig):
-    pass
+    discriminator_key: str = conf_field("dis", help="The logging key for the discriminator")
+    generator_key: str = conf_field("gen", help="The logging key for the generator")
 
 
 GenerativeAdversarialNetworkTrainerConfigT = TypeVar(
@@ -62,6 +66,10 @@ class GenerativeAdversarialNetworkTrainer(
         GenerativeAdversarialNetworkTaskT,
     ],
 ):
+    def _logging_key(self, task: GenerativeAdversarialNetworkTaskT, state: State, phase: Phase) -> str:
+        is_gen = task.is_generator_step(state, phase)
+        return self.config.generator_key if is_gen else self.config.discriminator_key
+
     def train(
         self,
         model: GenerativeAdversarialNetworkModelT,
@@ -134,13 +142,14 @@ class GenerativeAdversarialNetworkTrainer(
                 with Timer("initial validation step(s)"):
                     if (num_init_valid_steps := self.config.validation.num_init_valid_steps) is not None:
                         for _ in range(num_init_valid_steps):
-                            self.val_step(
-                                task_model=task_model,
-                                batch=next(valid_pf_iter),
-                                state=state,
-                                task=task,
-                                model=model,
-                            )
+                            with namespace_context(self._logging_key(task, state, "valid")):
+                                self.val_step(
+                                    task_model=task_model,
+                                    batch=next(valid_pf_iter),
+                                    state=state,
+                                    task=task,
+                                    model=model,
+                                )
 
                 while True:
                     with self.step_context("on_epoch_start"):
@@ -174,20 +183,21 @@ class GenerativeAdversarialNetworkTrainer(
                                     except StopIteration:
                                         pass
 
-                            if task.is_generator_step(state):
-                                optim, lr_sched = gen_optim, gen_lr_sched
-                            else:
-                                optim, lr_sched = dis_optim, dis_lr_sched
+                            is_gen = task.is_generator_step(state, "train")
+                            optim = gen_optim if is_gen else dis_optim
+                            lr_sched = gen_lr_sched if is_gen else dis_lr_sched
+                            model.requires_grads_(is_gen, not is_gen)
 
-                            loss_dict = self.train_step(
-                                task_model=task_model,
-                                batches=batch_iterator(),
-                                state=state,
-                                task=task,
-                                model=model,
-                                optim=optim,
-                                lr_sched=lr_sched,
-                            )
+                            with namespace_context(self._logging_key(task, state, "train")):
+                                loss_dict = self.train_step(
+                                    task_model=task_model,
+                                    batches=batch_iterator(),
+                                    state=state,
+                                    task=task,
+                                    model=model,
+                                    optim=optim,
+                                    lr_sched=lr_sched,
+                                )
 
                         except EpochDoneError:
                             break
@@ -196,13 +206,14 @@ class GenerativeAdversarialNetworkTrainer(
                         if valid_every_n_steps is not None and state.num_steps % valid_every_n_steps == 0:
                             self._log_prefetcher_stats(valid_pf)
 
-                            self.val_step(
-                                task_model=task_model,
-                                batch=next(valid_pf_iter),
-                                state=state,
-                                task=task,
-                                model=model,
-                            )
+                            with namespace_context(self._logging_key(task, state, "valid")):
+                                self.val_step(
+                                    task_model=task_model,
+                                    batch=next(valid_pf_iter),
+                                    state=state,
+                                    task=task,
+                                    model=model,
+                                )
 
                         if self.should_checkpoint(state):
                             self.save_checkpoint(state, task, model, optims, lr_scheds)

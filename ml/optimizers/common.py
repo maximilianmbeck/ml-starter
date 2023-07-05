@@ -73,3 +73,7 @@ def separate_decayable_params(model: nn.Module, default_decay: bool, weight_deca
 
 def can_use_fused(model: nn.Module) -> bool:
     return all(p.is_cuda and p.is_floating_point() for p in model.parameters())
+
+
+def can_use_foreach(model: nn.Module) -> bool:
+    return all(p.device.type in ("cpu", "cuda") and p.is_floating_point() for p in model.parameters())

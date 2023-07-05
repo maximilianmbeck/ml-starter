@@ -58,5 +58,9 @@ class GenerativeAdversarialNetworkModel(
         dis_cls, _ = register_model.lookup(config.discriminator.name)
         self.discriminator = cast(DiscriminatorT, dis_cls(config.discriminator))
 
+    def requires_grads_(self, generator: bool, discriminator: bool) -> None:
+        self.generator.requires_grad_(generator)
+        self.discriminator.requires_grad_(discriminator)
+
     def forward(self, *_args: Any, **_kwargs: Any) -> Any:  # noqa: ANN401
         raise NotImplementedError("The base GAN model should not implement the forward pass.")

@@ -36,7 +36,7 @@ from ml.tasks.losses.audio import (
 )
 from ml.tasks.losses.image import ImageGradLoss, SsimFn, SSIMLoss
 
-Loss = Literal[
+LossFn = Literal[
     "mse",
     "l1",
     "huber",
@@ -56,7 +56,7 @@ Loss = Literal[
 OneInOneOutLoss = Callable[[Tensor], Tensor]
 TwoInOneOutLoss = Callable[[Tensor, Tensor], Tensor]
 TwoInTwoOutLoss = Callable[[Tensor, Tensor], tuple[Tensor, Tensor]]
-LossFn = OneInOneOutLoss | TwoInOneOutLoss | TwoInTwoOutLoss
+LossFnSpec = OneInOneOutLoss | TwoInOneOutLoss | TwoInTwoOutLoss
 
 
 def log_cosh_loss(pred: Tensor, target: Tensor) -> Tensor:
@@ -160,7 +160,7 @@ def loss_fn(
 
 @overload
 def loss_fn(
-    loss: Loss,
+    loss: LossFn,
     *,
     huber_beta: float = 1.0,
     fft_size: int = 1024,
@@ -174,12 +174,12 @@ def loss_fn(
     ssim_mode: SsimFn = "avg",
     image_sigma: float = 1.0,
     ssim_dynamic_range: float = 1.0,
-) -> LossFn:
+) -> LossFnSpec:
     ...
 
 
 def loss_fn(
-    loss: Loss,
+    loss: LossFn,
     *,
     huber_beta: float = 1.0,
     fft_size: int = 1024,
@@ -193,7 +193,7 @@ def loss_fn(
     ssim_mode: SsimFn = "avg",
     image_sigma: float = 1.0,
     ssim_dynamic_range: float = 1.0,
-) -> LossFn:
+) -> LossFnSpec:
     """Returns a loss function.
 
     Args:

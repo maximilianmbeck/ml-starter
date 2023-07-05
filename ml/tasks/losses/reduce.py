@@ -31,7 +31,7 @@ def reduce(t: Tensor, reduce_type: ReduceType, dim: int | None = None) -> Tensor
         case "mean":
             return t.mean(dim)
         case "sum":
-            return t.sum(dim)
+            return t.sum(dim) / t.numel()
         case _:
             raise NotImplementedError(f"Unexpected sample reduction type: {reduce_type}")
 

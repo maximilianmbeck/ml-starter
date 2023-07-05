@@ -9,7 +9,16 @@ import torchvision.transforms.functional as V
 from PIL.Image import Image as PILImage
 from torch import Tensor
 
+from ml.tasks.datasets.transforms import normalize
+
 CollateMode = Literal["stack", "concat"]
+
+
+def pil_to_tensor(pic: PILImage) -> Tensor:
+    tensor = V.pil_to_tensor(pic)
+    tensor = V.convert_image_dtype(tensor)
+    tensor = normalize(tensor)
+    return tensor
 
 
 def is_named_tuple(obj: Any) -> bool:  # noqa: ANN401
@@ -149,7 +158,7 @@ def collate(
 
     # All images are converted to tensors.
     if isinstance(item, PILImage):
-        return collate([V.to_tensor(i) for i in items], mode=mode, pad=pad)
+        return collate([pil_to_tensor(i) for i in items], mode=mode, pad=pad)
 
     # Numbers are converted to a list of tensors.
     if isinstance(item, bool):

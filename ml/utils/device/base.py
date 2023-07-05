@@ -245,13 +245,14 @@ class BaseDevice(ABC):
     @classmethod
     def autocast_context(cls, enabled: bool = True) -> ContextManager:
         device_type = cls.get_device().type
-        if device_type == "mps":
-            device_type = "cpu"
         if device_type not in ("cpu", "cuda"):
+            return contextlib.nullcontext()
+        dtype = cls.get_floating_point_type()
+        if device_type == "cpu" and dtype != torch.bfloat16:
             return contextlib.nullcontext()
         return torch.autocast(
             device_type=device_type,
-            dtype=cls.get_floating_point_type(),
+            dtype=dtype,
             enabled=enabled,
         )
 

@@ -127,9 +127,8 @@ class StdoutLogger(BaseLogger[StdoutLoggerConfig]):
         log_string = ", ".join(get_section_string(k, v) for k, v in sorted(phase_log_values.items()))
         self.logger.info("%s [%s] {%s}", colorize_phase(state.phase), colorize_time(elapsed_time_str), log_string)
 
-    def clear(self, state: State) -> None:
-        if state.phase in self.log_values:
-            self.log_values[state.phase].clear()
+        # Clears the log values.
+        phase_log_values.clear()
 
     def default_write_every_n_seconds(self, phase: Phase) -> float:
         return 10.0 if is_distributed() else 1.0

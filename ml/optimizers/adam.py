@@ -13,7 +13,7 @@ from torch.optim.adamw import AdamW
 from ml.core.config import conf_field
 from ml.core.registry import register_optimizer
 from ml.optimizers.base import BaseOptimizer, BaseOptimizerConfig
-from ml.optimizers.common import can_use_fused, separate_decayable_params
+from ml.optimizers.common import can_use_foreach, can_use_fused, separate_decayable_params
 
 
 @dataclass
@@ -77,7 +77,7 @@ class AdamOptimizer(BaseOptimizer[AdamOptimizerConfig, Adam | AdamW]):
         if foreach is None and fused is None:
             if not self.config.differentiable and can_use_fused(model):
                 fused = True
-            else:
+            elif can_use_foreach(model):
                 foreach = True
         if fused is None:
             fused = False
