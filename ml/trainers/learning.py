@@ -88,6 +88,8 @@ class BaseLearningTrainer(
             task_model, state.phase = set_phase(task_model, "train")
         total_bsz: int | None = None
         losses: dict[str, tuple[Tensor, int]] = {}
+        with self.step_context("zero_grads"):
+            optim.zero_grad(set_to_none=self.config.set_to_none)
         for batch in batches:
             bsz = task.get_batch_size(batch)
             if bsz is not None:
@@ -117,8 +119,6 @@ class BaseLearningTrainer(
             self.step_optimizer(optim=optim)
             lr_sched.step(state)
             self.logger.log_scalar("lr_scale", lr_sched.lr_scale, namespace="optim")
-        with self.step_context("zero_grads"):
-            optim.zero_grad(set_to_none=self.config.set_to_none)
         with self.step_context("write_logs"), self.autocast_context():
             self.write_logs(task, model, state)
         with self.step_context("update_state"):
