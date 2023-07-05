@@ -41,7 +41,6 @@ from ml.tasks.datasets.error_handling import (
     ErrorHandlingConfig,
     get_error_handling_dataset,
 )
-from ml.tasks.losses.reduce import cast_reduce_type, reduce
 from ml.utils.device.auto import AutoDevice
 from ml.utils.device.base import BaseDevice
 from ml.utils.random import set_random_seed
@@ -207,12 +206,7 @@ class FinishTrainingConfig:
 
 
 @dataclass
-class LossConfig:
-    loss_reduce_type: str = conf_field("sum", help="Loss reduction type to use")
-
-
-@dataclass
-class BaseTaskConfig(BaseConfig, DataLoaderConfigs, FinishTrainingConfig, LossConfig):
+class BaseTaskConfig(BaseConfig, DataLoaderConfigs, FinishTrainingConfig):
     """Defines the base config for all tasks."""
 
     errors: ErrorHandlingConfig = conf_field(ErrorHandlingConfig(), help="Error handling config")
@@ -250,9 +244,6 @@ class BaseTask(
 
         # Used to log values.
         self.logger = MultiLogger(default_namespace="task")
-
-        # Final loss reduce type.
-        self.__final_loss_reduce_type = cast_reduce_type(self.config.loss_reduce_type)
 
     @functools.cached_property
     @torch.jit.ignore
@@ -311,10 +302,10 @@ class BaseTask(
                 return loss.unsqueeze(0), ["loss"]
             if loss.ndim == 1:
                 return loss, ["loss"]
-            return reduce(loss, self.__final_loss_reduce_type).unsqueeze(0), ["loss"]
+            return loss.sum().unsqueeze(0) / loss.shape[0], ["loss"]
         assert isinstance(loss, dict), f"Loss should be a scalar or dictionary, not {type(loss)}"
         keys, values = (list(i) for i in zip(*sorted(loss.items())))
-        losses = [reduce(v, self.__final_loss_reduce_type) for v in values]
+        losses = [v.sum() / v.shape[0] if v.ndim > 0 else v for v in values]
         single_loss = torch.stack(losses, dim=0)
         return single_loss, keys
 
