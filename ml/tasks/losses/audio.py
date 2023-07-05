@@ -148,8 +148,8 @@ class MultiResolutionSTFTLoss(torch.nn.Module):
         hop_sizes: list[int] = [120, 240, 60],
         win_lengths: list[int] = [600, 1200, 300],
         window: WindowFn = "hann",
-        factor_sc: float = 0.1,
-        factor_mag: float = 0.1,
+        factor_sc: float = 1.0,
+        factor_mag: float = 1.0,
     ) -> None:
         super().__init__()
 
