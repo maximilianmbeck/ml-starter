@@ -61,3 +61,20 @@ def colorize(s: str, color: Color, bold: bool = False) -> str:
         return s
     start, end = get_colorize_parts(color, bold=bold)
     return start + s + end
+
+
+def maybe_colorize(s: str, color: Color | None, bold: bool = False) -> str:
+    if color is None:
+        return s
+    return colorize(s, color, bold=bold)
+
+
+def make_bold(strs: list[str], inner: Color | None = None, side: Color | None = None) -> str:
+    strs = [s.strip() for s in strs]
+    max_len = max(len(s) for s in strs)
+    strs = [maybe_colorize(s, inner, bold=True) for s in strs]
+    strs = [f"{s}{' ' * (max_len - len(s))}" for s in strs]
+    strs_with_sides = [f"{maybe_colorize('│', side)} {s} {maybe_colorize('│', side)}" for s in strs]
+    top = maybe_colorize("┌─" + "─" * max_len + "─┐", side)
+    bottom = maybe_colorize("└─" + "─" * max_len + "─┘", side)
+    return "\n".join([top] + strs_with_sides + [bottom])

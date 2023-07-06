@@ -33,6 +33,7 @@ from ml.core.registry import register_logger
 from ml.core.state import Phase, State
 from ml.loggers.base import BaseLogger, BaseLoggerConfig
 from ml.loggers.multi import TARGET_FPS
+from ml.utils.colors import make_bold
 from ml.utils.distributed import is_distributed, is_master
 from ml.utils.logging import IntervalTicker
 from ml.utils.networking import get_unused_port
@@ -108,12 +109,6 @@ def to_markdown_table(config: DictConfig) -> str:
     header_sep_str = "|-" + "-|-" * (max_len - 1) + "-|"
     rows_str = "\n".join(["| " + " | ".join(row) + " |" for row in rows])
     return "\n".join([header_str, header_sep_str, rows_str])
-
-
-def make_bold(strs: list[str]) -> str:
-    strs = [s.strip() for s in strs]
-    max_len = max(len(s) for s in strs)
-    return "\n".join(["-" * max_len] + strs + ["-" * max_len])
 
 
 @dataclass
@@ -207,7 +202,7 @@ class TensorboardLogger(BaseLogger[TensorboardLoggerConfig]):
                     break
 
             if self.line_str is not None:
-                logger.info("Running TensorBoard process:\n%s", make_bold([self.line_str]))
+                logger.info("Running TensorBoard process:\n%s", make_bold([self.line_str], "light-green", "cyan"))
 
             # Close the process when the program terminates.
             atexit.register(proc.kill)
