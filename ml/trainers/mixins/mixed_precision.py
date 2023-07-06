@@ -58,7 +58,7 @@ class MixedPrecisionTrainerMixin(BaseTrainer[MixedPrecisionConfigT, ModelT, Task
             return self.grad_scaler.scale(tensor)
         return tensor
 
-    def unscale_mixed_precision(self, optim: Optimizer) -> None:
+    def _unscale_mixed_precision(self, optim: Optimizer) -> None:
         if self.grad_scaler is not None:
             self.grad_scaler.unscale_(optim)
 
