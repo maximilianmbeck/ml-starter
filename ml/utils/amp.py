@@ -2,7 +2,7 @@
 
 import functools
 from types import TracebackType
-from typing import Callable, Generic, ParamSpec, TypeVar
+from typing import Any, Callable, Generic, ParamSpec, TypeVar
 
 import torch
 
@@ -110,9 +110,12 @@ class autocast_tensors(Generic[T]):  # noqa: N801
         self.enabled = enabled
         self.autocast_ctx = torch.autocast(device_type, dtype, enabled=enabled, cache_enabled=cache_enabled)
 
-    def __enter__(self) -> T | None:
+    def apply(self, xs: Any) -> Any:  # noqa: ANN401
+        return recursive_apply(xs, lambda t: t.to(self.dtype))
+
+    def __enter__(self) -> T:
         self.autocast_ctx.__enter__()
-        return None if self.xs is None else recursive_apply(self.xs, lambda t: t.to(self.dtype))
+        return self.apply(self.xs)
 
     def __exit__(self, _t: type[BaseException] | None, _e: BaseException | None, _tr: TracebackType | None) -> None:
         self.autocast_ctx.__exit__(_t, _e, _tr)
@@ -121,7 +124,7 @@ class autocast_tensors(Generic[T]):  # noqa: N801
         @functools.wraps(func)
         def decorate_autocast(*args: P.args, **kwargs: P.kwargs) -> T:
             with self:
-                return func(*args, **kwargs)
+                return func(*self.apply(args), **self.apply(kwargs))
 
         decorate_autocast.__script_unsupported = SCRIPT_UNSUPPORTED_STR
         return decorate_autocast
