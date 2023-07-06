@@ -115,8 +115,7 @@ class autocast_tensors(Generic[T]):  # noqa: N801
         return None if self.xs is None else recursive_apply(self.xs, lambda t: t.to(self.dtype))
 
     def __exit__(self, _t: type[BaseException] | None, _e: BaseException | None, _tr: TracebackType | None) -> None:
-        for autocast_ctx in self.autocast_ctxs:
-            autocast_ctx.__exit__(_t, _e, _tr)
+        self.autocast_ctx.__exit__(_t, _e, _tr)
 
     def __call__(self, func: Callable[P, T]) -> Callable[P, T]:
         @functools.wraps(func)
