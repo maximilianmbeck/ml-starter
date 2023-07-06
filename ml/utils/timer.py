@@ -14,14 +14,15 @@ import time
 import warnings
 from threading import Thread
 from types import TracebackType
-from typing import Any, Callable, ContextManager, TypeVar
+from typing import Any, Callable, ContextManager, ParamSpec, TypeVar
 
 from ml.utils.colors import colorize
 from ml.utils.distributed import is_master
 
 timer_logger: logging.Logger = logging.getLogger(__name__)
 
-TimeoutFunc = TypeVar("TimeoutFunc", bound=Callable[..., Any])
+T = TypeVar("T")
+P = ParamSpec("P")
 
 
 @functools.lru_cache
@@ -134,7 +135,7 @@ class Timer(ContextManager):
         spinner().stop()
 
 
-def timeout(seconds: int, error_message: str = os.strerror(errno.ETIME)) -> Callable[[TimeoutFunc], TimeoutFunc]:
+def timeout(seconds: int, error_message: str = os.strerror(errno.ETIME)) -> Callable[[Callable[P, T]], Callable[P, T]]:
     """Decorator for timing out long-running functions.
 
     Note that this function won't work on Windows.
@@ -147,12 +148,12 @@ def timeout(seconds: int, error_message: str = os.strerror(errno.ETIME)) -> Call
         Decorator function
     """
 
-    def decorator(func: TimeoutFunc) -> TimeoutFunc:
+    def decorator(func: Callable[P, T]) -> Callable[P, T]:
         def _handle_timeout(*_: Any) -> None:  # noqa: ANN401
             raise TimeoutError(error_message)
 
         @functools.wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
             signal.signal(signal.SIGALRM, _handle_timeout)
             signal.alarm(seconds)
             try:
@@ -161,6 +162,6 @@ def timeout(seconds: int, error_message: str = os.strerror(errno.ETIME)) -> Call
                 signal.alarm(0)
             return result
 
-        return wrapper  # type: ignore[return-value]
+        return wrapper
 
     return decorator

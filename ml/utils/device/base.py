@@ -29,6 +29,7 @@ from torch import Tensor, nn
 from torch.utils.data.dataloader import DataLoader, _BaseDataLoaderIter
 
 from ml.core.common_types import Batch
+from ml.utils.functions import recursive_apply
 from ml.utils.timer import Timer
 
 T = TypeVar("T")
@@ -36,31 +37,6 @@ T = TypeVar("T")
 
 def allow_nonblocking(device_a: torch.device, device_b: torch.device) -> bool:
     return device_a.type in ("cpu", "cuda") and device_b.type in ("cpu", "cuda")
-
-
-def recursive_apply(item: Any, func: Callable[[Tensor], Tensor]) -> Any:  # noqa: ANN401
-    """Applies a function recursively to tensors in an item.
-
-    Args:
-        item: The item to apply the function to
-        func: The function to apply (for the tensor)
-
-    Returns:
-        The same item, with the function applied
-    """
-    if isinstance(item, (str, int, float)):
-        return item
-    if isinstance(item, np.ndarray):
-        return func(torch.from_numpy(item))
-    if isinstance(item, Tensor):
-        return func(item)
-    if is_dataclass(item):
-        return item.__class__(**{k: recursive_apply(v, func) for k, v in item.__dict__.items()})
-    if isinstance(item, Mapping):
-        return {k: recursive_apply(v, func) for k, v in item.items()}
-    if isinstance(item, Sequence):
-        return [recursive_apply(i, func) for i in item]
-    return item
 
 
 class Prefetcher(Iterable[Batch]):

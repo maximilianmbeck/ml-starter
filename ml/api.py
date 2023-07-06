@@ -18,6 +18,8 @@ __all__ = [
     "AsyncIterableDataset",
     "AsyncWorkerPool",
     "atomic_save",
+    "autocast_all",
+    "autocast_tensors",
     "AutoDevice",
     "BaseDevice",
     "BaseEnvironmentWorker",
@@ -139,6 +141,7 @@ __all__ = [
     "read_gif",
     "read_video",
     "rechunk_audio",
+    "recursive_apply",
     "register_logger",
     "register_lr_scheduler",
     "register_model",
@@ -266,6 +269,7 @@ from ml.trainers.base import BaseTrainer, BaseTrainerConfig
 from ml.trainers.learning import BaseLearningTrainer, BaseLearningTrainerConfig
 from ml.trainers.rl import ReinforcementLearningTrainer, ReinforcementLearningTrainerConfig
 from ml.trainers.sl import SupervisedLearningTrainer, SupervisedLearningTrainerConfig
+from ml.utils.amp import autocast_all, autocast_tensors
 from ml.utils.argparse import from_args, get_args, get_type_from_string
 from ml.utils.atomic import atomic_save, open_atomic
 from ml.utils.audio import get_audio_props, read_audio, rechunk_audio, write_audio
@@ -294,6 +298,7 @@ from ml.utils.distributed import (
     is_distributed,
     is_master,
 )
+from ml.utils.functions import recursive_apply
 from ml.utils.image import read_gif, write_gif
 from ml.utils.large_models import init_empty_weights, meta_to_empty_func
 from ml.utils.logging import configure_logging
