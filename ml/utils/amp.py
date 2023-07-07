@@ -1,8 +1,9 @@
 """Helper functions for mixed-precision training."""
 
+import contextlib
 import functools
 from types import TracebackType
-from typing import Any, Callable, Generic, ParamSpec, TypeVar
+from typing import Any, Callable, ContextManager, Generic, ParamSpec, TypeVar
 
 import torch
 
@@ -61,7 +62,10 @@ class autocast_all:  # noqa: N801
 
 @functools.lru_cache()
 def default_device() -> str:
-    return AutoDevice.detect_device().get_device().type
+    type = AutoDevice.detect_device().get_device().type
+    if type not in ("cpu", "cuda"):
+        type = "cpu"
+    return type
 
 
 @functools.lru_cache
@@ -108,7 +112,11 @@ class autocast_tensors(Generic[T]):  # noqa: N801
         self.dtype = dtype
         self.xs = xs
         self.enabled = enabled
-        self.autocast_ctx = torch.autocast(device_type, dtype, enabled=enabled, cache_enabled=cache_enabled)
+        self.autocast_ctx: ContextManager
+        if device_type == "cpu" and dtype != torch.bfloat16:
+            self.autocast_ctx = contextlib.nullcontext()
+        else:
+            self.autocast_ctx = torch.autocast(device_type, dtype, enabled=enabled, cache_enabled=cache_enabled)
 
     def apply(self, xs: Any) -> Any:  # noqa: ANN401
         return recursive_apply(xs, lambda t: t.to(self.dtype))

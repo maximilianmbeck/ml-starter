@@ -18,6 +18,10 @@ __all__ = [
     "AsyncIterableDataset",
     "AsyncWorkerPool",
     "atomic_save",
+    "AudioMagStftConverter",
+    "AudioMfccConverter",
+    "AudioPyworldConverter",
+    "AudioStftConverter",
     "autocast_all",
     "autocast_tensors",
     "AutoDevice",
@@ -285,6 +289,7 @@ from ml.utils.data import check_md5, check_sha256, get_dataset_split_for_phase, 
 from ml.utils.datetime import format_timedelta
 from ml.utils.device.auto import AutoDevice
 from ml.utils.device.base import BaseDevice
+from ml.utils.spectrogram import AudioMfccConverter, AudioMagStftConverter, AudioPyworldConverter, AudioStftConverter
 from ml.utils.distributed import (
     get_local_rank,
     get_local_rank_optional,
