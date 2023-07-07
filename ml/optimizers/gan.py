@@ -24,10 +24,7 @@ class GenerativeAdversarialNetworkOptimizerConfig(BaseOptimizerConfig):
     discriminator: Any = conf_field(MISSING, help="The discriminator optimizer to use")
 
     @classmethod
-    def update(
-        cls: type["GenerativeAdversarialNetworkOptimizerConfig"],
-        config: DictConfig,
-    ) -> DictConfig:
+    def update(cls: type["GenerativeAdversarialNetworkOptimizerConfig"], config: DictConfig) -> DictConfig:
         config = super().update(config)
         assert (gen_name := config.generator.get("name")) is not None, "The generator name must be specified"
         assert (dis_name := config.discriminator.get("name")) is not None, "The discriminator name must be specified"

@@ -24,6 +24,7 @@ from ml.lr_schedulers.base import BaseLRScheduler, SchedulerAdapter
 from ml.models.gan import GenerativeAdversarialNetworkModel
 from ml.optimizers.base import BaseOptimizer
 from ml.optimizers.gan import GenerativeAdversarialNetworkOptimizer
+from ml.lr_schedulers.gan import GenerativeAdversarialNetworkLRScheduler
 from ml.tasks.gan.base import GenerativeAdversarialNetworkTask
 from ml.trainers.learning import TrainingFinishedError
 from ml.trainers.sl import EpochDoneError, SupervisedLearningTrainer, SupervisedLearningTrainerConfig
@@ -242,18 +243,15 @@ class GenerativeAdversarialNetworkTrainer(
         finally:
             self.on_training_end(state, task, model, optims, lr_scheds)
 
-    def _get_optim_and_lr_sched(
+    def _get_optim_and_lr_sched(  # type: ignore[override]
         self,
         task_model: nn.Module,
         optimizer: BaseOptimizer,
         lr_scheduler: BaseLRScheduler,
-        is_gen: bool | None = None,
+        is_gen: bool,
     ) -> tuple[Optimizer, SchedulerAdapter]:
-        if is_gen is None or not isinstance(optimizer, GenerativeAdversarialNetworkOptimizer):
-            return super()._get_optim_and_lr_sched(task_model, optimizer, lr_scheduler)
-        optimizer = optimizer.generator if is_gen else optimizer.discriminator
-        with Timer("building optimizer", 0.1, spinner=True):
-            optim = optimizer.get(task_model)
-        with Timer("building learning rate scheduler", 0.1, spinner=True):
-            lr_sched = lr_scheduler.get(optim)
-        return optim, lr_sched
+        if isinstance(optimizer, GenerativeAdversarialNetworkOptimizer):
+            optimizer = optimizer.generator if is_gen else optimizer.discriminator
+        if isinstance(lr_scheduler, GenerativeAdversarialNetworkLRScheduler):
+            lr_scheduler = lr_scheduler.generator if is_gen else lr_scheduler.discriminator
+        return super()._get_optim_and_lr_sched(task_model, optimizer, lr_scheduler)
