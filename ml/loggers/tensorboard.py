@@ -276,7 +276,7 @@ class TensorboardLogger(BaseLogger[TensorboardLoggerConfig]):
         if self.line_str is not None:
             cur_time = time.time()
             if cur_time - self.last_tensorboard_write_time > WRITE_PROC_TEXT_EVERY_N_SECONDS:
-                logger.info("Running TensorBoard process:\n%s", make_bold([self.line_str]))
+                logger.info("Running TensorBoard process:\n%s", make_bold([self.line_str], "light-green", "cyan"))
                 self.last_tensorboard_write_time = cur_time
         writer = self.get_writer(state.phase)
         all_keys: set[str] = set()
