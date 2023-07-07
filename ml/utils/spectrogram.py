@@ -270,7 +270,7 @@ class AudioMagStftConverter(_Normalizer):
         """
         with autocast_tensors(mag, enabled=False) as mag:
             log_mag = self.denormalize(mag.detach())
-            mag = torch.exp(log_mag) - 1e-6
+            mag = (torch.exp(log_mag) - 1e-6).clamp_min_(1e-8)
             waveform = self.griffin_lim(mag)
             return waveform
 
