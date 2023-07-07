@@ -168,7 +168,7 @@ class TensorboardLogger(BaseLogger[TensorboardLoggerConfig]):
             m = re.search(r" (http\S+?) ", s)
             if m is None:
                 return s
-            return f"Tensorboard: {m}"
+            return f"Tensorboard: {m.group(1)}"
 
         if not self.config.start_in_subprocess or is_tensorboard_disabled():
             tensorboard_command_strs = [
