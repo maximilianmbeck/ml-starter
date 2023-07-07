@@ -6,10 +6,11 @@ schedules for the generator and discriminator of a GAN.
 This class is used by the GAN trainer interface and shouldn't be used elsewhere.
 """
 
-from typing import Any
 from dataclasses import dataclass
+from typing import Any
 
 from omegaconf import MISSING, DictConfig
+
 from ml.core.config import conf_field
 from ml.core.registry import register_lr_scheduler
 from ml.core.state import State

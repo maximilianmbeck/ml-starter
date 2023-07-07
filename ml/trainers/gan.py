@@ -21,10 +21,10 @@ from ml.core.registry import register_trainer
 from ml.core.state import Phase, State
 from ml.loggers.multi import namespace_context
 from ml.lr_schedulers.base import BaseLRScheduler, SchedulerAdapter
+from ml.lr_schedulers.gan import GenerativeAdversarialNetworkLRScheduler
 from ml.models.gan import GenerativeAdversarialNetworkModel
 from ml.optimizers.base import BaseOptimizer
 from ml.optimizers.gan import GenerativeAdversarialNetworkOptimizer
-from ml.lr_schedulers.gan import GenerativeAdversarialNetworkLRScheduler
 from ml.tasks.gan.base import GenerativeAdversarialNetworkTask
 from ml.trainers.learning import TrainingFinishedError
 from ml.trainers.sl import EpochDoneError, SupervisedLearningTrainer, SupervisedLearningTrainerConfig
