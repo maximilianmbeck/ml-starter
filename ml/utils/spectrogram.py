@@ -25,6 +25,8 @@ from ml.utils.numpy import as_numpy_array
 
 logger = logging.getLogger(__name__)
 
+Array = Tensor | np.ndarray
+
 try:
     import pyworld
 except ImportError:
@@ -344,7 +346,7 @@ class AudioPyworldConverter:
         coded_sp = self.normalize(coded_sp)
         return WorldFeatures(sp=torch.from_numpy(coded_sp), f0=torch.from_numpy(f0), ap=torch.from_numpy(ap))
 
-    def features_to_audio(self, features: WorldFeatures) -> np.ndarray:
+    def features_to_audio(self, features: WorldFeatures | tuple[Array, Array, Array]) -> np.ndarray:
         assert pyworld is not None
 
         coded_sp, f0, ap = (as_numpy_array(f) for f in features)
