@@ -327,7 +327,7 @@ class AudioPyworldConverter:
     def denormalize(self, sp: np.ndarray) -> np.ndarray:
         return sp * self.running_std + self.running_mean
 
-    def audio_to_spectral_envelope(self, waveform: np.ndarray) -> WorldFeatures:
+    def audio_to_features(self, waveform: np.ndarray) -> WorldFeatures:
         assert pyworld is not None
 
         waveform = waveform.astype(np.float64)
@@ -344,7 +344,7 @@ class AudioPyworldConverter:
         coded_sp = self.normalize(coded_sp)
         return WorldFeatures(sp=torch.from_numpy(coded_sp), f0=torch.from_numpy(f0), ap=torch.from_numpy(ap))
 
-    def spectral_envelope_to_audio(self, features: WorldFeatures) -> np.ndarray:
+    def features_to_audio(self, features: WorldFeatures) -> np.ndarray:
         assert pyworld is not None
 
         coded_sp, f0, ap = (as_numpy_array(f) for f in features)
@@ -398,8 +398,8 @@ def test_audio_adhoc() -> None:
 
     if args.mode == "pyworld":
         pyworld_converter = AudioPyworldConverter(sample_rate)
-        coded_sp = pyworld_converter.audio_to_spectral_envelope(waveform.numpy())
-        pyworld_waveform = pyworld_converter.spectral_envelope_to_audio(coded_sp)
+        coded_sp = pyworld_converter.audio_to_features(waveform.numpy())
+        pyworld_waveform = pyworld_converter.features_to_audio(coded_sp)
         pyworld_waveform_tensor = torch.from_numpy(pyworld_waveform).to(torch.float32)
         torchaudio.save(output_dir / "original.wav", waveform[None], sample_rate)
         torchaudio.save(output_dir / "reconstructed.wav", pyworld_waveform_tensor[None], sample_rate)
