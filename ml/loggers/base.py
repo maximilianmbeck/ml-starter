@@ -13,7 +13,6 @@ follow the implementation of one of the existing loggers.
 """
 
 import datetime
-import functools
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
@@ -145,7 +144,7 @@ class BaseLogger(BaseObject[LoggerConfigT], Generic[LoggerConfigT], ABC):
             If the logger should write values for the current state
         """
         current_time = datetime.datetime.now()
-        min_write_time_diff = datetime.timedelta(seconds=self.write_every_n_seconds(state.phase))
+        min_write_time_diff = datetime.timedelta(seconds=self.write_every_n_seconds(state))
 
         if state.phase not in self.last_write_time:
             self.last_write_time[state.phase] = current_time
@@ -165,27 +164,26 @@ class BaseLogger(BaseObject[LoggerConfigT], Generic[LoggerConfigT], ABC):
         """
 
     @abstractmethod
-    def default_write_every_n_seconds(self, phase: Phase) -> float:
+    def default_write_every_n_seconds(self, state: State) -> float:
         """Returns the default write interval in seconds.
 
         Args:
-            phase: The phase to get the default write interval for
+            state: The state to get the default write interval for
 
         Returns:
             The default write interval, in seconds
         """
 
-    @functools.lru_cache
-    def write_every_n_seconds(self, phase: Phase) -> float:
+    def write_every_n_seconds(self, state: State) -> float:
         """Returns the write interval in seconds.
 
         Args:
-            phase: The phase to get the write interval for
+            state: The state to get the write interval for
 
         Returns:
             The write interval, in seconds
         """
-        if phase == "train":
+        if state.phase == "train":
             if self.config.write_train_every_n_seconds is not None:
                 return self.config.write_train_every_n_seconds
         elif self.config.write_val_every_n_seconds is not None:
@@ -194,4 +192,4 @@ class BaseLogger(BaseObject[LoggerConfigT], Generic[LoggerConfigT], ABC):
         if self.config.write_every_n_seconds is not None:
             return self.config.write_every_n_seconds
 
-        return self.default_write_every_n_seconds(phase)
+        return self.default_write_every_n_seconds(state)

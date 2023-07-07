@@ -130,5 +130,5 @@ class StdoutLogger(BaseLogger[StdoutLoggerConfig]):
         # Clears the log values.
         phase_log_values.clear()
 
-    def default_write_every_n_seconds(self, phase: Phase) -> float:
-        return 10.0 if is_distributed() else 1.0
+    def default_write_every_n_seconds(self, state: State) -> float:
+        return 10.0 if is_distributed() or state.num_steps > 5000 else 1.0

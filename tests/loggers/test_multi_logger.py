@@ -11,7 +11,7 @@ import pytest
 import torch
 from torch import Tensor
 
-from ml.core.state import Phase, State
+from ml.core.state import State
 from ml.loggers.base import BaseLogger, BaseLoggerConfig
 from ml.loggers.multi import MultiLogger
 
@@ -39,7 +39,7 @@ class DummyLogger(BaseLogger):
     def clear(self, state: State) -> None:
         pass
 
-    def default_write_every_n_seconds(self, phase: Phase) -> float:
+    def default_write_every_n_seconds(self, state: State) -> float:
         return 1.0
 
 
