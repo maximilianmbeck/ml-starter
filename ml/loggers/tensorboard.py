@@ -43,6 +43,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 WRITE_PROC_TEXT_EVERY_N_SECONDS: int = 60 * 2
+DEFAULT_TENSORBOARD_PORT = 9249
 
 
 def format_as_string(value: Any) -> str:  # noqa: ANN401
@@ -156,12 +157,18 @@ class TensorboardLogger(BaseLogger[TensorboardLoggerConfig]):
         if "TENSORBOARD_PORT" in os.environ:
             port, use_localhost = int(os.environ["TENSORBOARD_PORT"]), True
         else:
-            port, use_localhost = get_unused_port(), False
+            port, use_localhost = get_unused_port(default=DEFAULT_TENSORBOARD_PORT), False
 
         def make_localhost(s: str) -> str:
             if use_localhost:
                 s = re.sub(rf"://(.+?):{port}", f"://localhost:{port}", s)
             return s
+
+        def parse_url(s: str) -> str:
+            m = re.search(r" (http\S+?) ", s)
+            if m is None:
+                return s
+            return f"Tensorboard: {m}"
 
         if not self.config.start_in_subprocess or is_tensorboard_disabled():
             tensorboard_command_strs = [
@@ -198,7 +205,7 @@ class TensorboardLogger(BaseLogger[TensorboardLoggerConfig]):
             for line in proc.stdout:
                 line_str = line.decode("utf-8")
                 if line_str.startswith("TensorBoard"):
-                    self.line_str = make_localhost(line_str)
+                    self.line_str = parse_url(make_localhost(line_str))
                     break
 
             if self.line_str is not None:
