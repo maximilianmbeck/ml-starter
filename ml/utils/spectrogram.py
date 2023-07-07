@@ -128,8 +128,7 @@ class AudioMfccConverter(_Normalizer):
             log_mel_spec = torch.log(mel_spec + 1e-6)
             mfcc = torch.einsum("...ct,cf->...ft", log_mel_spec, self.dct_mat)
             mfcc = self.normalize(mfcc)
-
-        return mfcc
+            return mfcc
 
     def spec_to_audio(self, mfcc: Tensor) -> Tensor:
         """Converts MFCCs to a waveform.
@@ -146,7 +145,7 @@ class AudioMfccConverter(_Normalizer):
             mel_spec = torch.exp(log_mel_spec) - 1e-6
             spec = torch.einsum("...ft,fc->...ct", mel_spec, self.inv_mel_fb).clamp_min_(1e-8)
             waveform = self.griffin_lim(spec)
-        return waveform
+            return waveform
 
 
 class AudioStftConverter(_Normalizer):
@@ -186,18 +185,43 @@ class AudioStftConverter(_Normalizer):
         return torch.exp(log_mag) - 1e-6
 
     def audio_to_spec(self, waveform: Tensor) -> Tensor:
-        spec = self.stft(waveform)
-        mag = self.normalize(spec.abs())
-        phase = spec.angle()
-        return torch.stack((mag, phase), -3)
+        """Converts a waveform to a spectrogram.
+
+        This version keeps the phase information, in a parallel channel with
+        the magnitude information.
+
+        Args:
+            waveform: Tensor of shape ``(..., num_samples)``.
+
+        Returns:
+            Tensor of shape ``(..., 2, num_frames, n_fft // 2 + 1)``.
+            The first channel is the magnitude, the second is the phase.
+        """
+        with autocast_tensors(waveform, enabled=False) as waveform:
+            spec = self.stft(waveform.detach())
+            mag = self.normalize(spec.abs())
+            phase = spec.angle()
+            return torch.stack((mag, phase), -3)
 
     def spec_to_audio(self, spec: Tensor) -> Tensor:
-        mag, phase = spec.unbind(-3)
-        mag = self.denormalize(mag)
-        real, imag = mag * phase.cos(), mag * phase.sin()
-        spec = torch.complex(real, imag)
-        waveform = self.istft(spec)
-        return waveform
+        """Converts a spectrogram to a waveform.
+
+        This version expects the spectrogram to have two channels, one for
+        magnitude and one for phase.
+
+        Args:
+            spec: Tensor of shape ``(..., 2, num_frames, n_fft // 2 + 1)``.
+
+        Returns:
+            Tensor of shape ``(..., num_samples)``, the reconstructed waveform.
+        """
+        with autocast_tensors(spec, enabled=False) as spec:
+            mag, phase = spec.detach().unbind(-3)
+            mag = self.denormalize(mag)
+            real, imag = mag * phase.cos(), mag * phase.sin()
+            spec = torch.complex(real, imag)
+            waveform = self.istft(spec)
+            return waveform
 
 
 class AudioMagStftConverter(_Normalizer):
@@ -219,16 +243,34 @@ class AudioMagStftConverter(_Normalizer):
         self.griffin_lim = GriffinLim(self.n_fft, n_iter, self.win_length, self.hop_length, power=2)
 
     def audio_to_mag_spec(self, waveform: Tensor) -> Tensor:
-        mag = self.stft(waveform)
-        log_mag = torch.log(mag + 1e-6)
-        log_mag = self.normalize(log_mag)
-        return log_mag
+        """Converts a waveform to a magnitude spectrogram.
+
+        Args:
+            waveform: Tensor of shape ``(..., num_samples)``.
+
+        Returns:
+            Tensor of shape ``(..., num_frames, n_fft // 2 + 1)``.
+        """
+        with autocast_tensors(waveform, enabled=False) as waveform:
+            mag = self.stft(waveform.detach())
+            log_mag = torch.log(mag + 1e-6)
+            log_mag = self.normalize(log_mag)
+            return log_mag
 
     def mag_spec_to_audio(self, mag: Tensor) -> Tensor:
-        log_mag = self.denormalize(mag)
-        mag = torch.exp(log_mag) - 1e-6
-        waveform = self.griffin_lim(mag)
-        return waveform
+        """Converts a magnitude spectrogram to a waveform.
+
+        Args:
+            mag: Tensor of shape ``(..., num_frames, n_fft // 2 + 1)``.
+
+        Returns:
+            Tensor of shape ``(..., num_samples)``, the reconstructed waveform.
+        """
+        with autocast_tensors(mag, enabled=False) as mag:
+            log_mag = self.denormalize(mag.detach())
+            mag = torch.exp(log_mag) - 1e-6
+            waveform = self.griffin_lim(mag)
+            return waveform
 
 
 class WorldFeatures(NamedTuple):
