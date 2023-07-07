@@ -210,6 +210,7 @@ class BaseTaskConfig(BaseConfig, DataLoaderConfigs, FinishTrainingConfig):
     """Defines the base config for all tasks."""
 
     errors: ErrorHandlingConfig = conf_field(ErrorHandlingConfig(), help="Error handling config")
+    disable_autocast_for_loss: bool = conf_field(True, help="Disable autocast for loss calculation")
 
 
 BaseTaskConfigT = TypeVar("BaseTaskConfigT", bound=BaseTaskConfig)
@@ -237,6 +238,9 @@ class BaseTask(
         # This flag can be toggled to end training from anywhere in the task.
         self.__training_over_flag = False
 
+        # Used in the internals of the task.
+        self.__disable_autocast_for_loss = self.config.disable_autocast_for_loss
+
         # Timers for iterations.
         self.train_timer = StateTimer()
         self.valid_timer = StateTimer()
@@ -254,6 +258,10 @@ class BaseTask(
     @torch.jit.ignore
     def _device_type(self) -> str:
         return self._device.get_device().type
+
+    @property
+    def disable_autocast_for_loss(self) -> bool:
+        return self.__disable_autocast_for_loss
 
     @abstractmethod
     def run_model(self, model: ModelT, batch: Batch, state: State) -> Output:

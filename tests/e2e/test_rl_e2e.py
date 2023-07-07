@@ -100,6 +100,7 @@ def test_rl_e2e_training(tmpdir: Path) -> None:
             "name": "dummy-rl-task",
             "train_dl": {
                 "batch_size": 2,
+                "num_workers": 0,
             },
             "max_steps": 10,
             "dataset": {

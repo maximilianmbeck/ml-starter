@@ -33,6 +33,18 @@ class MonitorProcessMixin(
 
         self._mp_manager = mp.Manager()
 
+    def on_training_start(
+        self,
+        state: State,
+        task: TaskT,
+        model: ModelT,
+        optim: Optimizer | dict[str, Optimizer],
+        lr_sched: SchedulerAdapter | dict[str, SchedulerAdapter],
+    ) -> None:
+        super().on_training_start(state, task, model, optim, lr_sched)
+
+        self._mp_manager = mp.Manager()
+
     def on_training_end(
         self,
         state: State,

@@ -7,6 +7,7 @@ training loop.
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Iterable
 
 import pytest
 import torch
@@ -66,8 +67,13 @@ DiscriminatorOutput = Tensor
 
 
 class DummyDataset(Dataset[Batch]):
+    def __init__(self) -> None:
+        super().__init__()
+
+        self.item = torch.randn(3, 8)
+
     def __getitem__(self, index: int) -> Batch:
-        return torch.randn(3, 8)
+        return self.item
 
     def __len__(self) -> int:
         return 10
@@ -112,6 +118,17 @@ class DummyTask(
     ) -> dict[str, Tensor]:
         return {"loss": dis_output.sum()}
 
+    def compute_generator_loss(
+        self,
+        generator: GeneratorModel,
+        discriminator: DiscriminatorModel,
+        batch: Batch,
+        state: State,
+        gen_output: GeneratorOutput,
+        dis_output: DiscriminatorOutput,
+    ) -> dict[str, Tensor]:
+        return {"loss_a": gen_output.sum(), "loss_b": dis_output.sum()}
+
     def get_dataset(self, phase: Phase) -> Dataset:
         return DummyDataset()
 
@@ -136,24 +153,23 @@ def test_gan_e2e_training(tmpdir: Path) -> None:
             "name": "dummy-gan-task",
             "train_dl": {
                 "batch_size": 2,
+                "num_workers": 0,
             },
             "max_steps": 10,
         },
         "optimizer": {
             "name": "gan",
             "generator": {
-                "name": "adam",
-                "lr": 3e-4,
-                "weight_decay": 1e-2,
+                "name": "sgd",
+                "lr": 1e-2,
             },
             "discriminator": {
-                "name": "adam",
-                "lr": 1e-4,
-                "weight_decay": 1e-2,
+                "name": "sgd",
+                "lr": 1e-2,
             },
         },
         "lr_scheduler": {
-            "name": "linear",
+            "name": "constant",
         },
         "trainer": {
             "name": "gan",
@@ -183,7 +199,33 @@ def test_gan_e2e_training(tmpdir: Path) -> None:
     assert (optimizer := objects.optimizer) is not None
     assert (lr_scheduler := objects.lr_scheduler) is not None
 
+    assert isinstance(task, DummyTask)
+    assert isinstance(generator := model.generator, GeneratorModel)
+    assert isinstance(discriminator := model.discriminator, DiscriminatorModel)
+
+    def all_close(a: Iterable[Tensor], b: Iterable[Tensor]) -> bool:
+        return all(torch.allclose(ai, bi.to(ai)) for ai, bi in zip(a, b))
+
+    # Tests that the discriminator weights don't change when not being trained.
+    init_generator_weights = [p.clone() for p in generator.parameters()]
+    init_discriminator_weights = [p.clone() for p in discriminator.parameters()]
+    task.config.generator_steps = 1
+    task.config.discriminator_steps = 0
     trainer.train(model, task, optimizer, lr_scheduler)
+    trainer.load_checkpoint(trainer.ckpt_path, task, model)
+    assert not all_close(init_generator_weights, generator.parameters())
+    assert all_close(init_discriminator_weights, discriminator.parameters())
+
+    # Tests that the generator weights don't change when not being trained.
+    init_generator_weights = [p.clone() for p in generator.parameters()]
+    init_discriminator_weights = [p.clone() for p in discriminator.parameters()]
+    task.config.generator_steps = 0
+    task.config.discriminator_steps = 1
+    task.config.max_steps = 20
+    trainer.train(model, task, optimizer, lr_scheduler)
+    trainer.load_checkpoint(trainer.ckpt_path, task, model)
+    assert all_close(init_generator_weights, generator.parameters())
+    assert not all_close(init_discriminator_weights, discriminator.parameters())
 
 
 if __name__ == "__main__":

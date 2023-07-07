@@ -16,8 +16,6 @@ import logging
 from dataclasses import dataclass
 from typing import Generic, TypeVar
 
-import torch
-import torch.amp
 from torch import nn
 from torch.distributed import ProcessGroup
 from torch.distributed.fsdp import (
@@ -50,8 +48,11 @@ class TaskModel(nn.Module, Generic[ModelT, TaskT, Batch, Loss]):
         self.task.on_before_forward_step(self.model, batch, state)
         output = self.task.run_model(self.model, batch, state)
         self.task.on_after_forward_step(self.model, batch, output, state)
-        with torch.autocast(self.task._device_type, enabled=False):
-            loss: Loss = self.task.compute_loss(self.model, batch, state, output)
+        if self.task.disable_autocast_for_loss:
+            loss = self.task.compute_loss(self.model, batch, state, output)
+        else:
+            with self.task._device.autocast_context(enabled=False):
+                loss = self.task.compute_loss(self.model, batch, state, output)
         self.task.on_after_compute_loss(self.model, batch, output, loss, state)
         return loss
 
