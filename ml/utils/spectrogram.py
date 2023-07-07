@@ -357,6 +357,35 @@ class AudioPyworldConverter:
         return wav
 
 
+class SpectrogramToMFCCs(nn.Module):
+    def __init__(
+        self,
+        sample_rate: int = 16_000,
+        n_mels: int = 128,
+        n_mfcc: int = 40,
+        f_min: float = 0.0,
+        f_max: float | None = None,
+        n_stft: int = 201,
+        norm: str | None = None,
+        mel_scale: str = "htk",
+        dct_norm: str = "ortho",
+    ) -> None:
+        super().__init__()
+
+        # Convert raw spectrogram to MFCCs. This is differentiable since
+        # the transformations are just matrix multiplications.
+        self.mel_scale = torchaudio.transforms.MelScale(n_mels, sample_rate, f_min, f_max, n_stft, norm, mel_scale)
+        dct_mat = A.create_dct(n_mfcc, n_mels, dct_norm)
+        self.register_buffer("dct_mat", dct_mat)
+
+    dct_mat: Tensor
+
+    def forward(self, spec: Tensor) -> Tensor:
+        x = self.mel_scale(spec)
+        x = torch.einsum("...ij,ik->...kj", x, self.dct_mat)
+        return x
+
+
 def test_audio_adhoc() -> None:
     configure_logging()
 
