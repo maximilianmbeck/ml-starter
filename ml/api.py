@@ -132,6 +132,7 @@ __all__ = [
     "MultiProcessLauncher",
     "MultiProcessLauncherConfig",
     "namespace_context",
+    "NextTokenDiscriminator",
     "NormType",
     "open_atomic",
     "Output",
@@ -279,6 +280,7 @@ from ml.trainers.sl import SupervisedLearningTrainer, SupervisedLearningTrainerC
 from ml.utils.amp import autocast_all, autocast_tensors
 from ml.utils.argparse import from_args, get_args, get_type_from_string
 from ml.utils.atomic import atomic_save, open_atomic
+from ml.utils.attention import NextTokenDiscriminator
 from ml.utils.audio import get_audio_props, read_audio, rechunk_audio, write_audio
 from ml.utils.augmentation import get_image_mask
 from ml.utils.caching import DictIndex, cached_object
@@ -286,11 +288,11 @@ from ml.utils.checkpoint import ensure_downloaded, get_state_dict_prefix, instan
 from ml.utils.checks import assert_no_nans
 from ml.utils.cli import parse_cli
 from ml.utils.colors import colorize, make_bold, maybe_colorize
+from ml.utils.containers import recursive_apply, recursive_chunk
 from ml.utils.data import check_md5, check_sha256, get_dataset_split_for_phase, get_dataset_splits, get_worker_info
 from ml.utils.datetime import format_timedelta
 from ml.utils.device.auto import AutoDevice
 from ml.utils.device.base import BaseDevice
-from ml.utils.spectrogram import AudioMfccConverter, AudioMagStftConverter, AudioPyworldConverter, AudioStftConverter
 from ml.utils.distributed import (
     get_local_rank,
     get_local_rank_optional,
@@ -313,6 +315,7 @@ from ml.utils.logging import configure_logging
 from ml.utils.numpy import as_cpu_tensor, as_numpy_array
 from ml.utils.parallel import init_parallelism, parallel_group_info, parallelism_is_initialized, reset_parallelism
 from ml.utils.random import set_random_seed
+from ml.utils.spectrogram import AudioMagStftConverter, AudioMfccConverter, AudioPyworldConverter, AudioStftConverter
 from ml.utils.staging import stage_environment
 from ml.utils.testing import test_dataset, test_task
 from ml.utils.timer import Timer, timeout
