@@ -29,7 +29,7 @@ from torch import Tensor, nn
 from torch.utils.data.dataloader import DataLoader, _BaseDataLoaderIter
 
 from ml.core.common_types import Batch
-from ml.utils.functions import recursive_apply
+from ml.utils.containers import recursive_apply
 from ml.utils.timer import Timer
 
 T = TypeVar("T")

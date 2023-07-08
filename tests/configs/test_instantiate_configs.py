@@ -79,7 +79,7 @@ def get_all_keys(reg: type[register_base], exclude: set[str] | None = None) -> l
     return keys
 
 
-@pytest.mark.parametrize("lr_scheduler_key", get_all_keys(register_lr_scheduler))
+@pytest.mark.parametrize("lr_scheduler_key", get_all_keys(register_lr_scheduler, exclude={"gan"}))
 @pytest.mark.slow
 def test_instantiate_lr_schedulers(lr_scheduler_key: str, tmpdir: Path) -> None:
     """Tests that all LR schedulers can be instantiated.

@@ -28,6 +28,7 @@ from ml.optimizers.gan import GenerativeAdversarialNetworkOptimizer
 from ml.tasks.gan.base import GenerativeAdversarialNetworkTask
 from ml.trainers.learning import TrainingFinishedError
 from ml.trainers.sl import EpochDoneError, SupervisedLearningTrainer, SupervisedLearningTrainerConfig
+from ml.utils.containers import recursive_chunk
 from ml.utils.device.base import InfinitePrefetcher
 from ml.utils.timer import Timer
 
@@ -159,7 +160,12 @@ class GenerativeAdversarialNetworkTrainer(
                     state.num_epoch_steps = 0
                     state.num_epoch_samples = 0
 
-                    train_pf_iter = iter(train_pf)
+                    def batch_splitter() -> Iterator[Batch]:
+                        num_chunks = self.get_batch_chunks(state)
+                        for batch in train_pf:
+                            yield from recursive_chunk(batch, num_chunks, dim=self.config.batch_dim)
+
+                    train_pf_iter: Iterator = batch_splitter()
 
                     def batch_iterator() -> Iterator[Batch]:
                         try:

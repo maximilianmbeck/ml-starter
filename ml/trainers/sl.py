@@ -26,6 +26,7 @@ from ml.optimizers.base import BaseOptimizer
 from ml.tasks.sl.base import SupervisedLearningTask
 from ml.trainers.base import ModelT
 from ml.trainers.learning import BaseLearningTrainer, BaseLearningTrainerConfig, TrainingFinishedError
+from ml.utils.containers import recursive_chunk
 from ml.utils.device.base import InfinitePrefetcher
 from ml.utils.timer import Timer
 
@@ -56,6 +57,11 @@ class SupervisedLearningTrainerConfig(BaseLearningTrainerConfig):
         None,
         help="A schedule for the number of minibatches per step, as a list of (step_count, num_batches) tuples.",
     )
+    batch_chunks_per_step_schedule: list[BatchScheduleConfig] | None = conf_field(
+        None,
+        help="A schedule for chunking the batches, as a list of (step_count, num_chunks) tuples.",
+    )
+    batch_dim: int = conf_field(0, help="The batch dimension, for splitting batches into chunks")
 
 
 SupervisedLearningTrainerConfigT = TypeVar("SupervisedLearningTrainerConfigT", bound=SupervisedLearningTrainerConfig)
@@ -79,10 +85,27 @@ class SupervisedLearningTrainer(
         return list(zip(schedule_cumsum[1:], [s[1] for s in schedule_list]))
 
     def get_batches_per_step(self, state: State) -> int:
-        if (schedule := self.batches_per_step_schedule()) is not None:
-            i = bisect.bisect_left(schedule, (state.num_steps, 0))
-            return schedule[-1][1] if i == len(schedule) else schedule[i][1]
-        return self.config.batches_per_step
+        if (schedule := self.batches_per_step_schedule()) is None:
+            return self.config.batches_per_step
+        i = bisect.bisect_left(schedule, (state.num_steps, 0))
+        return schedule[-1][1] if i == len(schedule) else schedule[i][1]
+
+    @functools.lru_cache()
+    def batch_chunks_schedule(self) -> list[tuple[int, int]] | None:
+        schedule = self.config.batch_chunks_per_step_schedule
+        if schedule is None:
+            return None
+        if any(s.num_steps <= 0 or s.num_batches <= 0 for s in schedule):
+            raise ValueError("steps and num_batches must be non-negative")
+        schedule_list = [(s.num_steps, s.num_batches) for s in schedule]
+        schedule_cumsum = list(itertools.accumulate([0] + [s[0] for s in schedule_list]))
+        return list(zip(schedule_cumsum[1:], [s[1] for s in schedule_list]))
+
+    def get_batch_chunks(self, state: State) -> int:
+        if (schedule := self.batch_chunks_schedule()) is None:
+            return 1
+        i = bisect.bisect_left(schedule, (state.num_steps, 0))
+        return 1 if i == len(schedule) else schedule[i][1]
 
     def train(
         self,
@@ -169,7 +192,12 @@ class SupervisedLearningTrainer(
                     state.num_epoch_steps = 0
                     state.num_epoch_samples = 0
 
-                    train_pf_iter = iter(train_pf)
+                    def batch_splitter() -> Iterator[Batch]:
+                        num_chunks = self.get_batch_chunks(state)
+                        for batch in train_pf:
+                            yield from recursive_chunk(batch, num_chunks, dim=self.config.batch_dim)
+
+                    train_pf_iter: Iterator = batch_splitter()
 
                     def batch_iterator() -> Iterator[Batch]:
                         try:

@@ -44,7 +44,7 @@ class GenerativeAdversarialNetworkLRSchedulerConfig(BaseLRSchedulerConfig):
         dis_cfg_cls.resolve(config.discriminator)
 
 
-@register_lr_scheduler("cosine", GenerativeAdversarialNetworkLRSchedulerConfig)
+@register_lr_scheduler("gan", GenerativeAdversarialNetworkLRSchedulerConfig)
 class GenerativeAdversarialNetworkLRScheduler(BaseLRScheduler[GenerativeAdversarialNetworkLRSchedulerConfig]):
     def __init__(self, config: GenerativeAdversarialNetworkLRSchedulerConfig) -> None:
         super().__init__(config)

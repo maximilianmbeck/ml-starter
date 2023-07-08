@@ -148,6 +148,7 @@ __all__ = [
     "read_video",
     "rechunk_audio",
     "recursive_apply",
+    "recursive_chunk",
     "register_logger",
     "register_lr_scheduler",
     "register_model",
@@ -305,7 +306,7 @@ from ml.utils.distributed import (
     is_distributed,
     is_master,
 )
-from ml.utils.functions import recursive_apply
+from ml.utils.containers import recursive_apply, recursive_chunk
 from ml.utils.image import read_gif, write_gif
 from ml.utils.large_models import init_empty_weights, meta_to_empty_func
 from ml.utils.logging import configure_logging

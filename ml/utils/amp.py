@@ -7,8 +7,8 @@ from typing import Any, Callable, ContextManager, Generic, ParamSpec, TypeVar
 
 import torch
 
+from ml.utils.containers import recursive_apply
 from ml.utils.device.auto import AutoDevice
-from ml.utils.functions import recursive_apply
 
 T = TypeVar("T")
 P = ParamSpec("P")
