@@ -171,6 +171,7 @@ __all__ = [
     "SinusoidalEmbeddings",
     "SlurmLauncher",
     "SlurmLauncherConfig",
+    "SpectrogramToMFCCs",
     "stage_environment",
     "State",
     "StreamingDataset",
@@ -308,14 +309,19 @@ from ml.utils.distributed import (
     is_distributed,
     is_master,
 )
-from ml.utils.containers import recursive_apply, recursive_chunk
 from ml.utils.image import read_gif, write_gif
 from ml.utils.large_models import init_empty_weights, meta_to_empty_func
 from ml.utils.logging import configure_logging
 from ml.utils.numpy import as_cpu_tensor, as_numpy_array
 from ml.utils.parallel import init_parallelism, parallel_group_info, parallelism_is_initialized, reset_parallelism
 from ml.utils.random import set_random_seed
-from ml.utils.spectrogram import AudioMagStftConverter, AudioMfccConverter, AudioPyworldConverter, AudioStftConverter
+from ml.utils.spectrogram import (
+    AudioMagStftConverter,
+    AudioMfccConverter,
+    AudioPyworldConverter,
+    AudioStftConverter,
+    SpectrogramToMFCCs,
+)
 from ml.utils.staging import stage_environment
 from ml.utils.testing import test_dataset, test_task
 from ml.utils.timer import Timer, timeout
