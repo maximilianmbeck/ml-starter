@@ -30,6 +30,7 @@ from ml.trainers.learning import TrainingFinishedError
 from ml.trainers.sl import EpochDoneError, SupervisedLearningTrainer, SupervisedLearningTrainerConfig
 from ml.utils.containers import recursive_chunk
 from ml.utils.device.base import InfinitePrefetcher
+from ml.utils.distributed import is_distributed
 from ml.utils.timer import Timer
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -192,7 +193,12 @@ class GenerativeAdversarialNetworkTrainer(
                             is_gen = task.is_generator_step(state, "train")
                             optim = gen_optim if is_gen else dis_optim
                             lr_sched = gen_lr_sched if is_gen else dis_lr_sched
-                            model.requires_grads_(is_gen, not is_gen)
+
+                            # Only disable gradients for either model if we're
+                            # not doing distributed training, because the
+                            # DDP wrapper expects to get gradients every step.
+                            if not is_distributed():
+                                model.requires_grads_(is_gen, not is_gen)
 
                             with namespace_context(self._logging_key(task, state, "train")):
                                 loss_dict = self.train_step(
