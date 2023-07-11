@@ -24,6 +24,7 @@ from torch import Tensor
 from torch.optim.optimizer import Optimizer
 
 from ml.core.config import BaseConfig, BaseObject, conf_field
+from ml.core.env import get_ml_config_path
 from ml.core.state import State
 from ml.loggers.base import BaseLogger
 from ml.loggers.multi import MultiLogger
@@ -97,27 +98,26 @@ def get_ckpt_path(exp_dir: Path, state: State | None = None) -> Path:
     return exp_dir / "checkpoints" / f"ckpt.{state.num_steps}.pt"
 
 
-def get_exp_dir(base_run_dir: Path, exp_name: str, run_id: int) -> Path:
-    return (base_run_dir / exp_name / f"run_{run_id}").resolve()
+def get_exp_dir(run_dir: Path, run_id: int) -> Path:
+    return (run_dir / f"run_{run_id}").resolve()
 
 
-def get_run_id(base_run_dir: Path, exp_name: str) -> int:
+def get_empty_exp_dir(run_dir: Path) -> Path:
     """Returns the path to the run directory, given a run ID.
 
     Args:
-        base_run_dir: The base run directory for the entire experiment
-        exp_name: The name of the experiment
+        run_dir: The base run directory for the experiment
 
     Returns:
-        A run ID for an experiment directory without a lockfile
+        An experiment directory without a lockfile
     """
     # If the run ID isn't specified, look at all run IDs until there is one
     # which either doesn't exist or doesn't have a checkpoint directory.
     run_id = 0
-    while (exp_dir := get_exp_dir(base_run_dir, exp_name, run_id)).is_dir() and has_lock_file(exp_dir):
+    while (exp_dir := get_exp_dir(run_dir, run_id)).is_dir() and has_lock_file(exp_dir):
         run_id += 1
 
-    return run_id
+    return get_exp_dir(run_dir, run_id)
 
 
 def diff_configs(
@@ -220,17 +220,25 @@ class CheckpointConfig:
 class BaseTrainerConfig(BaseConfig):
     """Defines the base config for all trainers."""
 
-    exp_name: str = conf_field(II("ml.exp_name:null"), help="The name of the training job")
-    log_dir_name: str = conf_field("logs", help="Name of the subdirectory which contains logs")
     base_run_dir: str = conf_field(II("ml.abs_path:${oc.env:RUN_DIR}"), help="The base directory for all runs")
-    run_id: int = conf_field(MISSING, help="The run ID to use")
+    exp_name: str = conf_field(II("ml.exp_name:null"), help="The name of the training job")
+    exp_dir: str = conf_field(MISSING, help="The directory where the experiment is stored")
+    log_dir_name: str = conf_field("logs", help="Name of the subdirectory which contains logs")
     use_double_weight_precision: bool = conf_field(False, help="If set, use doubles for weights instead of floats")
     checkpoint: CheckpointConfig = conf_field(CheckpointConfig())
 
     @classmethod
     def resolve(cls, config: "BaseTrainerConfig") -> None:
-        if OmegaConf.is_missing(config, "run_id"):
-            config.run_id = get_run_id(Path(config.base_run_dir), config.exp_name)
+        if OmegaConf.is_missing(config, "exp_dir"):
+            config.exp_dir = str(get_empty_exp_dir(Path(config.base_run_dir) / config.exp_name))
+        elif (ml_config_path := get_ml_config_path()) is not None:
+            exp_dir_path = Path(config.exp_dir).resolve()
+            if exp_dir_path != ml_config_path:
+                logger.warning(
+                    "The `config.yaml` file is located in a different directory than the experiment directory; "
+                    "updating `exp_dir` to match the new location."
+                )
+                config.exp_dir = str(ml_config_path)
         super().resolve(config)
 
 
@@ -249,8 +257,7 @@ class BaseTrainer(BaseObject[TrainerConfigT], Generic[TrainerConfigT, ModelT, Ta
         super().__init__(config)
 
         self.exp_name = config.exp_name
-        self.run_id = config.run_id
-        self.exp_dir = get_exp_dir(Path(config.base_run_dir), self.exp_name, self.run_id)
+        self.exp_dir = Path(config.exp_dir)
         self.log_dir = self.exp_dir / config.log_dir_name
         self.checkpoint_config = config.checkpoint
         self.loggers = []

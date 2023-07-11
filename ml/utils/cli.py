@@ -8,7 +8,7 @@ from typing import cast
 
 from omegaconf import DictConfig, OmegaConf
 
-from ml.core.env import get_global_tags, set_exp_name
+from ml.core.env import get_global_tags, set_exp_name, set_ml_config_path
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -17,7 +17,7 @@ IGNORE_ARGS: set[str] = {
     "trainer.exp_name",
     "trainer.log_dir_name",
     "trainer.base_run_dir",
-    "trainer.run_id",
+    "trainer.exp_dir",
     "trainer.name",
 }
 
@@ -84,6 +84,10 @@ def parse_cli(args: list[str]) -> DictConfig:
     # Registers an OmegaConf resolver with the job name.
     OmegaConf.register_new_resolver("ml.exp_name", partial(get_exp_name, args=argument_parts), replace=True)
     set_exp_name(get_exp_name(args=argument_parts))
+
+    # Special handling if there is exactly one path.
+    if len(paths) == 1 and paths[0].name == "config.yaml":
+        set_ml_config_path(paths[0])
 
     # Finally, builds the config.
     try:

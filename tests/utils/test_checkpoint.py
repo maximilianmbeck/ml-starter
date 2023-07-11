@@ -50,7 +50,6 @@ def test_load_model_and_task(tmpdir: Path) -> None:
                 "exp_name": "test",
                 "log_dir_name": "test",
                 "base_run_dir": str(tmpdir),
-                "run_id": 0,
             },
         },
     )

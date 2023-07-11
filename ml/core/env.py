@@ -157,3 +157,8 @@ is_tensorboard_disabled = DisableTensorboard.get
 # Show full error message when trying to import a file.
 ShowFullImportError = _BoolEnvVar("SHOW_FULL_IMPORT_ERROR", default=False)
 should_show_full_import_error = ShowFullImportError.get
+
+# The path to the resolved config.
+MLConfigPath = _PathEnvVar("ML_CONFIG_PATH")
+get_ml_config_path = MLConfigPath.maybe_get
+set_ml_config_path = MLConfigPath.set

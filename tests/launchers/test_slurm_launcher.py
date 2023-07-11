@@ -13,27 +13,26 @@ import pytest
 from omegaconf import OmegaConf
 
 from ml.core.env import set_stage_dir
-from ml.core.registry import add_project_dir, register_launcher, register_trainer
-from ml.launchers.slurm import SlurmLauncher, SlurmLauncherConfig
-from ml.trainers.learning import BaseLearningTrainerConfig
+from ml.core.registry import add_project_dir
+from ml.launchers.slurm import SlurmLauncher
+from ml.utils.checkpoint import instantiate_config
 
 
 @pytest.mark.slow
 def test_slurm_launcher(tmpdir: Path) -> None:
     config = OmegaConf.create(
         {
-            "trainer": BaseLearningTrainerConfig(
-                name="sl",
-                exp_name="test",
-                log_dir_name="test",
-                base_run_dir=str(tmpdir),
-                run_id=0,
-            ),
-            "launcher": SlurmLauncherConfig(
-                name="slurm",
-                num_nodes=1,
-                gpus_per_node=1,
-            ),
+            "trainer": {
+                "name": "sl",
+                "exp_name": "test",
+                "log_dir_name": "test",
+                "base_run_dir": str(tmpdir),
+            },
+            "launcher": {
+                "name": "slurm",
+                "num_nodes": 1,
+                "gpus_per_node": 1,
+            },
         }
     )
 
@@ -50,9 +49,9 @@ def test_slurm_launcher(tmpdir: Path) -> None:
     sys.modules[fpath.name] = module
     add_project_dir(project_dir)
 
-    trainer = register_trainer.build_entry_non_null(config)
-    launcher = register_launcher.build_entry_non_null(config)
-    assert isinstance(launcher, SlurmLauncher)
+    objects = instantiate_config(config)
+    assert (trainer := objects.trainer) is not None
+    assert isinstance(launcher := objects.launcher, SlurmLauncher)
 
     sbatch_file_path = launcher.write_sbatch_file(trainer)
     assert Path(sbatch_file_path).exists()

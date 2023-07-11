@@ -178,7 +178,6 @@ def test_gan_e2e_training(tmpdir: Path) -> None:
             "exp_name": "test",
             "log_dir_name": "test",
             "base_run_dir": str(tmpdir),
-            "run_id": 0,
             "batches_per_step_schedule": [
                 {
                     "num_steps": 5,
